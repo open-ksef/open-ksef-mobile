@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:models="clr-namespace:OpenKSeF.Mobile.Models"
+             x:Class="OpenKSeF.Mobile.Views.InvoiceListPage"
+             x:DataType="vm:InvoiceListViewModel"
+             Title="Faktury">
+
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto" Padding="0,0,10,0">
+            <VerticalStackLayout VerticalOptions="Center">
+                <Label Text="Faktury" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource TextInverse}"
+                       AutomationId="InvoiceListPageLabelTitle" />
+                <Label Text="{Binding TenantNip, StringFormat='NIP: {0}'}"
+                       FontSize="12" TextColor="{StaticResource TextInverse}"
+                       IsVisible="{Binding TenantNip, Converter={StaticResource IsNotNullConverter}}" />
+            </VerticalStackLayout>
+        </Grid>
+    </Shell.TitleView>
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Offline mode indicator -->
+        <Border IsVisible="{Binding IsOfflineMode}"
+                BackgroundColor="{StaticResource WarningBg}"
+                Stroke="{StaticResource Warning}"
+                StrokeShape="RoundRectangle 0"
+                Padding="10,8">
+            <Label Text="Tryb offline — wyświetlane są dane z pamięci podręcznej"
+                   FontSize="12"
+                   HorizontalTextAlignment="Center"
+                   TextColor="{StaticResource WarningText}" />
+        </Border>
+
+        <!-- Loading indicator (initial load) -->
+        <ActivityIndicator Grid.Row="1"
+                           IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           VerticalOptions="Center"
+                           HorizontalOptions="Center" />
+
+        <!-- No NIP selected state -->
+        <VerticalStackLayout Grid.Row="1"
+                             IsVisible="{Binding IsNoTenantSelected}"
+                             AutomationId="InvoiceListPageNoTenantState"
+                             VerticalOptions="Center"
+                             HorizontalOptions="Center"
+                             Spacing="15"
+                             Padding="30">
+            <Label Text="📋"
+                   FontSize="48"
+                   HorizontalOptions="Center" />
+            <Label Text="Nie wybrano firmy"
+                   Style="{StaticResource LabelHeading}"
+                   HorizontalOptions="Center" />
+            <Label Text="Przejdź do zakładki Firmy i wybierz firmę, aby przeglądać faktury."
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalTextAlignment="Center" />
+            <Button Text="Przejdź do Firm"
+                    AutomationId="InvoiceListPageButtonGoToTenants"
+                    Clicked="OnGoToTenantsClicked"
+                    HorizontalOptions="Center"
+                    Style="{StaticResource ButtonSecondary}" />
+        </VerticalStackLayout>
+
+        <!-- Empty state -->
+        <VerticalStackLayout Grid.Row="1"
+                             IsVisible="{Binding IsEmpty}"
+                             VerticalOptions="Center"
+                             HorizontalOptions="Center"
+                             Spacing="15"
+                             Padding="30">
+            <Label Text="Brak faktur"
+                   Style="{StaticResource LabelHeading}"
+                   HorizontalOptions="Center" />
+            <Label Text="Nie znaleziono faktur dla tego NIP-u. Faktury pojawią się po synchronizacji z KSeF."
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalTextAlignment="Center" />
+            <Button Text="Odśwież"
+                    AutomationId="InvoiceListPageButtonRefreshEmptyState"
+                    Command="{Binding LoadInvoicesCommand}"
+                    Style="{StaticResource ButtonSecondary}"
+                    HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <!-- Invoice list -->
+        <RefreshView Grid.Row="1"
+                     Command="{Binding RefreshCommand}"
+                     IsRefreshing="{Binding IsRefreshing}">
+            <CollectionView ItemsSource="{Binding Invoices}"
+                            AutomationId="InvoiceListPageCollectionViewInvoices"
+                            SelectionMode="None"
+                            RemainingItemsThreshold="3"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:InvoiceDto">
+                        <Border Margin="10,5" Padding="15"
+                                Style="{StaticResource CardBorder}"
+                                AutomationId="InvoiceListPageFrameInvoiceItem">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:InvoiceListViewModel}}, Path=SelectInvoiceCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
+                                <Label Text="{Binding VendorName}"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="{StaticResource Primary}">
+                                    <Label.Text>
+                                        <MultiBinding StringFormat="{}{0:N2} {1}">
+                                            <Binding Path="AmountGross" />
+                                            <Binding Path="Currency" />
+                                        </MultiBinding>
+                                    </Label.Text>
+                                </Label>
+                                <Label Grid.Row="1"
+                                       Text="{Binding KSeFInvoiceNumber}"
+                                       FontSize="13"
+                                       TextColor="{StaticResource TextMuted}" />
+                                <Label Grid.Row="2"
+                                       Text="{Binding IssueDate, StringFormat='{0:dd.MM.yyyy}'}"
+                                       Style="{StaticResource LabelCaption}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <VerticalStackLayout>
+                        <ActivityIndicator IsRunning="{Binding IsLoadingMore}"
+                                           IsVisible="{Binding IsLoadingMore}"
+                                           HorizontalOptions="Center"
+                                           Margin="0,10" />
+                    </VerticalStackLayout>
+                </CollectionView.Footer>
+            </CollectionView>
+        </RefreshView>
+
+        <!-- Error message -->
+        <Border Grid.Row="1"
+                IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+                BackgroundColor="{StaticResource ErrorBg}"
+                Stroke="{StaticResource ErrorBorder}"
+                StrokeShape="RoundRectangle 8,8,8,8"
+                Margin="15"
+                Padding="15"
+                VerticalOptions="End">
+            <VerticalStackLayout Spacing="10">
+                <Label Text="{Binding ErrorMessage}"
+                       AutomationId="InvoiceListPageLabelError"
+                       TextColor="{StaticResource Error}"
+                       FontSize="13"
+                       HorizontalTextAlignment="Center" />
+                <Button Text="Ponów"
+                        AutomationId="InvoiceListPageButtonRetry"
+                        Command="{Binding LoadInvoicesCommand}"
+                        HorizontalOptions="Center"
+                        Style="{StaticResource ButtonSmall}" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+
+</ContentPage>

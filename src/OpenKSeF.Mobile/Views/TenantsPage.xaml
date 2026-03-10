@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:models="clr-namespace:OpenKSeF.Mobile.Models"
+             x:Class="OpenKSeF.Mobile.Views.TenantsPage"
+             x:DataType="vm:TenantsViewModel"
+             Title="Firmy">
+
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto" Padding="0,0,10,0">
+            <Label Text="Firmy" FontSize="18" FontAttributes="Bold"
+                   VerticalOptions="Center" TextColor="{StaticResource TextInverse}" />
+            <Button Grid.Column="1" Text="+ Dodaj"
+                    AutomationId="TenantsPageButtonAdd"
+                    Command="{Binding AddTenantCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource TextInverse}"
+                    FontSize="14"
+                    HeightRequest="-1" />
+        </Grid>
+    </Shell.TitleView>
+
+    <RefreshView Command="{Binding LoadTenantsCommand}"
+                 IsRefreshing="{Binding IsBusy}">
+        <Grid>
+            <!-- Empty state -->
+            <VerticalStackLayout IsVisible="{Binding IsEmpty}"
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center"
+                                 Spacing="15"
+                                 Padding="30">
+                <Label Text="Brak firm"
+                       Style="{StaticResource LabelHeading}"
+                       HorizontalOptions="Center" />
+                <Label Text="Dodaj swoją pierwszą firmę, aby przeglądać faktury z KSeF."
+                       Style="{StaticResource LabelMuted}"
+                       HorizontalTextAlignment="Center" />
+                <Button Text="Dodaj firmę"
+                        AutomationId="TenantsPageButtonAddEmptyState"
+                        Command="{Binding AddTenantCommand}"
+                        HorizontalOptions="Center" />
+            </VerticalStackLayout>
+
+            <!-- Tenant list -->
+            <CollectionView ItemsSource="{Binding Tenants}"
+                            AutomationId="TenantsPageCollectionViewTenants"
+                            IsVisible="{Binding IsEmpty, Converter={StaticResource InvertedBoolConverter}}"
+                            SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:TenantDto">
+                        <SwipeView>
+                            <SwipeView.RightItems>
+                                <SwipeItems>
+                                    <SwipeItem Text="Edytuj"
+                                               BackgroundColor="{StaticResource Primary}"
+                                               Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=EditTenantCommand}"
+                                               CommandParameter="{Binding .}" />
+                                    <SwipeItem Text="Usuń"
+                                               BackgroundColor="{StaticResource Error}"
+                                               Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=DeleteTenantCommand}"
+                                               CommandParameter="{Binding .}" />
+                                </SwipeItems>
+                            </SwipeView.RightItems>
+                            <Border Margin="10,5" Padding="15"
+                                    Style="{StaticResource CardBorder}"
+                                    AutomationId="TenantsPageFrameTenantItem">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=SelectTenantCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                    <Label Text="{Binding Nip}"
+                                           FontSize="18"
+                                           FontAttributes="Bold" />
+                                    <Label Grid.Row="1"
+                                           Text="{Binding DisplayName}"
+                                           FontSize="14"
+                                           TextColor="{StaticResource TextMuted}" />
+                                    <Label Grid.Column="1"
+                                           Grid.RowSpan="2"
+                                           VerticalOptions="Center"
+                                           FontSize="20"
+                                           TextColor="{StaticResource TextMuted}"
+                                           Text=">" />
+                                </Grid>
+                            </Border>
+                        </SwipeView>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- Error message -->
+            <Label Text="{Binding ErrorMessage}"
+                   AutomationId="TenantsPageLabelError"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+                   TextColor="{StaticResource Error}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center"
+                   Margin="15"
+                   VerticalOptions="End" />
+        </Grid>
+    </RefreshView>
+
+</ContentPage>

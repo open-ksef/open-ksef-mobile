@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.AccountPage"
+             x:DataType="vm:AccountViewModel"
+             Title="Konto">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="0" Padding="20,30">
+
+            <!-- Header -->
+            <Border StrokeShape="RoundRectangle 50"
+                    WidthRequest="80" HeightRequest="80"
+                    HorizontalOptions="Center"
+                    BackgroundColor="{StaticResource PrimarySubtle}"
+                    Stroke="Transparent"
+                    Margin="0,0,0,15">
+                <Label Text="👤" FontSize="36"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label Text="OpenKSeF"
+                   FontSize="22" FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   Margin="0,0,0,5" />
+            <Label Text="{Binding AppVersion}"
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalOptions="Center"
+                   Margin="0,0,0,30" />
+
+            <!-- Notifications -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12"
+                    AutomationId="AccountPageSectionNotifications">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Powiadomienia" Style="{StaticResource LabelCaption}" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                        <Label Text="Powiadomienia push" FontSize="15" VerticalOptions="Center" />
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding NotificationsEnabled}"
+                                Toggled="OnNotificationToggled"
+                                AutomationId="AccountPageToggleNotifications" />
+                    </Grid>
+                    <Label Text="{Binding NotificationStatusText}"
+                           Style="{StaticResource LabelCaption}"
+                           AutomationId="AccountPageLabelNotificationStatus" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Server info -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Serwer" Style="{StaticResource LabelCaption}" />
+                    <Label Text="{Binding ServerUrl}" FontSize="14" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Actions -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10">
+                        <Label Text="🔄" FontSize="20" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="Zmień serwer" FontSize="15"
+                               VerticalOptions="Center" Margin="12,0,0,0" />
+                        <Label Grid.Column="2" Text="›" FontSize="22"
+                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ChangeServerCommand}" />
+                        </Grid.GestureRecognizers>
+                    </Grid>
+
+                    <BoxView HeightRequest="1" Color="{StaticResource Border}" Margin="0,4" />
+
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10">
+                        <Label Text="🚪" FontSize="20" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="Wyloguj się" FontSize="15"
+                               VerticalOptions="Center" Margin="12,0,0,0"
+                               TextColor="{StaticResource Error}" />
+                        <Label Grid.Column="2" Text="›" FontSize="22"
+                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding LogoutCommand}" />
+                        </Grid.GestureRecognizers>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.OnboardingPage"
+             x:DataType="vm:OnboardingViewModel"
+             Title="Konfiguracja"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{StaticResource GradientStart}" Offset="0.0" />
+            <GradientStop Color="{StaticResource GradientMid}" Offset="0.4" />
+            <GradientStop Color="{StaticResource GradientEnd}" Offset="1.0" />
+        </LinearGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView VerticalOptions="Center">
+        <Frame Style="{StaticResource CardFrame}"
+               Padding="28,32"
+               Margin="24"
+               HorizontalOptions="Center"
+               WidthRequest="400">
+
+            <VerticalStackLayout Spacing="16">
+
+                <!-- Step Indicator (3 steps) -->
+                <HorizontalStackLayout HorizontalOptions="Center"
+                                       Spacing="0"
+                                       AutomationId="OnboardingStepIndicator"
+                                       Margin="0,0,0,8">
+                    <Frame WidthRequest="32" HeightRequest="32" CornerRadius="16"
+                           Padding="0" HasShadow="False"
+                           BackgroundColor="{Binding Step1Color}" BorderColor="Transparent">
+                        <Label Text="{Binding Step1Label}" HorizontalOptions="Center"
+                               VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
+                               TextColor="{StaticResource White}" />
+                    </Frame>
+                    <BoxView WidthRequest="28" HeightRequest="2" Color="{StaticResource Border}" VerticalOptions="Center" />
+                    <Frame WidthRequest="32" HeightRequest="32" CornerRadius="16"
+                           Padding="0" HasShadow="False"
+                           BackgroundColor="{Binding Step2Color}" BorderColor="Transparent">
+                        <Label Text="{Binding Step2Label}" HorizontalOptions="Center"
+                               VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
+                               TextColor="{StaticResource White}" />
+                    </Frame>
+                    <BoxView WidthRequest="28" HeightRequest="2" Color="{StaticResource Border}" VerticalOptions="Center" />
+                    <Frame WidthRequest="32" HeightRequest="32" CornerRadius="16"
+                           Padding="0" HasShadow="False"
+                           BackgroundColor="{Binding Step3Color}" BorderColor="Transparent">
+                        <Label Text="{Binding Step3Label}" HorizontalOptions="Center"
+                               VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
+                               TextColor="{StaticResource White}" />
+                    </Frame>
+                </HorizontalStackLayout>
+
+                <!-- Step Title -->
+                <Label Text="{Binding StepTitle}"
+                       FontSize="22" FontAttributes="Bold"
+                       TextColor="{StaticResource GradientStart}" HorizontalOptions="Center" />
+
+                <!-- Error -->
+                <Frame BackgroundColor="{StaticResource ErrorBg}" CornerRadius="8" Padding="12" HasShadow="False"
+                       BorderColor="Transparent"
+                       IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}">
+                    <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Error}" FontSize="13"
+                           HorizontalTextAlignment="Center" />
+                </Frame>
+
+                <!-- ===== STEP 1: Company Data ===== -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsStep1}">
+                    <Label Text="Podaj dane swojej firmy, aby rozpocząć korzystanie z KSeF."
+                           FontSize="14" TextColor="{StaticResource TextMuted}" HorizontalTextAlignment="Center" />
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="NIP" Style="{StaticResource LabelFormLabel}" />
+                        <Entry Text="{Binding Nip}" Placeholder="1234567890" Keyboard="Numeric" MaxLength="10"
+                               AutomationId="OnboardingEntryNip" />
+                        <Label Text="10-cyfrowy numer identyfikacji podatkowej" Style="{StaticResource LabelCaption}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource LabelFormLabel}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Nazwa wyświetlana " />
+                                    <Span Text="(opcjonalnie)" TextColor="{StaticResource TextMuted}" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                        <Entry Text="{Binding DisplayName}" Placeholder="np. Acme Sp. z o.o."
+                               AutomationId="OnboardingEntryDisplayName" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Style="{StaticResource LabelFormLabel}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="E-mail do powiadomień " />
+                                    <Span Text="(opcjonalnie)" TextColor="{StaticResource TextMuted}" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                        <Entry Text="{Binding NotificationEmail}" Placeholder="faktury@firma.pl" Keyboard="Email"
+                               AutomationId="OnboardingEntryNotificationEmail" />
+                    </VerticalStackLayout>
+
+                    <Button Text="Dalej" AutomationId="OnboardingButtonNext"
+                            Command="{Binding SubmitStep1Command}"
+                            HorizontalOptions="Fill" Margin="0,8,0,0" />
+                </VerticalStackLayout>
+
+                <!-- ===== STEP 2: KSeF Token ===== -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding IsStep2}">
+                    <Label Text="Dodaj token autoryzacyjny KSeF, aby umożliwić synchronizację faktur."
+                           FontSize="14" TextColor="{StaticResource TextMuted}" HorizontalTextAlignment="Center" />
+
+                    <Frame BackgroundColor="{StaticResource InfoBg}" CornerRadius="8" Padding="12" HasShadow="False"
+                           BorderColor="{StaticResource InfoBorder}">
+                        <Label FontSize="12" TextColor="{StaticResource InfoText}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Jak uzyskać token KSeF:" FontAttributes="Bold" />
+                                    <Span Text="&#10;1. Przejdź na ksef-test.mf.gov.pl" />
+                                    <Span Text="&#10;2. Zaloguj się danymi firmy" />
+                                    <Span Text="&#10;3. Sekcja Tokeny autoryzacyjne" />
+                                    <Span Text="&#10;4. Wygeneruj token z uprawnieniami" />
+                                    <Span Text="&#10;5. Skopiuj i wklej poniżej" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                    </Frame>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Token KSeF" Style="{StaticResource LabelFormLabel}" />
+                        <Editor Text="{Binding KsefToken}" Placeholder="Wklej token..."
+                                HeightRequest="100" AutomationId="OnboardingEntryKsefToken" />
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,8,0,0">
+                        <Label Text="Pomiń ten krok" AutomationId="OnboardingButtonSkipToken"
+                               TextColor="{StaticResource Primary}" FontSize="14" VerticalOptions="Center" TextDecorations="Underline">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding SkipTokenCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Button Text="Dalej" Grid.Column="1" AutomationId="OnboardingButtonNext"
+                                Command="{Binding SubmitStep2Command}"
+                                HorizontalOptions="Fill" />
+                    </Grid>
+                </VerticalStackLayout>
+
+                <!-- ===== STEP 3: Success ===== -->
+                <VerticalStackLayout Spacing="12" IsVisible="{Binding IsStep3}">
+                    <Label Text="✓" FontSize="48" TextColor="{StaticResource Success}" HorizontalOptions="Center"
+                           AutomationId="OnboardingLabelSuccess" />
+                    <Label Text="{Binding SuccessMessage}" FontSize="14" TextColor="{StaticResource TextMuted}"
+                           HorizontalTextAlignment="Center" />
+                    <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}"
+                                       HorizontalOptions="Center" />
+                    <Label Text="{Binding SyncStatusText}" AutomationId="OnboardingLabelSyncStatus"
+                           FontSize="13" TextColor="{StaticResource TextMuted}" HorizontalTextAlignment="Center"
+                           IsVisible="{Binding SyncStatusText, Converter={StaticResource IsNotNullConverter}}" />
+                    <Label Text="Token KSeF nie został dodany. Synchronizacja nie będzie działać do momentu dodania tokenu."
+                           FontSize="13" TextColor="{StaticResource Warning}" HorizontalTextAlignment="Center"
+                           IsVisible="{Binding TokenSkipped}" />
+                    <Button Text="Przejdź do faktur" AutomationId="OnboardingButtonFinish"
+                            Command="{Binding GoToInvoicesCommand}"
+                            HorizontalOptions="Fill" Margin="0,8,0,0" />
+                </VerticalStackLayout>
+
+                <!-- Activity indicator -->
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                   HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Frame>
+    </ScrollView>
+
+</ContentPage>

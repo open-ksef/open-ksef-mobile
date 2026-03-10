@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.ScanSetupQrPage"
+             x:DataType="vm:ScanSetupQrViewModel"
+             Title="Skanuj kod QR"
+             Shell.NavBarIsVisible="False">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="0">
+
+        <VerticalStackLayout Grid.Row="0" Padding="20,40,20,10" Spacing="6">
+            <Label Text="OpenKSeF"
+                   AutomationId="ScanSetupQrPageTitle"
+                   FontSize="28"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center" />
+            <Label Text="Zeskanuj kod QR z portalu, aby skonfigurować aplikację"
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalOptions="Center"
+                   HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <zxing:CameraBarcodeReaderView
+            x:Name="BarcodeReader"
+            Grid.Row="1"
+            AutomationId="ScanSetupQrCameraView"
+            BarcodesDetected="OnBarcodesDetected" />
+
+        <VerticalStackLayout Grid.Row="2" Padding="20,10" Spacing="8">
+            <Label Text="{Binding StatusText}"
+                   AutomationId="ScanSetupQrLabelStatus"
+                   FontSize="14"
+                   HorizontalTextAlignment="Center"
+                   HorizontalOptions="Center" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               HorizontalOptions="Center" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+                   TextColor="{StaticResource Error}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center"
+                   HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="3" Padding="20,0,20,30" Spacing="10">
+            <Button Text="Wybierz z galerii"
+                    AutomationId="ScanSetupQrButtonGallery"
+                    Command="{Binding PickFromGalleryCommand}"
+                    HorizontalOptions="Fill" />
+            <Button Text="Pomiń — wpisz adres ręcznie"
+                    AutomationId="ScanSetupQrButtonSkip"
+                    Command="{Binding SkipCommand}"
+                    Style="{StaticResource ButtonGhost}"
+                    HorizontalOptions="Fill" />
+        </VerticalStackLayout>
+
+    </Grid>
+
+</ContentPage>

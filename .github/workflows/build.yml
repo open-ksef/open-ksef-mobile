@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  build:
+    name: Build & Unit Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Configure CIRFMF NuGet feed
+        run: |
+          dotnet nuget update source CIRFMF \
+            --source https://nuget.pkg.github.com/CIRFMF/index.json \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.GITHUB_TOKEN }} \
+            --store-password-in-clear-text \
+            --configfile src/nuget.config
+
+      - name: Restore
+        run: dotnet restore src/OpenKSeF.Mobile.slnx
+
+      - name: Build
+        run: dotnet build src/OpenKSeF.Mobile.slnx --no-restore --configuration Release
+
+      - name: Unit tests
+        run: dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj --no-build --configuration Release --logger "trx;LogFileName=unit-test-results.trx" --nologo
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: '**/TestResults/*.trx'

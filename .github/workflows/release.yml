@@ -1,0 +1,250 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+
+# Allow only one release at a time for the same tag
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1. Create draft GitHub Release
+  # ─────────────────────────────────────────────
+  create-release:
+    name: Create Draft Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          name: OpenKSeF Mobile ${{ github.ref_name }}
+          body: |
+            ## OpenKSeF Mobile ${{ github.ref_name }}
+
+            ### Android
+
+            Download the `.aab` (Google Play) or `.apk` artifact below.
+
+            ### iOS
+
+            Download the `.ipa` artifact below (requires Apple distribution certificate to install).
+
+            ---
+
+  # ─────────────────────────────────────────────
+  # 2. MAUI Android → AAB (signed)
+  # ─────────────────────────────────────────────
+  android:
+    name: Android AAB (signed)
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Configure CIRFMF NuGet feed
+        run: |
+          dotnet nuget update source CIRFMF \
+            --source https://nuget.pkg.github.com/CIRFMF/index.json \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.NUGET_CIRFMF_PAT }} \
+            --store-password-in-clear-text \
+            --configfile src/nuget.config
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_B64" | base64 --decode > src/OpenKSeF.Mobile/openksef.keystore
+
+      - name: Set application version from tag
+        id: appver
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD="${GITHUB_RUN_NUMBER}"
+          echo "display=$VERSION" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+
+      - name: Build Android AAB
+        run: |
+          dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
+            -f net10.0-android \
+            -c Release \
+            -p:AndroidPackageFormats=aab \
+            -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
+            -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
+            -p:AndroidSigningKeyStore=openksef.keystore \
+            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
+            -p:AndroidSigningStorePass=${{ secrets.ANDROID_STORE_PASSWORD }}
+
+      - name: Find and rename AAB
+        id: aab
+        run: |
+          SRC=$(find src/OpenKSeF.Mobile/bin/Release/net10.0-android -name "*.aab" | head -1)
+          DEST="openksef-${{ github.ref_name }}.aab"
+          cp "$SRC" "$DEST"
+          echo "path=$DEST" >> $GITHUB_OUTPUT
+
+      - name: Upload AAB to release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ${{ steps.aab.outputs.path }}
+
+  # ─────────────────────────────────────────────
+  # 3. MAUI iOS → IPA
+  #    Signing requires Apple Developer secrets.
+  #    Set repository variable IOS_SIGNING_ENABLED=true
+  #    and configure the APPLE_* secrets listed below.
+  # ─────────────────────────────────────────────
+  ios:
+    name: iOS IPA
+    needs: create-release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install MAUI iOS workload
+        run: dotnet workload install maui-ios
+
+      - name: Configure CIRFMF NuGet feed
+        run: |
+          dotnet nuget update source CIRFMF \
+            --source https://nuget.pkg.github.com/CIRFMF/index.json \
+            --username ${{ github.actor }} \
+            --password ${{ secrets.NUGET_CIRFMF_PAT }} \
+            --store-password-in-clear-text \
+            --configfile src/nuget.config
+
+      # ── Apple signing (skip if not yet configured) ──
+      - name: Check if Apple signing secrets are configured
+        id: signing
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+        run: |
+          if [ -n "$CERT" ]; then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          else
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "⚠️  iOS signing secrets not configured – building unsigned archive only."
+          fi
+
+      - name: Install Apple distribution certificate
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain"
+          CERT_PATH="$RUNNER_TEMP/distribution.p12"
+
+          security create-keychain -p "" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "" "$KEYCHAIN_PATH"
+
+          echo "$CERTIFICATE_BASE64" | base64 --decode -o "$CERT_PATH"
+          security import "$CERT_PATH" -k "$KEYCHAIN_PATH" \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+      - name: Install provisioning profile
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE_BASE64" | base64 --decode \
+            -o ~/Library/MobileDevice/Provisioning\ Profiles/openksef_distribution.mobileprovision
+
+      - name: Set application version from tag
+        id: appver
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD="${GITHUB_RUN_NUMBER}"
+          echo "display=$VERSION" >> $GITHUB_OUTPUT
+          echo "build=$BUILD" >> $GITHUB_OUTPUT
+
+      - name: Build iOS IPA (signed)
+        if: steps.signing.outputs.enabled == 'true'
+        run: |
+          dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
+            -f net10.0-ios \
+            -c Release \
+            -p:BuildIpa=true \
+            -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
+            -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
+            -p:CodesignKey="${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+            -p:CodesignProvision="openksef_distribution"
+
+      - name: Build iOS archive (unsigned – no Apple secrets yet)
+        if: steps.signing.outputs.enabled != 'true'
+        run: |
+          dotnet build src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
+            -f net10.0-ios \
+            -c Release \
+            -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
+            -p:ApplicationVersion=${{ steps.appver.outputs.build }}
+
+      - name: Find and rename IPA
+        if: steps.signing.outputs.enabled == 'true'
+        id: ipa
+        run: |
+          SRC=$(find src/OpenKSeF.Mobile/bin/Release/net10.0-ios -name "*.ipa" | head -1)
+          DEST="openksef-${{ github.ref_name }}.ipa"
+          cp "$SRC" "$DEST"
+          echo "path=$DEST" >> $GITHUB_OUTPUT
+
+      - name: Upload IPA to release
+        if: steps.signing.outputs.enabled == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: ${{ steps.ipa.outputs.path }}
+
+  # ─────────────────────────────────────────────
+  # 4. Publish release (remove draft) once all jobs done
+  # ─────────────────────────────────────────────
+  publish-release:
+    name: Publish Release
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish draft release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false

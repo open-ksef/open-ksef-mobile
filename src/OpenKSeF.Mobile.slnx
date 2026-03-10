@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="OpenKSeF.Mobile\OpenKSeF.Mobile.csproj" />
+  <Project Path="OpenKSeF.Mobile.Tests\OpenKSeF.Mobile.Tests.csproj" />
+  <Project Path="OpenKSeF.Mobile.E2E.Shared\OpenKSeF.Mobile.E2E.Shared.csproj" />
+  <Project Path="OpenKSeF.Mobile.E2E.Android\OpenKSeF.Mobile.E2E.Android.csproj" />
+</Solution>

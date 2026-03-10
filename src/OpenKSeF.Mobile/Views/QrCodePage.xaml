@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.QrCodePage"
+             x:DataType="vm:QrCodeViewModel"
+             Title="Kod QR przelewu">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20" HorizontalOptions="Center">
+
+            <!-- Loading -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               HorizontalOptions="Center" />
+
+            <!-- Error -->
+            <VerticalStackLayout IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+                                 Spacing="10">
+                <Label Text="{Binding ErrorMessage}"
+                       AutomationId="QrCodePageLabelError"
+                       TextColor="{StaticResource Error}"
+                       HorizontalTextAlignment="Center" />
+                <Button Text="Ponów"
+                        AutomationId="QrCodePageButtonRetry"
+                        Command="{Binding GenerateQrCommand}"
+                        HorizontalOptions="Center" />
+            </VerticalStackLayout>
+
+            <!-- QR Content -->
+            <VerticalStackLayout IsVisible="{Binding QrImage, Converter={StaticResource IsNotNullConverter}}"
+                                 Spacing="20"
+                                 HorizontalOptions="Center">
+
+                <Label Text="{Binding Title}"
+                       AutomationId="QrCodePageLabelTitle"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center" />
+
+                <Border Padding="15"
+                        StrokeShape="RoundRectangle 12,12,12,12"
+                        Stroke="{StaticResource Border}"
+                        BackgroundColor="{StaticResource Surface}"
+                        HorizontalOptions="Center">
+                    <Image Source="{Binding QrImage}"
+                           AutomationId="QrCodePageImageQr"
+                           WidthRequest="300"
+                           HeightRequest="300"
+                           Aspect="AspectFit" />
+                </Border>
+
+                <Label Text="Zeskanuj kodem w aplikacji bankowej, aby wykonać przelew."
+                       Style="{StaticResource LabelMuted}"
+                       HorizontalTextAlignment="Center" />
+
+                <Button Text="Udostępnij kod QR"
+                        AutomationId="QrCodePageButtonShare"
+                        Command="{Binding ShareQrCommand}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

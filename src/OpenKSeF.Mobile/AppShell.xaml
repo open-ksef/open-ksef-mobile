@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:OpenKSeF.Mobile.Views"
+       x:Class="OpenKSeF.Mobile.AppShell"
+       Title="OpenKSeF">
+
+    <!-- Login is the initial route (unauthenticated) -->
+    <TabBar Route="login">
+        <ShellContent
+            ContentTemplate="{DataTemplate views:LoginPage}"
+            Shell.NavBarIsVisible="False"
+            Shell.TabBarIsVisible="False" />
+    </TabBar>
+
+    <!-- Onboarding (post-login, pre-tenant) -->
+    <TabBar Route="onboarding">
+        <ShellContent
+            ContentTemplate="{DataTemplate views:OnboardingPage}"
+            Shell.NavBarIsVisible="False"
+            Shell.TabBarIsVisible="False" />
+    </TabBar>
+
+    <!-- Main app tabs (post-login) -->
+    <TabBar Route="main">
+        <Tab Title="Faktury" Route="invoices" Icon="tab_invoices.png">
+            <ShellContent ContentTemplate="{DataTemplate views:InvoiceListPage}" />
+        </Tab>
+        <Tab Title="Firmy" Route="tenants" Icon="tab_companies.png">
+            <ShellContent ContentTemplate="{DataTemplate views:TenantsPage}" />
+        </Tab>
+        <Tab Title="Konto" Route="account" Icon="tab_account.png">
+            <ShellContent ContentTemplate="{DataTemplate views:AccountPage}" />
+        </Tab>
+    </TabBar>
+
+</Shell>

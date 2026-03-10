@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.LoginPage"
+             x:DataType="vm:LoginViewModel"
+             Title="Logowanie"
+             Shell.NavBarIsVisible="False">
+
+    <ContentPage.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{StaticResource GradientStart}" Offset="0.0" />
+            <GradientStop Color="{StaticResource GradientMid}" Offset="0.4" />
+            <GradientStop Color="{StaticResource GradientEnd}" Offset="1.0" />
+        </LinearGradientBrush>
+    </ContentPage.Background>
+
+    <ScrollView VerticalOptions="Center">
+        <Frame Style="{StaticResource CardFrame}"
+               Padding="28,36"
+               Margin="20"
+               HorizontalOptions="Fill"
+               MaximumWidthRequest="400">
+
+            <VerticalStackLayout Spacing="12">
+
+                <!-- Logo + title -->
+                <Label Text="⚡"
+                       FontSize="40"
+                       HorizontalOptions="Center"
+                       AutomationId="LoginPageLabelLogo" />
+                <Label Text="OpenKSeF"
+                       AutomationId="LoginPageLabelTitle"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"
+                       TextColor="{StaticResource GradientStart}" />
+                <Label Text="{Binding SubtitleText}"
+                       FontSize="14"
+                       HorizontalOptions="Center"
+                       HorizontalTextAlignment="Center"
+                       TextColor="{StaticResource TextMuted}"
+                       Margin="0,0,0,8" />
+
+                <!-- Error message -->
+                <Frame BackgroundColor="{StaticResource ErrorBg}"
+                       CornerRadius="8"
+                       Padding="12"
+                       HasShadow="False"
+                       BorderColor="Transparent"
+                       IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}">
+                    <Label Text="{Binding ErrorMessage}"
+                           AutomationId="LoginPageLabelError"
+                           TextColor="{StaticResource Error}"
+                           FontSize="13"
+                           HorizontalTextAlignment="Center" />
+                </Frame>
+
+                <!-- ===== LOGIN MODE ===== -->
+                <VerticalStackLayout Spacing="10"
+                                     IsVisible="{Binding IsLoginMode}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Email" Style="{StaticResource LabelFormLabel}" />
+                        <Entry Text="{Binding Email}"
+                               Placeholder="jan@firma.pl"
+                               Keyboard="Email"
+                               AutomationId="LoginPageEntryEmail"
+                               IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Hasło" Style="{StaticResource LabelFormLabel}" />
+                        <Entry Text="{Binding Password}"
+                               Placeholder="••••••••"
+                               IsPassword="True"
+                               AutomationId="LoginPageEntryPassword"
+                               IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    </VerticalStackLayout>
+
+                    <Button Text="{Binding LoginButtonText}"
+                            AutomationId="LoginPageButtonLogin"
+                            Command="{Binding LoginWithCredentialsCommand}"
+                            HorizontalOptions="Fill"
+                            Margin="0,8,0,0" />
+                </VerticalStackLayout>
+
+                <!-- ===== REGISTER MODE ===== -->
+                <VerticalStackLayout Spacing="10"
+                                     IsVisible="{Binding IsLoginMode, Converter={StaticResource InvertedBoolConverter}}">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Imię" Style="{StaticResource LabelFormLabel}" />
+                            <Entry Text="{Binding RegFirstName}"
+                                   Placeholder="Jan"
+                                   AutomationId="LoginPageEntryRegFirstName"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4" Grid.Column="1">
+                            <Label Text="Nazwisko" Style="{StaticResource LabelFormLabel}" />
+                            <Entry Text="{Binding RegLastName}"
+                                   Placeholder="Kowalski"
+                                   AutomationId="LoginPageEntryRegLastName"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Email" Style="{StaticResource LabelFormLabel}" />
+                        <Entry Text="{Binding RegEmail}"
+                               Placeholder="jan@firma.pl"
+                               Keyboard="Email"
+                               AutomationId="LoginPageEntryRegEmail"
+                               IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Hasło" Style="{StaticResource LabelFormLabel}" />
+                        <Entry Text="{Binding RegPassword}"
+                               Placeholder="Min. 8 znaków"
+                               IsPassword="True"
+                               AutomationId="LoginPageEntryRegPassword"
+                               IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Powtórz hasło" Style="{StaticResource LabelFormLabel}" />
+                        <Entry Text="{Binding RegConfirmPassword}"
+                               Placeholder="Powtórz hasło"
+                               IsPassword="True"
+                               AutomationId="LoginPageEntryRegConfirmPassword"
+                               IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                    </VerticalStackLayout>
+
+                    <Button Text="{Binding RegisterButtonText}"
+                            AutomationId="LoginPageButtonRegister"
+                            Command="{Binding RegisterCommand}"
+                            HorizontalOptions="Fill"
+                            Margin="0,8,0,0" />
+                </VerticalStackLayout>
+
+                <!-- Divider -->
+                <Grid ColumnDefinitions="*,Auto,*" Margin="0,4">
+                    <BoxView HeightRequest="1" BackgroundColor="{StaticResource Border}" VerticalOptions="Center" />
+                    <Label Text="lub" FontSize="12" TextColor="{StaticResource TextMuted}" Margin="12,0" Grid.Column="1" />
+                    <BoxView HeightRequest="1" BackgroundColor="{StaticResource Border}" VerticalOptions="Center" Grid.Column="2" />
+                </Grid>
+
+                <!-- Google button -->
+                <Button Text="Zaloguj przez Google"
+                        AutomationId="LoginPageButtonGoogle"
+                        Command="{Binding LoginWithGoogleCommand}"
+                        Style="{StaticResource ButtonOutline}"
+                        HorizontalOptions="Fill"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+
+                <!-- Tab switch -->
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="4" Margin="0,8,0,0">
+                    <Label Text="{Binding SwitchPromptText}"
+                           FontSize="13"
+                           TextColor="{StaticResource TextMuted}"
+                           VerticalOptions="Center" />
+                    <Label AutomationId="{Binding SwitchButtonAutomationId}"
+                           FontSize="13"
+                           TextColor="{StaticResource Primary}"
+                           FontAttributes="Bold"
+                           VerticalOptions="Center">
+                        <Label.Text>
+                            <Binding Path="SwitchLinkText" />
+                        </Label.Text>
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ToggleModeCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </HorizontalStackLayout>
+
+                <!-- Activity indicator -->
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   AutomationId="LoginPageActivityIndicatorBusy"
+                                   IsVisible="{Binding IsBusy}"
+                                   HorizontalOptions="Center" />
+
+                <!-- Server URL (collapsed by default) -->
+                <VerticalStackLayout Spacing="6" Margin="0,8,0,0">
+                    <Label Text="Serwer"
+                           FontSize="11"
+                           TextColor="{StaticResource TextMuted}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ToggleServerCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding IsServerVisible}">
+                        <Entry Text="{Binding ServerUrl}"
+                               Placeholder="https://demo.open-ksef.pl"
+                               Keyboard="Url"
+                               FontSize="12"
+                               AutomationId="LoginPageEntryServerUrl" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Button Text="Zapisz"
+                                    AutomationId="LoginPageButtonSaveServer"
+                                    Command="{Binding SaveServerCommand}"
+                                    Style="{StaticResource ButtonSmall}" />
+                            <Button Text="QR"
+                                    AutomationId="LoginPageButtonScanQr"
+                                    Command="{Binding ScanQrCommand}"
+                                    Style="{StaticResource ButtonSecondary}"
+                                    HeightRequest="36"
+                                    FontSize="12"
+                                    CornerRadius="8"
+                                    Grid.Column="1" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </Frame>
+    </ScrollView>
+
+</ContentPage>

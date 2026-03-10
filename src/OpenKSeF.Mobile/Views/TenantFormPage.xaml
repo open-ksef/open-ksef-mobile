@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.TenantFormPage"
+             x:DataType="vm:TenantFormViewModel"
+             Title="{Binding Title}">
+
+    <VerticalStackLayout Spacing="15" Padding="20">
+        <Label Text="NIP" FontSize="14" FontAttributes="Bold" />
+        <Entry Text="{Binding Nip}"
+               AutomationId="TenantFormPageEntryNip"
+               Placeholder="Wpisz 10-cyfrowy NIP"
+               Keyboard="Numeric"
+               MaxLength="10"
+               IsEnabled="{Binding IsEditMode, Converter={StaticResource InvertedBoolConverter}}" />
+        <Label Text="{Binding NipError}"
+               IsVisible="{Binding NipError, Converter={StaticResource IsNotNullConverter}}"
+               TextColor="{StaticResource Error}"
+               FontSize="12" />
+
+        <Label Text="Nazwa wyświetlana" FontSize="14" FontAttributes="Bold" />
+        <Entry Text="{Binding DisplayName}"
+               AutomationId="TenantFormPageEntryDisplayName"
+               Placeholder="np. Moja firma Sp. z o.o."
+               MaxLength="100" />
+
+        <Label Text="{Binding ErrorMessage}"
+               AutomationId="TenantFormPageLabelError"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+               TextColor="{StaticResource Error}"
+               FontSize="13"
+               HorizontalTextAlignment="Center" />
+
+        <ActivityIndicator IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           HorizontalOptions="Center" />
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,20,0,0">
+            <Button Text="Anuluj"
+                    AutomationId="TenantFormPageButtonCancel"
+                    Command="{Binding CancelCommand}"
+                    Style="{StaticResource ButtonOutline}" />
+            <Button Grid.Column="1"
+                    AutomationId="TenantFormPageButtonSave"
+                    Text="Zapisz"
+                    Command="{Binding SaveCommand}" />
+        </Grid>
+    </VerticalStackLayout>
+
+</ContentPage>

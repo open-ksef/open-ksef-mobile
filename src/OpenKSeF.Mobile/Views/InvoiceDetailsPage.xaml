@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.InvoiceDetailsPage"
+             x:DataType="vm:InvoiceDetailsViewModel"
+             Title="Szczegóły faktury">
+
+    <ScrollView>
+        <Grid>
+            <!-- Loading -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               VerticalOptions="Center"
+                               HorizontalOptions="Center" />
+
+            <!-- Error -->
+            <VerticalStackLayout IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+                                 VerticalOptions="Center"
+                                 HorizontalOptions="Center"
+                                 Spacing="10"
+                                 Padding="30">
+                <Label Text="{Binding ErrorMessage}"
+                       AutomationId="InvoiceDetailsPageLabelError"
+                       TextColor="{StaticResource Error}"
+                       HorizontalTextAlignment="Center" />
+                <Button Text="Ponów"
+                        AutomationId="InvoiceDetailsPageButtonRetry"
+                        Command="{Binding LoadInvoiceCommand}"
+                        HorizontalOptions="Center" />
+            </VerticalStackLayout>
+
+            <!-- Invoice details -->
+            <VerticalStackLayout IsVisible="{Binding Invoice, Converter={StaticResource IsNotNullConverter}}"
+                                 Spacing="0"
+                                 Padding="0">
+
+                <!-- Amount card -->
+                <Border BackgroundColor="{StaticResource Primary}"
+                        StrokeShape="RoundRectangle 0"
+                        StrokeThickness="0"
+                        Padding="20"
+                        Margin="0">
+                    <VerticalStackLayout HorizontalOptions="Center" Spacing="5">
+                        <Label Text="{Binding Invoice.AmountGross, StringFormat='{0:N2}'}"
+                               AutomationId="InvoiceDetailsPageLabelAmount"
+                               FontSize="36"
+                               FontAttributes="Bold"
+                               TextColor="{StaticResource TextInverse}"
+                               HorizontalOptions="Center" />
+                        <Label Text="{Binding Invoice.Currency}"
+                               FontSize="18"
+                               TextColor="{StaticResource TextInverse}"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Vendor info -->
+                <Border Margin="15,15,15,5" Style="{StaticResource CardBorder}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Sprzedawca" Style="{StaticResource LabelCaption}" />
+                        <Label Text="{Binding Invoice.VendorName}"
+                               AutomationId="InvoiceDetailsPageLabelVendorName"
+                               FontSize="18" FontAttributes="Bold" />
+                        <Label Text="{Binding Invoice.VendorNip, StringFormat='NIP: {0}'}"
+                               FontSize="14" TextColor="{StaticResource TextMuted}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Dates -->
+                <Border Margin="15,5" Style="{StaticResource CardBorder}">
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="8">
+                        <Label Text="Data wystawienia" Style="{StaticResource LabelCaption}" />
+                        <Label Grid.Row="1"
+                               Text="{Binding Invoice.IssueDate, StringFormat='{0:dd.MM.yyyy}'}"
+                               FontSize="16" />
+                        <Label Grid.Column="1" Text="Data sprzedaży" Style="{StaticResource LabelCaption}" />
+                        <Label Grid.Row="1" Grid.Column="1"
+                               Text="{Binding Invoice.SaleDate, StringFormat='{0:dd.MM.yyyy}'}"
+                               FontSize="16" />
+                    </Grid>
+                </Border>
+
+                <!-- KSeF identifiers -->
+                <Border Margin="15,5" Style="{StaticResource CardBorder}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Numer KSeF" Style="{StaticResource LabelCaption}" />
+                        <Label Text="{Binding Invoice.KSeFInvoiceNumber}" FontSize="14"
+                               AutomationId="InvoiceDetailsPageLabelKsefNumber" />
+                        <Label Text="Numer referencyjny" Style="{StaticResource LabelCaption}" />
+                        <Label Text="{Binding Invoice.KSeFReferenceNumber}" FontSize="14" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Action buttons -->
+                <VerticalStackLayout Spacing="10" Padding="15,15,15,30">
+                    <Button Text="Kopiuj dane przelewu"
+                            AutomationId="InvoiceDetailsPageButtonCopyTransfer"
+                            Command="{Binding CopyTransferDetailsCommand}"
+                            HorizontalOptions="Fill" />
+                    <Button Text="Pokaż kod QR"
+                            AutomationId="InvoiceDetailsPageButtonShowQr"
+                            Command="{Binding ShowQrCodeCommand}"
+                            Style="{StaticResource ButtonSecondary}"
+                            HorizontalOptions="Fill" />
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </Grid>
+    </ScrollView>
+
+</ContentPage>
