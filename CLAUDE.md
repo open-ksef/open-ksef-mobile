@@ -27,6 +27,12 @@ Key patterns:
 - SQLite local cache via `LocalDbService.cs` (sqlite-net-pcl)
 - Server settings (base URL) stored in `ServerSettingsService.cs`
 
+## Code change rules
+- All code in this repo is active. There is nothing to avoid or tiptoe around.
+- When implementing changes, modify existing files in-place. Do not create parallel implementations.
+- If a ViewModel, Service, or View already handles similar logic, refactor it instead of adding a new one.
+- Delete unused code after refactoring.
+
 ## Backend dependency
 
 E2E tests and running the app locally require the backend stack. Start it from the [open-ksef](https://github.com/OpenKSeF/open-ksef) repo:
