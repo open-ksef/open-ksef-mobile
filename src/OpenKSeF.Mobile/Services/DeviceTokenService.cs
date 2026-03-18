@@ -111,6 +111,7 @@ public class DeviceTokenService : IDeviceTokenService
         if (status != PermissionStatus.Granted)
             return false;
 
+        var registered = false;
         try
         {
             var platformInt = GetCurrentPlatform();
@@ -127,13 +128,13 @@ public class DeviceTokenService : IDeviceTokenService
             });
 
             Preferences.Default.Set(DeviceRegisteredKey, true);
+            registered = true;
         }
         catch
         {
-            // Best-effort; permission was granted, registration can retry later.
         }
 
-        return true;
+        return registered;
     }
 
     public async Task<bool> AreNotificationsEnabledAsync()
