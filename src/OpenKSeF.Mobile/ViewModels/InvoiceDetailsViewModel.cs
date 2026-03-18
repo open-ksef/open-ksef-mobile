@@ -34,13 +34,17 @@ public partial class InvoiceDetailsViewModel : ObservableObject
     partial void OnInvoiceIdChanged(string? value)
     {
         if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(TenantId))
-            _ = LoadInvoiceAsync();
+            _ = LoadInvoiceAsync().ContinueWith(
+                t => ErrorMessage = t.Exception?.InnerException?.Message,
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 
     partial void OnTenantIdChanged(string? value)
     {
         if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(InvoiceId))
-            _ = LoadInvoiceAsync();
+            _ = LoadInvoiceAsync().ContinueWith(
+                t => ErrorMessage = t.Exception?.InnerException?.Message,
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 
     [RelayCommand]
@@ -78,9 +82,16 @@ public partial class InvoiceDetailsViewModel : ObservableObject
         if (Invoice is null)
             return;
 
-        var details = BuildTransferDetails(Invoice);
-        await Clipboard.Default.SetTextAsync(details);
-        await Shell.Current.DisplayAlertAsync("Skopiowano", "Dane przelewu skopiowane do schowka.", "OK");
+        try
+        {
+            var details = BuildTransferDetails(Invoice);
+            await Clipboard.Default.SetTextAsync(details);
+            await Shell.Current.DisplayAlertAsync("Skopiowano", "Dane przelewu skopiowane do schowka.", "OK");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Nie udało się skopiować: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -89,7 +100,7 @@ public partial class InvoiceDetailsViewModel : ObservableObject
         if (Invoice is null || TenantId is null)
             return;
 
-        await Shell.Current.GoToAsync($"qrCode?tenantId={TenantId}&invoiceId={Invoice.Id}");
+        try { await Shell.Current.GoToAsync($"qrCode?tenantId={TenantId}&invoiceId={Invoice.Id}"); } catch { }
     }
 
     internal static string BuildTransferDetails(InvoiceDto invoice)

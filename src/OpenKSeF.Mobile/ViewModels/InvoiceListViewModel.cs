@@ -178,7 +178,7 @@ public partial class InvoiceListViewModel : ObservableObject
         if (tenantId is null)
             return;
 
-        await Shell.Current.GoToAsync($"invoiceDetails?tenantId={tenantId}&invoiceId={invoice.Id}");
+        try { await Shell.Current.GoToAsync($"invoiceDetails?tenantId={tenantId}&invoiceId={invoice.Id}"); } catch { }
     }
 
     private async Task<Guid?> TryAutoSelectFirstTenantAsync()

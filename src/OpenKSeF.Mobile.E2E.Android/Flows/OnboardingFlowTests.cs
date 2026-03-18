@@ -1,6 +1,6 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
-using OpenQA.Selenium.Appium;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -29,7 +29,7 @@ public sealed class OnboardingFlowTests : AndroidTestBase
         // Step 3: Success -- then finish
         onboarding.WaitForSuccessStep();
 
-        var successLabel = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingLabelSuccess"));
+        var successLabel = AndroidDriver.FindElement(ByAutoId("OnboardingLabelSuccess"));
         Assert.That(successLabel.Displayed, Is.True, "Success label should be visible after onboarding");
 
         onboarding.FinishOnboarding();
@@ -37,8 +37,8 @@ public sealed class OnboardingFlowTests : AndroidTestBase
         // Verify we reach the main invoice list (no Step 4 notification prompt)
         onboarding.WaitForMainApp(TimeSpan.FromSeconds(60));
 
-        var mainPageVisible = AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0
-            || AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0;
+        var mainPageVisible = AndroidDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0
+            || AndroidDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0;
         Assert.That(mainPageVisible, Is.True, "Expected main invoice page after completing onboarding");
     }
 
@@ -63,7 +63,7 @@ public sealed class OnboardingFlowTests : AndroidTestBase
         // Step 3: Success (with warning about missing token) -- then finish
         onboarding.WaitForSuccessStep();
 
-        var successLabel = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingLabelSuccess"));
+        var successLabel = AndroidDriver.FindElement(ByAutoId("OnboardingLabelSuccess"));
         Assert.That(successLabel.Displayed, Is.True, "Success label should be visible even when token skipped");
 
         onboarding.FinishOnboarding();

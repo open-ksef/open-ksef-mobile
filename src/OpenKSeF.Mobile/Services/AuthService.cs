@@ -35,30 +35,6 @@ public class AuthService : IAuthService
         _oidcClient = CreateOidcClient(_authority);
     }
 
-    public async Task<bool> LoginAsync()
-    {
-        EnsureConfiguration();
-
-        try
-        {
-            var result = await _oidcClient.LoginAsync(new LoginRequest());
-
-            if (result.IsError)
-                return false;
-
-            _accessToken = result.AccessToken;
-            _refreshToken = result.RefreshToken;
-            _tokenExpiry = result.AccessTokenExpiration;
-
-            await StoreTokensAsync();
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     public async Task<bool> LoginWithCredentialsAsync(string email, string password)
     {
         EnsureConfiguration();
@@ -75,7 +51,7 @@ public class AuthService : IAuthService
                 ["scope"] = "openid profile email"
             };
 
-            var response = await _httpClient.PostAsync(tokenEndpoint, new FormUrlEncodedContent(formData));
+            using var response = await _httpClient.PostAsync(tokenEndpoint, new FormUrlEncodedContent(formData));
             if (!response.IsSuccessStatusCode)
                 return false;
 
@@ -137,7 +113,7 @@ public class AuthService : IAuthService
                 LastName = lastName
             };
 
-            var response = await _httpClient.PostAsJsonAsync(
+            using var response = await _httpClient.PostAsJsonAsync(
                 $"{baseUrl}/api/account/register", registerPayload);
 
             if (!response.IsSuccessStatusCode)
@@ -203,7 +179,7 @@ public class AuthService : IAuthService
         {
             var baseUrl = serverUrl.TrimEnd('/');
             var request = new RedeemSetupTokenRequest { SetupToken = setupToken };
-            var response = await _httpClient.PostAsJsonAsync(
+            using var response = await _httpClient.PostAsJsonAsync(
                 $"{baseUrl}/api/account/redeem-setup-token", request);
 
             if (!response.IsSuccessStatusCode)
@@ -363,4 +339,5 @@ public class AuthService : IAuthService
         [JsonPropertyName("expiresIn")]
         public int ExpiresIn { get; set; }
     }
+
 }

@@ -1,8 +1,8 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Support.UI;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -20,9 +20,9 @@ public sealed class InvoiceFlowTests : AndroidTestBase
         tenantFlow.SelectAnyTenant();
 
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(45));
-        wait.UntilVisible(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices"));
+        wait.UntilVisible(ByAutoId("InvoiceListPageCollectionViewInvoices"));
 
-        var invoiceItems = AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageFrameInvoiceItem"));
+        var invoiceItems = AndroidDriver.FindElements(ByAutoId("InvoiceListPageFrameInvoiceItem"));
         Assert.That(invoiceItems.Count, Is.GreaterThan(0), "Expected at least one invoice item.");
 
         var firstInvoiceText = invoiceItems[0].Text;
@@ -39,7 +39,7 @@ public sealed class InvoiceFlowTests : AndroidTestBase
             ["percent"] = 0.75
         });
 
-        wait.UntilVisible(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices"));
+        wait.UntilVisible(ByAutoId("InvoiceListPageCollectionViewInvoices"));
 
         // Trigger a refresh by waiting for list stability after gesture-based refresh intent.
         AndroidDriver.ExecuteScript("mobile: swipeGesture", new Dictionary<string, object>
@@ -54,6 +54,6 @@ public sealed class InvoiceFlowTests : AndroidTestBase
 
         var stableWait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(30));
         stableWait.Until(driver =>
-            driver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0);
+            driver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0);
     }
 }

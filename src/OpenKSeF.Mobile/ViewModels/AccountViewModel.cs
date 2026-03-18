@@ -105,12 +105,12 @@ public partial class AccountViewModel : ObservableObject
 
         try { await _notificationHub.StopAsync(); } catch { }
         await _authService.LogoutAsync();
-        await Shell.Current.GoToAsync("//login");
+        try { await Shell.Current.GoToAsync("//login"); } catch { }
     }
 
     [RelayCommand]
     private async Task ChangeServerAsync()
     {
-        await Shell.Current.GoToAsync("//login");
+        try { await Shell.Current.GoToAsync("//login"); } catch { }
     }
 }

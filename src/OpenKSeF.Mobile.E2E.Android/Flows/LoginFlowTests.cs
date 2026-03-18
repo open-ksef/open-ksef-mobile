@@ -1,6 +1,6 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
-using OpenQA.Selenium.Appium;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -14,10 +14,10 @@ public sealed class LoginFlowTests : AndroidTestBase
         authFlow.LoginWithKeycloakFromEnvironment();
         authFlow.WaitForAuthenticatedPage(TimeSpan.FromSeconds(60));
 
-        var authenticatedElement = AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle"))
+        var authenticatedElement = AndroidDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle"))
             .FirstOrDefault()
-            ?? AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).FirstOrDefault()
-            ?? AndroidDriver.FindElements(MobileBy.AccessibilityId("OnboardingStepIndicator")).FirstOrDefault();
+            ?? AndroidDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).FirstOrDefault()
+            ?? AndroidDriver.FindElements(ByAutoId("OnboardingStepIndicator")).FirstOrDefault();
 
         Assert.That(authenticatedElement, Is.Not.Null, "Expected authenticated page elements after ROPC login.");
     }

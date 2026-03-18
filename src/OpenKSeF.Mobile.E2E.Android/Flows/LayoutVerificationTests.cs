@@ -2,8 +2,8 @@ using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Support.UI;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -25,23 +25,23 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     {
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(30));
 
-        var logo = wait.UntilVisible(MobileBy.AccessibilityId("LoginPageLabelLogo"));
+        var logo = wait.UntilVisible(ByAutoId("LoginPageLabelLogo"));
         Assert.That(logo.Displayed, Is.True, "Logo should be visible on login page");
 
-        var title = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageLabelTitle"));
+        var title = AndroidDriver.FindElement(ByAutoId("LoginPageLabelTitle"));
         Assert.That(title.Displayed, Is.True, "Title 'OpenKSeF' should be visible");
         Assert.That(title.Text, Is.EqualTo("OpenKSeF"), "Title text should be 'OpenKSeF'");
 
-        var emailEntry = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageEntryEmail"));
+        var emailEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail"));
         Assert.That(emailEntry.Displayed, Is.True, "Email entry should be visible");
 
-        var passwordEntry = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageEntryPassword"));
+        var passwordEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryPassword"));
         Assert.That(passwordEntry.Displayed, Is.True, "Password entry should be visible");
 
-        var loginButton = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageButtonLogin"));
+        var loginButton = AndroidDriver.FindElement(ByAutoId("LoginPageButtonLogin"));
         Assert.That(loginButton.Displayed, Is.True, "Login button should be visible");
 
-        var googleButton = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageButtonGoogle"));
+        var googleButton = AndroidDriver.FindElement(ByAutoId("LoginPageButtonGoogle"));
         Assert.That(googleButton.Displayed, Is.True, "Google button should be visible");
 
         CaptureLayoutScreenshot("LoginPage_LoginMode");
@@ -53,28 +53,28 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     {
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));
 
-        wait.UntilVisible(MobileBy.AccessibilityId("LoginPageLabelLogo"));
+        wait.UntilVisible(ByAutoId("LoginPageLabelLogo"));
 
-        var switchLink = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageSwitchToRegister"));
+        var switchLink = AndroidDriver.FindElement(ByAutoId("LoginPageSwitchToRegister"));
         switchLink.Click();
 
         Thread.Sleep(500);
 
-        var firstNameEntry = AndroidDriver.FindElements(MobileBy.AccessibilityId("LoginPageEntryRegFirstName"));
+        var firstNameEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegFirstName"));
         Assert.That(firstNameEntry.Count, Is.GreaterThan(0), "First name entry should be visible in register mode");
 
-        var lastNameEntry = AndroidDriver.FindElements(MobileBy.AccessibilityId("LoginPageEntryRegLastName"));
+        var lastNameEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegLastName"));
         Assert.That(lastNameEntry.Count, Is.GreaterThan(0), "Last name entry should be visible in register mode");
 
-        var regEmailEntry = AndroidDriver.FindElements(MobileBy.AccessibilityId("LoginPageEntryRegEmail"));
+        var regEmailEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegEmail"));
         Assert.That(regEmailEntry.Count, Is.GreaterThan(0), "Email entry should be visible in register mode");
 
-        var regButton = AndroidDriver.FindElements(MobileBy.AccessibilityId("LoginPageButtonRegister"));
+        var regButton = AndroidDriver.FindElements(ByAutoId("LoginPageButtonRegister"));
         Assert.That(regButton.Count, Is.GreaterThan(0), "Register button should be visible");
 
         CaptureLayoutScreenshot("LoginPage_RegisterMode");
 
-        var switchBack = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageSwitchToLogin"));
+        var switchBack = AndroidDriver.FindElement(ByAutoId("LoginPageSwitchToLogin"));
         switchBack.Click();
         Thread.Sleep(300);
     }
@@ -89,19 +89,19 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         var onboarding = new AndroidOnboardingFlow(AndroidDriver);
         onboarding.WaitForOnboardingPage();
 
-        var stepIndicator = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingStepIndicator"));
+        var stepIndicator = AndroidDriver.FindElement(ByAutoId("OnboardingStepIndicator"));
         Assert.That(stepIndicator.Displayed, Is.True, "Step indicator should be visible on onboarding");
 
-        var nipEntry = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingEntryNip"));
+        var nipEntry = AndroidDriver.FindElement(ByAutoId("OnboardingEntryNip"));
         Assert.That(nipEntry.Displayed, Is.True, "NIP entry should be visible on step 1");
 
-        var nameEntry = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingEntryDisplayName"));
+        var nameEntry = AndroidDriver.FindElement(ByAutoId("OnboardingEntryDisplayName"));
         Assert.That(nameEntry.Displayed, Is.True, "Display name entry should be visible on step 1");
 
-        var emailEntry = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingEntryNotificationEmail"));
+        var emailEntry = AndroidDriver.FindElement(ByAutoId("OnboardingEntryNotificationEmail"));
         Assert.That(emailEntry.Displayed, Is.True, "Notification email entry should be visible on step 1");
 
-        var nextButton = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingButtonNext"));
+        var nextButton = AndroidDriver.FindElement(ByAutoId("OnboardingButtonNext"));
         Assert.That(nextButton.Displayed, Is.True, "Next button should be visible on step 1");
 
         CaptureLayoutScreenshot("OnboardingPage_Step1");
@@ -124,10 +124,10 @@ public sealed class LayoutVerificationTests : AndroidTestBase
             email: "layout@test.open-ksef.pl");
 
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));
-        var tokenEntry = wait.UntilVisible(MobileBy.AccessibilityId("OnboardingEntryKsefToken"));
+        var tokenEntry = wait.UntilVisible(ByAutoId("OnboardingEntryKsefToken"));
         Assert.That(tokenEntry.Displayed, Is.True, "Token editor should be visible on step 2");
 
-        var skipLink = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingButtonSkipToken"));
+        var skipLink = AndroidDriver.FindElement(ByAutoId("OnboardingButtonSkipToken"));
         Assert.That(skipLink.Displayed, Is.True, "Skip link should be visible on step 2");
 
         CaptureLayoutScreenshot("OnboardingPage_Step2_KsefToken");
@@ -141,7 +141,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         onboarding.SkipKsefToken();
         onboarding.WaitForSuccessStep();
 
-        var successLabel = AndroidDriver.FindElement(MobileBy.AccessibilityId("OnboardingLabelSuccess"));
+        var successLabel = AndroidDriver.FindElement(ByAutoId("OnboardingLabelSuccess"));
         Assert.That(successLabel.Displayed, Is.True, "Success checkmark should be visible on step 3");
 
         CaptureLayoutScreenshot("OnboardingPage_Step3_Success");
@@ -155,9 +155,9 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     {
         var wait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(60));
         wait.Until(d =>
-            d.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0);
+            d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0);
 
-        var titleLabel = AndroidDriver.FindElement(MobileBy.AccessibilityId("InvoiceListPageLabelTitle"));
+        var titleLabel = AndroidDriver.FindElement(ByAutoId("InvoiceListPageLabelTitle"));
         Assert.That(titleLabel.Displayed, Is.True, "Invoice list title should be visible");
         Assert.That(titleLabel.Text, Does.Contain("Faktury"), "Title should contain 'Faktury'");
 
@@ -179,8 +179,8 @@ public sealed class LayoutVerificationTests : AndroidTestBase
             Assert.Ignore("Cannot navigate to Tenants tab.");
         }
 
-        var tenantList = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantsPageCollectionViewTenants"));
-        var addButton = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantsPageButtonAdd"));
+        var tenantList = AndroidDriver.FindElements(ByAutoId("TenantsPageCollectionViewTenants"));
+        var addButton = AndroidDriver.FindElements(ByAutoId("TenantsPageButtonAdd"));
 
         Assert.That(
             tenantList.Count > 0 || addButton.Count > 0,
@@ -194,10 +194,10 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     [Order(8)]
     public void TenantsPage_TenantFormLayoutIsCorrect()
     {
-        var addButton = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantsPageButtonAdd"));
+        var addButton = AndroidDriver.FindElements(ByAutoId("TenantsPageButtonAdd"));
         if (addButton.Count == 0)
         {
-            addButton = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantsPageButtonAddEmptyState"));
+            addButton = AndroidDriver.FindElements(ByAutoId("TenantsPageButtonAddEmptyState"));
         }
 
         if (addButton.Count == 0)
@@ -208,16 +208,16 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         addButton[0].Click();
         Thread.Sleep(1000);
 
-        var nipEntry = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantFormPageEntryNip"));
+        var nipEntry = AndroidDriver.FindElements(ByAutoId("TenantFormPageEntryNip"));
         Assert.That(nipEntry.Count, Is.GreaterThan(0), "NIP entry should be visible on tenant form");
 
-        var nameEntry = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantFormPageEntryDisplayName"));
+        var nameEntry = AndroidDriver.FindElements(ByAutoId("TenantFormPageEntryDisplayName"));
         Assert.That(nameEntry.Count, Is.GreaterThan(0), "Display name entry should be visible on tenant form");
 
-        var saveButton = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantFormPageButtonSave"));
+        var saveButton = AndroidDriver.FindElements(ByAutoId("TenantFormPageButtonSave"));
         Assert.That(saveButton.Count, Is.GreaterThan(0), "Save button should be visible on tenant form");
 
-        var cancelButton = AndroidDriver.FindElements(MobileBy.AccessibilityId("TenantFormPageButtonCancel"));
+        var cancelButton = AndroidDriver.FindElements(ByAutoId("TenantFormPageButtonCancel"));
         Assert.That(cancelButton.Count, Is.GreaterThan(0), "Cancel button should be visible on tenant form");
 
         CaptureLayoutScreenshot("TenantFormPage");

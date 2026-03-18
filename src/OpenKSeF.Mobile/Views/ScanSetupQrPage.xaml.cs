@@ -33,6 +33,7 @@ public partial class ScanSetupQrPage : ContentPage
         if (result is null)
             return;
 
-        Dispatcher.DispatchAsync(() => _viewModel.ProcessBarcodeAsync(result.Value));
+        _ = Dispatcher.DispatchAsync(() => _viewModel.ProcessBarcodeAsync(result.Value))
+            .ContinueWith(_ => { }, TaskContinuationOptions.OnlyOnFaulted);
     }
 }

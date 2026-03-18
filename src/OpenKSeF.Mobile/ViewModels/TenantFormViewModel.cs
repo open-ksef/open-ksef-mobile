@@ -44,7 +44,9 @@ public partial class TenantFormViewModel : ObservableObject
         {
             IsEditMode = true;
             OnPropertyChanged(nameof(Title));
-            _ = LoadTenantAsync(Guid.Parse(value));
+            _ = LoadTenantAsync(Guid.Parse(value)).ContinueWith(
+                t => ErrorMessage = t.Exception?.InnerException?.Message,
+                TaskContinuationOptions.OnlyOnFaulted);
         }
     }
 
@@ -103,7 +105,7 @@ public partial class TenantFormViewModel : ObservableObject
                     });
             }
 
-            await Shell.Current.GoToAsync("..");
+            try { await Shell.Current.GoToAsync(".."); } catch { }
         }
         catch (ApiException ex)
         {
@@ -118,7 +120,7 @@ public partial class TenantFormViewModel : ObservableObject
     [RelayCommand]
     private async Task CancelAsync()
     {
-        await Shell.Current.GoToAsync("..");
+        try { await Shell.Current.GoToAsync(".."); } catch { }
     }
 
     private bool ValidateNip()

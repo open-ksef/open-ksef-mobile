@@ -43,60 +43,6 @@ public class DeviceTokenService : IDeviceTokenService
         }
     }
 
-    public async Task RegisterTokenForTenantsAsync(List<Guid>? tenantIds)
-    {
-        var token = Preferences.Default.Get(TokenStorageKey, string.Empty);
-
-        if (string.IsNullOrEmpty(token))
-            return;
-
-        try
-        {
-            var platformInt = GetCurrentPlatform();
-
-            if (tenantIds is null || tenantIds.Count == 0)
-            {
-                await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
-                {
-                    Token = token,
-                    Platform = platformInt,
-                    TenantId = null
-                });
-            }
-            else
-            {
-                foreach (var tenantId in tenantIds)
-                {
-                    await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
-                    {
-                        Token = token,
-                        Platform = platformInt,
-                        TenantId = tenantId
-                    });
-                }
-            }
-        }
-        catch
-        {
-            // Best-effort
-        }
-    }
-
-    public async Task RequestNotificationPermissionAsync()
-    {
-        var alreadyRequested = Preferences.Default.Get(PermissionRequestedKey, false);
-        if (alreadyRequested)
-            return;
-
-        var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
-        if (status != PermissionStatus.Granted)
-        {
-            status = await Permissions.RequestAsync<Permissions.PostNotifications>();
-        }
-
-        Preferences.Default.Set(PermissionRequestedKey, true);
-    }
-
     public async Task<bool> IsDeviceRegisteredAsync()
     {
         if (Preferences.Default.Get(DeviceRegisteredKey, false))
@@ -165,20 +111,27 @@ public class DeviceTokenService : IDeviceTokenService
         if (status != PermissionStatus.Granted)
             return false;
 
-        var platformInt = GetCurrentPlatform();
-        var tenantId = GetSelectedTenantId();
-
-        var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-        var token = !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
-
-        await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
+        try
         {
-            Token = token,
-            Platform = platformInt,
-            TenantId = tenantId
-        });
+            var platformInt = GetCurrentPlatform();
+            var tenantId = GetSelectedTenantId();
 
-        Preferences.Default.Set(DeviceRegisteredKey, true);
+            var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
+            var token = !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
+
+            await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
+            {
+                Token = token,
+                Platform = platformInt,
+                TenantId = tenantId
+            });
+
+            Preferences.Default.Set(DeviceRegisteredKey, true);
+        }
+        catch
+        {
+            // Best-effort; permission was granted, registration can retry later.
+        }
 
         return true;
     }

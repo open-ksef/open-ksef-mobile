@@ -1,6 +1,6 @@
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
 using OpenQA.Selenium.Support.UI;
 
@@ -13,54 +13,54 @@ public sealed class AndroidOnboardingFlow(AndroidDriver driver)
     public void WaitForOnboardingPage(TimeSpan? timeout = null)
     {
         var wait = new WaitHelper(_driver, timeout ?? TimeSpan.FromSeconds(30));
-        wait.UntilVisible(MobileBy.AccessibilityId("OnboardingStepIndicator"));
+        wait.UntilVisible(ByAutoId("OnboardingStepIndicator"));
     }
 
     public void FillCompanyData(string nip, string displayName, string email)
     {
         var wait = new WaitHelper(_driver, TimeSpan.FromSeconds(15));
 
-        var nipEntry = wait.UntilVisible(MobileBy.AccessibilityId("OnboardingEntryNip"));
+        var nipEntry = wait.UntilVisible(ByAutoId("OnboardingEntryNip"));
         nipEntry.Clear();
         nipEntry.SendKeys(nip);
 
-        var nameEntry = _driver.FindElement(MobileBy.AccessibilityId("OnboardingEntryDisplayName"));
+        var nameEntry = _driver.FindElement(ByAutoId("OnboardingEntryDisplayName"));
         nameEntry.Clear();
         nameEntry.SendKeys(displayName);
 
-        var emailEntry = _driver.FindElement(MobileBy.AccessibilityId("OnboardingEntryNotificationEmail"));
+        var emailEntry = _driver.FindElement(ByAutoId("OnboardingEntryNotificationEmail"));
         emailEntry.Clear();
         emailEntry.SendKeys(email);
 
-        _driver.FindElement(MobileBy.AccessibilityId("OnboardingButtonNext")).Click();
+        _driver.FindElement(ByAutoId("OnboardingButtonNext")).Click();
     }
 
     public void FillKsefToken(string token)
     {
         var wait = new WaitHelper(_driver, TimeSpan.FromSeconds(15));
-        var tokenEntry = wait.UntilVisible(MobileBy.AccessibilityId("OnboardingEntryKsefToken"));
+        var tokenEntry = wait.UntilVisible(ByAutoId("OnboardingEntryKsefToken"));
         tokenEntry.Clear();
         tokenEntry.SendKeys(token);
-        _driver.FindElement(MobileBy.AccessibilityId("OnboardingButtonNext")).Click();
+        _driver.FindElement(ByAutoId("OnboardingButtonNext")).Click();
     }
 
     public void SkipKsefToken()
     {
         var wait = new WaitHelper(_driver, TimeSpan.FromSeconds(15));
-        var skipButton = wait.UntilVisible(MobileBy.AccessibilityId("OnboardingButtonSkipToken"));
+        var skipButton = wait.UntilVisible(ByAutoId("OnboardingButtonSkipToken"));
         skipButton.Click();
     }
 
     public void WaitForSuccessStep(TimeSpan? timeout = null)
     {
         var wait = new WaitHelper(_driver, timeout ?? TimeSpan.FromSeconds(30));
-        wait.UntilVisible(MobileBy.AccessibilityId("OnboardingLabelSuccess"));
+        wait.UntilVisible(ByAutoId("OnboardingLabelSuccess"));
     }
 
     public void FinishOnboarding()
     {
         var wait = new WaitHelper(_driver, TimeSpan.FromSeconds(10));
-        var finishButton = wait.UntilVisible(MobileBy.AccessibilityId("OnboardingButtonFinish"));
+        var finishButton = wait.UntilVisible(ByAutoId("OnboardingButtonFinish"));
         finishButton.Click();
     }
 
@@ -68,18 +68,18 @@ public sealed class AndroidOnboardingFlow(AndroidDriver driver)
     {
         var wait = new WebDriverWait(_driver, timeout ?? TimeSpan.FromSeconds(30));
         wait.Until(d =>
-            d.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0 ||
-            d.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0);
+            d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
+            d.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0);
     }
 
     public bool IsStepIndicatorVisible()
     {
-        return _driver.FindElements(MobileBy.AccessibilityId("OnboardingStepIndicator")).Count > 0;
+        return _driver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0;
     }
 
     public bool IsNipEntryVisible()
     {
-        return _driver.FindElements(MobileBy.AccessibilityId("OnboardingEntryNip")).Count > 0;
+        return _driver.FindElements(ByAutoId("OnboardingEntryNip")).Count > 0;
     }
 
     public bool IsErrorVisible()

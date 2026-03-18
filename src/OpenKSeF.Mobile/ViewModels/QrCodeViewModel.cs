@@ -39,13 +39,17 @@ public partial class QrCodeViewModel : ObservableObject
     partial void OnInvoiceIdChanged(string? value)
     {
         if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(TenantId))
-            _ = GenerateQrAsync();
+            _ = GenerateQrAsync().ContinueWith(
+                t => ErrorMessage = t.Exception?.InnerException?.Message,
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 
     partial void OnTenantIdChanged(string? value)
     {
         if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(InvoiceId))
-            _ = GenerateQrAsync();
+            _ = GenerateQrAsync().ContinueWith(
+                t => ErrorMessage = t.Exception?.InnerException?.Message,
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 
     [RelayCommand]

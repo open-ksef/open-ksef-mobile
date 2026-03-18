@@ -1,7 +1,7 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Support.UI;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -18,8 +18,8 @@ public sealed class DeviceRegistrationFlowTests : AndroidTestBase
         // No notification permission dialog should appear.
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
-        var mainPageVisible = AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0
-            || AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0;
+        var mainPageVisible = AndroidDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0
+            || AndroidDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0;
         Assert.That(mainPageVisible, Is.True, "Expected main invoice page for returning user");
     }
 
@@ -31,8 +31,8 @@ public sealed class DeviceRegistrationFlowTests : AndroidTestBase
 
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
-        var mainPageVisible = AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0
-            || AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0;
+        var mainPageVisible = AndroidDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0
+            || AndroidDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0;
         Assert.That(mainPageVisible, Is.True, "Expected main invoice page on second login");
     }
 }
