@@ -34,14 +34,23 @@ jobs:
             --store-password-in-clear-text \
             --configfile src/nuget.config
 
-      - name: Restore
-        run: dotnet restore src/OpenKSeF.Mobile.slnx
+      - name: Restore (Android only -- iOS requires macOS runner)
+        run: |
+          dotnet restore src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj -p:TargetFrameworks=net10.0-android
+          dotnet restore src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj
+          dotnet restore src/OpenKSeF.Mobile.E2E.Shared/OpenKSeF.Mobile.E2E.Shared.csproj
+          dotnet restore src/OpenKSeF.Mobile.E2E.Android/OpenKSeF.Mobile.E2E.Android.csproj
 
-      - name: Build
-        run: dotnet build src/OpenKSeF.Mobile.slnx --no-restore --configuration Release
+      - name: Build MAUI Android
+        run: dotnet build src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj --no-restore -f net10.0-android -c Release
+
+      - name: Build tests
+        run: |
+          dotnet build src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj --no-restore -c Release
+          dotnet build src/OpenKSeF.Mobile.E2E.Android/OpenKSeF.Mobile.E2E.Android.csproj --no-restore -c Release
 
       - name: Unit tests
-        run: dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj --no-build --configuration Release --logger "trx;LogFileName=unit-test-results.trx" --nologo
+        run: dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj --no-build -c Release --logger "trx;LogFileName=unit-test-results.trx" --nologo
 
       - name: Upload test results
         if: always()
