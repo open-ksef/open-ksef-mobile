@@ -1,8 +1,8 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Support.UI;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -15,23 +15,23 @@ public sealed class QrSetupFlowTests : AndroidTestBase
         var wait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(30));
 
         wait.Until(d =>
-            d.FindElements(MobileBy.AccessibilityId("ScanSetupQrPageTitle")).Count > 0 ||
-            d.FindElements(MobileBy.AccessibilityId("LoginPageEntryEmail")).Count > 0);
+            d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0 ||
+            d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
 
-        var isOnQrPage = AndroidDriver.FindElements(MobileBy.AccessibilityId("ScanSetupQrPageTitle")).Count > 0;
+        var isOnQrPage = AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0;
         if (!isOnQrPage)
         {
             Assert.Ignore("App did not start on QR setup page (already configured). Reset app data to test first-launch flow.");
             return;
         }
 
-        var title = AndroidDriver.FindElement(MobileBy.AccessibilityId("ScanSetupQrPageTitle"));
+        var title = AndroidDriver.FindElement(ByAutoId("ScanSetupQrPageTitle"));
         Assert.That(title.Displayed, Is.True, "QR setup page title should be visible");
 
-        var galleryButton = AndroidDriver.FindElement(MobileBy.AccessibilityId("ScanSetupQrButtonGallery"));
+        var galleryButton = AndroidDriver.FindElement(ByAutoId("ScanSetupQrButtonGallery"));
         Assert.That(galleryButton.Displayed, Is.True, "Gallery button should be visible");
 
-        var skipButton = AndroidDriver.FindElement(MobileBy.AccessibilityId("ScanSetupQrButtonSkip"));
+        var skipButton = AndroidDriver.FindElement(ByAutoId("ScanSetupQrButtonSkip"));
         Assert.That(skipButton.Displayed, Is.True, "Skip button should be visible");
     }
 
@@ -41,22 +41,22 @@ public sealed class QrSetupFlowTests : AndroidTestBase
         var wait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(30));
 
         wait.Until(d =>
-            d.FindElements(MobileBy.AccessibilityId("ScanSetupQrPageTitle")).Count > 0 ||
-            d.FindElements(MobileBy.AccessibilityId("LoginPageEntryEmail")).Count > 0);
+            d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0 ||
+            d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
 
-        var isOnQrPage = AndroidDriver.FindElements(MobileBy.AccessibilityId("ScanSetupQrPageTitle")).Count > 0;
+        var isOnQrPage = AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0;
         if (!isOnQrPage)
         {
             Assert.Ignore("App did not start on QR setup page (already configured).");
             return;
         }
 
-        var skipButton = AndroidDriver.FindElement(MobileBy.AccessibilityId("ScanSetupQrButtonSkip"));
+        var skipButton = AndroidDriver.FindElement(ByAutoId("ScanSetupQrButtonSkip"));
         skipButton.Click();
 
-        wait.Until(d => d.FindElements(MobileBy.AccessibilityId("LoginPageEntryEmail")).Count > 0);
+        wait.Until(d => d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
 
-        var emailEntry = AndroidDriver.FindElement(MobileBy.AccessibilityId("LoginPageEntryEmail"));
+        var emailEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail"));
         Assert.That(emailEntry.Displayed, Is.True, "Login page should be visible after skipping QR setup");
     }
 
@@ -110,10 +110,10 @@ public sealed class QrSetupFlowTests : AndroidTestBase
         var wait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(30));
 
         wait.Until(d =>
-            d.FindElements(MobileBy.AccessibilityId("ScanSetupQrPageTitle")).Count > 0 ||
-            d.FindElements(MobileBy.AccessibilityId("LoginPageEntryEmail")).Count > 0);
+            d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0 ||
+            d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
 
-        var isOnQrPage = AndroidDriver.FindElements(MobileBy.AccessibilityId("ScanSetupQrPageTitle")).Count > 0;
+        var isOnQrPage = AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0;
         if (!isOnQrPage)
         {
             Assert.Ignore("App did not start on QR setup page. Reset app data to test QR auto-login.");
@@ -154,7 +154,7 @@ public sealed class QrSetupFlowTests : AndroidTestBase
         }
 
         // Tap "Pick from gallery" button
-        var galleryButton = AndroidDriver.FindElement(MobileBy.AccessibilityId("ScanSetupQrButtonGallery"));
+        var galleryButton = AndroidDriver.FindElement(ByAutoId("ScanSetupQrButtonGallery"));
         galleryButton.Click();
 
         // Wait for the file picker and try to select the file
@@ -190,14 +190,14 @@ public sealed class QrSetupFlowTests : AndroidTestBase
             // Wait for auto-login to complete
             var authWait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(60));
             authWait.Until(d =>
-                d.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0 ||
-                d.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0 ||
-                d.FindElements(MobileBy.AccessibilityId("OnboardingStepIndicator")).Count > 0);
+                d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
+                d.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0 ||
+                d.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0);
 
-            var authenticatedElement = AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle"))
+            var authenticatedElement = AndroidDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle"))
                 .FirstOrDefault()
-                ?? AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).FirstOrDefault()
-                ?? AndroidDriver.FindElements(MobileBy.AccessibilityId("OnboardingStepIndicator")).FirstOrDefault();
+                ?? AndroidDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).FirstOrDefault()
+                ?? AndroidDriver.FindElements(ByAutoId("OnboardingStepIndicator")).FirstOrDefault();
 
             Assert.That(authenticatedElement, Is.Not.Null,
                 "Expected authenticated page (invoices or onboarding) after QR auto-login.");

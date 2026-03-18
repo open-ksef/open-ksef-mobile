@@ -86,7 +86,7 @@ public class ApiService : IApiService
 
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null)
     {
-        var response = await ExecuteAsync(method, path, body);
+        using var response = await ExecuteAsync(method, path, body);
 
         var result = await response.Content.ReadFromJsonAsync<T>();
         return result ?? throw new ApiException(HttpStatusCode.InternalServerError,
@@ -95,72 +95,60 @@ public class ApiService : IApiService
 
     private async Task SendNoContentAsync(HttpMethod method, string path, object? body = null)
     {
-        await ExecuteAsync(method, path, body);
+        using var response = await ExecuteAsync(method, path, body);
     }
 
     private async Task<HttpResponseMessage> ExecuteAsync(HttpMethod method, string path, object? body = null)
     {
         await SetAuthHeaderAsync();
 
-        var request = new HttpRequestMessage(method, BuildRequestUri(path));
-        if (body is not null)
-            request.Content = JsonContent.Create(body);
-
-        HttpResponseMessage response;
-
-        try
-        {
-            response = await _http.SendAsync(request);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new ApiException(HttpStatusCode.ServiceUnavailable,
-                $"Brak polaczenia z serwerem: {ex.Message}");
-        }
+        var response = await SendRequestAsync(method, path, body);
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            var token = await _auth.GetAccessTokenAsync();
-            if (token is not null)
-            {
-                request = new HttpRequestMessage(method, BuildRequestUri(path));
-                if (body is not null)
-                    request.Content = JsonContent.Create(body);
-
-                _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
-                try
-                {
-                    response = await _http.SendAsync(request);
-                }
-                catch (HttpRequestException ex)
-                {
-                    throw new ApiException(HttpStatusCode.ServiceUnavailable,
-                        $"Brak polaczenia z serwerem: {ex.Message}");
-                }
-            }
-        }
+            response = await TryRefreshAndRetryAsync(response, method, path, body);
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            throw new ApiException(HttpStatusCode.Unauthorized,
-                "Sesja wygasła. Zaloguj się ponownie.");
-        }
+            throw new ApiException(HttpStatusCode.Unauthorized, "Sesja wygasła. Zaloguj się ponownie.");
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
-        {
-            throw new ApiException(HttpStatusCode.Forbidden,
-                "Brak uprawnien do tego zasobu.");
-        }
+            throw new ApiException(HttpStatusCode.Forbidden, "Brak uprawnien do tego zasobu.");
 
         if (!response.IsSuccessStatusCode)
         {
             var responseBody = await response.Content.ReadAsStringAsync();
-            throw new ApiException(response.StatusCode,
-                $"Blad serwera ({(int)response.StatusCode}): {responseBody}");
+            throw new ApiException(response.StatusCode, $"Blad serwera ({(int)response.StatusCode}): {responseBody}");
         }
 
         return response;
+    }
+
+    private async Task<HttpResponseMessage> TryRefreshAndRetryAsync(
+        HttpResponseMessage originalResponse, HttpMethod method, string path, object? body)
+    {
+        var token = await _auth.GetAccessTokenAsync();
+        if (token is null)
+            return originalResponse;
+
+        originalResponse.Dispose();
+        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return await SendRequestAsync(method, path, body);
+    }
+
+    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string path, object? body)
+    {
+        var request = new HttpRequestMessage(method, BuildRequestUri(path));
+        if (body is not null)
+            request.Content = JsonContent.Create(body);
+
+        try
+        {
+            return await _http.SendAsync(request);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new ApiException(HttpStatusCode.ServiceUnavailable, $"Brak polaczenia z serwerem: {ex.Message}");
+        }
     }
 
     private Uri BuildRequestUri(string path)

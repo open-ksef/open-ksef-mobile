@@ -2,8 +2,8 @@ using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Support.UI;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -23,11 +23,11 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
         accountTab.Click();
 
         // Verify notifications section loaded
-        var notificationSection = wait.UntilVisible(MobileBy.AccessibilityId("AccountPageSectionNotifications"));
+        var notificationSection = wait.UntilVisible(ByAutoId("AccountPageSectionNotifications"));
         Assert.That(notificationSection.Displayed, Is.True, "Notification settings section should be visible");
 
         // Tap notification toggle
-        var toggle = wait.UntilVisible(MobileBy.AccessibilityId("AccountPageToggleNotifications"));
+        var toggle = wait.UntilVisible(ByAutoId("AccountPageToggleNotifications"));
         toggle.Click();
 
         // Handle Android notification permission dialog (API 33+)
@@ -47,7 +47,7 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
         }
 
         // Verify status text updated
-        var statusLabel = wait.UntilVisible(MobileBy.AccessibilityId("AccountPageLabelNotificationStatus"));
+        var statusLabel = wait.UntilVisible(ByAutoId("AccountPageLabelNotificationStatus"));
         Assert.That(statusLabel.Displayed, Is.True, "Notification status label should be visible");
     }
 
@@ -63,7 +63,7 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
         var accountTab = wait.UntilVisible(By.XPath("//*[contains(@text, 'Konto')]"));
         accountTab.Click();
 
-        var toggle = wait.UntilVisible(MobileBy.AccessibilityId("AccountPageToggleNotifications"));
+        var toggle = wait.UntilVisible(ByAutoId("AccountPageToggleNotifications"));
         toggle.Click();
 
         // Deny Android notification permission
@@ -82,7 +82,7 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
             // Permission dialog may not appear
         }
 
-        var statusLabel = wait.UntilVisible(MobileBy.AccessibilityId("AccountPageLabelNotificationStatus"));
+        var statusLabel = wait.UntilVisible(ByAutoId("AccountPageLabelNotificationStatus"));
         Assert.That(statusLabel.Displayed, Is.True, "Notification status label should be visible after denial");
     }
 }

@@ -194,7 +194,7 @@ public partial class OnboardingViewModel : ObservableObject
 
         try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
 
-        await Shell.Current.GoToAsync("//main/invoices");
+        try { await Shell.Current.GoToAsync("//main/invoices"); } catch { }
     }
 
     private async Task RunSyncAsync()

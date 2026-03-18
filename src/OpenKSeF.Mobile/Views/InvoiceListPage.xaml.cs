@@ -20,6 +20,6 @@ public partial class InvoiceListPage : ContentPage
 
     private async void OnGoToTenantsClicked(object? sender, EventArgs e)
     {
-        await Shell.Current.GoToAsync("//main/tenants");
+        try { await Shell.Current.GoToAsync("//main/tenants"); } catch { }
     }
 }

@@ -1,8 +1,8 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Support.UI;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
 
@@ -20,9 +20,9 @@ public sealed class InvoiceDetailsFlowTests : AndroidTestBase
         tenantFlow.SelectAnyTenant();
 
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(45));
-        wait.UntilVisible(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices"));
+        wait.UntilVisible(ByAutoId("InvoiceListPageCollectionViewInvoices"));
 
-        var firstInvoiceItem = AndroidDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageFrameInvoiceItem"))
+        var firstInvoiceItem = AndroidDriver.FindElements(ByAutoId("InvoiceListPageFrameInvoiceItem"))
             .FirstOrDefault();
         Assert.That(firstInvoiceItem, Is.Not.Null, "Expected at least one invoice item to open details.");
         firstInvoiceItem!.Click();
@@ -34,6 +34,6 @@ public sealed class InvoiceDetailsFlowTests : AndroidTestBase
 
         var backWait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(30));
         backWait.Until(driver =>
-            driver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0);
+            driver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0);
     }
 }

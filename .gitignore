@@ -61,7 +61,9 @@ packages/
 !.cursor/skills/
 .mcp.json
 .claude/
+!.claude/commands/
 .taskmaster/
+ai-code-graph/
 
 # OS files
 .DS_Store

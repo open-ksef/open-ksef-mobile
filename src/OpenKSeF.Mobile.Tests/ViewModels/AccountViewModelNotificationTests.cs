@@ -1,5 +1,4 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using NSubstitute;
 using Xunit;
 
@@ -8,12 +7,14 @@ namespace OpenKSeF.Mobile.Tests.ViewModels;
 public class AccountViewModelNotificationTests
 {
     private readonly ITestDeviceTokenService _deviceTokenService;
+    private readonly ITestNotificationHub _notificationHub;
     private readonly TestAccountViewModel _vm;
 
     public AccountViewModelNotificationTests()
     {
         _deviceTokenService = Substitute.For<ITestDeviceTokenService>();
-        _vm = new TestAccountViewModel(_deviceTokenService);
+        _notificationHub = Substitute.For<ITestNotificationHub>();
+        _vm = new TestAccountViewModel(_deviceTokenService, _notificationHub);
     }
 
     [Fact]
@@ -89,11 +90,27 @@ public class AccountViewModelNotificationTests
 
         Assert.Contains("błąd", _vm.NotificationStatusText.ToLower());
     }
+
+    [Fact]
+    public async Task LoadSettings_IncludesSignalRStatus_WhenConnected()
+    {
+        _deviceTokenService.AreNotificationsEnabledAsync().Returns(true);
+        _notificationHub.IsConnected.Returns(true);
+
+        await _vm.LoadSettingsAsync();
+
+        Assert.Contains("SignalR", _vm.NotificationStatusText);
+    }
 }
 
+/// <summary>
+/// Mirrors AccountViewModel notification logic. Keep in sync with
+/// src/OpenKSeF.Mobile/ViewModels/AccountViewModel.cs (LoadSettingsAsync, ToggleNotificationsAsync).
+/// </summary>
 public partial class TestAccountViewModel : ObservableObject
 {
     private readonly ITestDeviceTokenService _deviceTokenService;
+    private readonly ITestNotificationHub _notificationHub;
 
     [ObservableProperty]
     private bool _notificationsEnabled;
@@ -104,9 +121,10 @@ public partial class TestAccountViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
-    public TestAccountViewModel(ITestDeviceTokenService deviceTokenService)
+    public TestAccountViewModel(ITestDeviceTokenService deviceTokenService, ITestNotificationHub notificationHub)
     {
         _deviceTokenService = deviceTokenService;
+        _notificationHub = notificationHub;
     }
 
     public async Task LoadSettingsAsync()
@@ -114,8 +132,10 @@ public partial class TestAccountViewModel : ObservableObject
         try
         {
             NotificationsEnabled = await _deviceTokenService.AreNotificationsEnabledAsync();
+
+            var hubStatus = _notificationHub.IsConnected ? " (SignalR połączony)" : "";
             NotificationStatusText = NotificationsEnabled
-                ? "Powiadomienia push są włączone."
+                ? $"Powiadomienia push są włączone.{hubStatus}"
                 : "Powiadomienia push są wyłączone.";
         }
         catch

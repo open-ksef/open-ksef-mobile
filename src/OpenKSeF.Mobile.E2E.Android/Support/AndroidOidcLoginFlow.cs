@@ -1,6 +1,6 @@
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
+using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 using OpenQA.Selenium;
-using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
 using OpenQA.Selenium.Support.UI;
 
@@ -27,22 +27,22 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     {
         var nativeWait = new WaitHelper(_driver, TimeSpan.FromSeconds(45));
 
-        var emailEntry = nativeWait.UntilVisible(MobileBy.AccessibilityId("LoginPageEntryEmail"));
+        var emailEntry = nativeWait.UntilVisible(ByAutoId("LoginPageEntryEmail"));
         emailEntry.Clear();
         emailEntry.SendKeys(username);
 
-        var passwordEntry = _driver.FindElement(MobileBy.AccessibilityId("LoginPageEntryPassword"));
+        var passwordEntry = _driver.FindElement(ByAutoId("LoginPageEntryPassword"));
         passwordEntry.Clear();
         passwordEntry.SendKeys(password);
 
-        var loginButton = _driver.FindElement(MobileBy.AccessibilityId("LoginPageButtonLogin"));
+        var loginButton = _driver.FindElement(ByAutoId("LoginPageButtonLogin"));
         loginButton.Click();
     }
 
     public void LoginViaKeycloakRedirect(string username, string password)
     {
         var nativeWait = new WaitHelper(_driver, TimeSpan.FromSeconds(45));
-        var loginButton = nativeWait.UntilVisible(MobileBy.AccessibilityId("LoginPageButtonGoogle"));
+        var loginButton = nativeWait.UntilVisible(ByAutoId("LoginPageButtonGoogle"));
         loginButton.Click();
 
         SwitchToBrowserContext();
@@ -60,17 +60,17 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     {
         var wait = new WebDriverWait(_driver, timeout);
         wait.Until(currentDriver =>
-            currentDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0 ||
-            currentDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0 ||
-            currentDriver.FindElements(MobileBy.AccessibilityId("OnboardingStepIndicator")).Count > 0);
+            currentDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
+            currentDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0 ||
+            currentDriver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0);
     }
 
     public void WaitForAuthenticatedInvoiceList(TimeSpan timeout)
     {
         var wait = new WebDriverWait(_driver, timeout);
         wait.Until(currentDriver =>
-            currentDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageLabelTitle")).Count > 0 ||
-            currentDriver.FindElements(MobileBy.AccessibilityId("InvoiceListPageCollectionViewInvoices")).Count > 0);
+            currentDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
+            currentDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0);
     }
 
     private void SwitchToBrowserContext()

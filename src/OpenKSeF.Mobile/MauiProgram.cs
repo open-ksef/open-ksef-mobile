@@ -37,7 +37,7 @@ public static class MauiProgram
             };
         });
         builder.Services.AddSingleton<OidcBrowser, WebAuthenticatorBrowser>();
-        builder.Services.AddSingleton<HttpClient>();
+        builder.Services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
         builder.Services.AddSingleton<IAuthService, AuthService>();
 
         // API
@@ -46,7 +46,10 @@ public static class MauiProgram
             var settings = sp.GetRequiredService<IServerSettingsService>();
             return new ApiOptions { BaseUrl = settings.ServerUrl };
         });
-        builder.Services.AddHttpClient<IApiService, ApiService>();
+        builder.Services.AddHttpClient<IApiService, ApiService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(30);
+        });
 
         // Local cache
         builder.Services.AddSingleton<LocalDbService>();
@@ -54,6 +57,9 @@ public static class MauiProgram
         // Push notifications
         builder.Services.AddSingleton<IDeviceTokenService, DeviceTokenService>();
         builder.Services.AddSingleton<INotificationHubService, NotificationHubService>();
+
+        // Post-login navigation
+        builder.Services.AddTransient<IPostLoginNavigationService, PostLoginNavigationService>();
 
         // ViewModels
         builder.Services.AddTransient<LoginViewModel>();

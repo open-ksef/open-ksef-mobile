@@ -10,8 +10,7 @@ public partial class ScanSetupQrViewModel : ObservableObject
 {
     private readonly IServerSettingsService _serverSettings;
     private readonly IAuthService _authService;
-    private readonly IApiService _apiService;
-    private readonly IDeviceTokenService _deviceTokenService;
+    private readonly IPostLoginNavigationService _postLoginNav;
     private bool _processed;
 
     [ObservableProperty]
@@ -26,13 +25,11 @@ public partial class ScanSetupQrViewModel : ObservableObject
     public ScanSetupQrViewModel(
         IServerSettingsService serverSettings,
         IAuthService authService,
-        IApiService apiService,
-        IDeviceTokenService deviceTokenService)
+        IPostLoginNavigationService postLoginNav)
     {
         _serverSettings = serverSettings;
         _authService = authService;
-        _apiService = apiService;
-        _deviceTokenService = deviceTokenService;
+        _postLoginNav = postLoginNav;
     }
 
     public async Task ProcessBarcodeAsync(string rawValue)
@@ -68,7 +65,7 @@ public partial class ScanSetupQrViewModel : ObservableObject
                 if (redeemed)
                 {
                     StatusText = "Zalogowano automatycznie!";
-                    await NavigateAfterAutoLogin();
+                    await _postLoginNav.NavigateAsync();
                     return;
                 }
 
@@ -76,7 +73,7 @@ public partial class ScanSetupQrViewModel : ObservableObject
             }
 
             StatusText = $"Serwer ustawiony: {normalizedUrl}";
-            await Shell.Current.GoToAsync("//login");
+            try { await Shell.Current.GoToAsync("//login"); } catch { }
         }
         catch (Exception ex)
         {
@@ -89,44 +86,18 @@ public partial class ScanSetupQrViewModel : ObservableObject
         }
     }
 
-    private async Task NavigateAfterAutoLogin()
-    {
-        bool needsOnboarding = false;
-
-        try
-        {
-            var status = await _apiService.GetOnboardingStatusAsync();
-            needsOnboarding = !status.IsComplete;
-        }
-        catch
-        {
-        }
-
-        if (!needsOnboarding)
-        {
-            try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
-        }
-
-        if (needsOnboarding)
-        {
-            await Shell.Current.GoToAsync("//onboarding");
-        }
-        else
-        {
-            await Shell.Current.GoToAsync("//main/invoices");
-        }
-    }
-
     [RelayCommand]
     private async Task SkipAsync()
     {
         _serverSettings.MarkAsConfigured();
-        await Shell.Current.GoToAsync("//login");
+        try { await Shell.Current.GoToAsync("//login"); } catch { }
     }
 
     [RelayCommand]
     private async Task PickFromGalleryAsync()
     {
+        if (IsBusy) return;
+
         try
         {
             var result = await FilePicker.Default.PickAsync(new PickOptions
@@ -194,22 +165,30 @@ public partial class ScanSetupQrViewModel : ObservableObject
             var bitmap = Android.Graphics.BitmapFactory.DecodeStream(ms);
             if (bitmap is null) return null;
 
-            var pixels = new int[bitmap.Width * bitmap.Height];
-            bitmap.GetPixels(pixels, 0, bitmap.Width, 0, 0, bitmap.Width, bitmap.Height);
-
-            var bytes = new byte[pixels.Length * 4];
-            for (int i = 0; i < pixels.Length; i++)
+            try
             {
-                bytes[i * 4] = (byte)((pixels[i] >> 16) & 0xFF); // R
-                bytes[i * 4 + 1] = (byte)((pixels[i] >> 8) & 0xFF); // G
-                bytes[i * 4 + 2] = (byte)(pixels[i] & 0xFF); // B
-                bytes[i * 4 + 3] = (byte)((pixels[i] >> 24) & 0xFF); // A
-            }
+                var pixels = new int[bitmap.Width * bitmap.Height];
+                bitmap.GetPixels(pixels, 0, bitmap.Width, 0, 0, bitmap.Width, bitmap.Height);
 
-            var source = new ZXing.RGBLuminanceSource(bytes, bitmap.Width, bitmap.Height, ZXing.RGBLuminanceSource.BitmapFormat.RGBA32);
-            var reader = new ZXing.BarcodeReaderGeneric();
-            var result = reader.Decode(source);
-            return result?.Text;
+                var bytes = new byte[pixels.Length * 4];
+                for (int i = 0; i < pixels.Length; i++)
+                {
+                    bytes[i * 4] = (byte)((pixels[i] >> 16) & 0xFF);
+                    bytes[i * 4 + 1] = (byte)((pixels[i] >> 8) & 0xFF);
+                    bytes[i * 4 + 2] = (byte)(pixels[i] & 0xFF);
+                    bytes[i * 4 + 3] = (byte)((pixels[i] >> 24) & 0xFF);
+                }
+
+                var source = new ZXing.RGBLuminanceSource(bytes, bitmap.Width, bitmap.Height, ZXing.RGBLuminanceSource.BitmapFormat.RGBA32);
+                var reader = new ZXing.BarcodeReaderGeneric();
+                var result = reader.Decode(source);
+                return result?.Text;
+            }
+            finally
+            {
+                bitmap.Recycle();
+                bitmap.Dispose();
+            }
 #elif IOS
             return null;
 #else

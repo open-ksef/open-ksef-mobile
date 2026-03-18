@@ -7,10 +7,8 @@ namespace OpenKSeF.Mobile.ViewModels;
 public partial class LoginViewModel : ObservableObject
 {
     private readonly IAuthService _authService;
-    private readonly IApiService _apiService;
     private readonly IServerSettingsService _serverSettings;
-    private readonly IDeviceTokenService _deviceTokenService;
-    private readonly INotificationHubService _notificationHub;
+    private readonly IPostLoginNavigationService _postLoginNav;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -60,13 +58,11 @@ public partial class LoginViewModel : ObservableObject
         ? "LoginPageButtonSwitchToRegister"
         : "LoginPageButtonSwitchToLogin";
 
-    public LoginViewModel(IAuthService authService, IApiService apiService, IServerSettingsService serverSettings, IDeviceTokenService deviceTokenService, INotificationHubService notificationHub)
+    public LoginViewModel(IAuthService authService, IServerSettingsService serverSettings, IPostLoginNavigationService postLoginNav)
     {
         _authService = authService;
-        _apiService = apiService;
         _serverSettings = serverSettings;
-        _deviceTokenService = deviceTokenService;
-        _notificationHub = notificationHub;
+        _postLoginNav = postLoginNav;
         _serverUrl = serverSettings.ServerUrl;
         _isServerVisible = !serverSettings.IsConfigured;
     }
@@ -125,7 +121,7 @@ public partial class LoginViewModel : ObservableObject
             var success = await _authService.LoginWithCredentialsAsync(Email.Trim(), Password);
 
             if (success)
-                await NavigateAfterLogin();
+                await _postLoginNav.NavigateAsync();
             else
                 ErrorMessage = "Nieprawidłowy email lub hasło.";
         }
@@ -154,7 +150,7 @@ public partial class LoginViewModel : ObservableObject
             var success = await _authService.LoginWithGoogleAsync();
 
             if (success)
-                await NavigateAfterLogin();
+                await _postLoginNav.NavigateAsync();
             else
                 ErrorMessage = "Logowanie przez Google nie powiodło się.";
         }
@@ -205,7 +201,7 @@ public partial class LoginViewModel : ObservableObject
                 string.IsNullOrWhiteSpace(RegLastName) ? null : RegLastName.Trim());
 
             if (success)
-                await NavigateAfterLogin();
+                await _postLoginNav.NavigateAsync();
         }
         catch (InvalidOperationException ex)
         {
@@ -244,36 +240,7 @@ public partial class LoginViewModel : ObservableObject
     [RelayCommand]
     private async Task ScanQrAsync()
     {
-        await Shell.Current.GoToAsync("scanSetupQr");
-    }
-
-    private async Task NavigateAfterLogin()
-    {
-        bool needsOnboarding = false;
-
-        try
-        {
-            var status = await _apiService.GetOnboardingStatusAsync();
-            needsOnboarding = !status.IsComplete;
-        }
-        catch
-        {
-        }
-
-        if (!needsOnboarding)
-        {
-            try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
-            try { await _notificationHub.StartAsync(); } catch { }
-        }
-
-        if (needsOnboarding)
-        {
-            await Shell.Current.GoToAsync("//onboarding");
-        }
-        else
-        {
-            await Shell.Current.GoToAsync("//main/invoices");
-        }
+        try { await Shell.Current.GoToAsync("scanSetupQr"); } catch { }
     }
 
     private void EnsureServerConfigured()

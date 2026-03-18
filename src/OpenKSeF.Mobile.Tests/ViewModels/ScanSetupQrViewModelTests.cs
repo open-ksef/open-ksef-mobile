@@ -17,27 +17,21 @@ public interface ITestServerSettingsForSetup
     void MarkAsConfigured();
 }
 
-public interface ITestApiServiceForSetup
+public interface ITestPostLoginNavigation
 {
-    Task<TestOnboardingStatus> GetOnboardingStatusAsync();
-}
-
-public class TestOnboardingStatus
-{
-    public bool IsComplete { get; set; }
+    Task NavigateAsync();
 }
 
 /// <summary>
 /// Mirrors the core logic of ScanSetupQrViewModel.ProcessBarcodeAsync
-/// without MAUI Shell dependency. Tests the EXPECTED behavior after fix:
-/// onboarding check + device registration after successful auto-login.
+/// without MAUI Shell dependency. Keep in sync with
+/// src/OpenKSeF.Mobile/ViewModels/ScanSetupQrViewModel.cs.
 /// </summary>
 public partial class TestScanSetupQrViewModel : ObservableObject
 {
     private readonly ITestServerSettingsForSetup _serverSettings;
     private readonly ITestAuthServiceForSetup _authService;
-    private readonly ITestApiServiceForSetup _apiService;
-    private readonly ITestDeviceTokenService _deviceTokenService;
+    private readonly ITestPostLoginNavigation _postLoginNav;
     private bool _processed;
 
     [ObservableProperty]
@@ -54,13 +48,11 @@ public partial class TestScanSetupQrViewModel : ObservableObject
     public TestScanSetupQrViewModel(
         ITestServerSettingsForSetup serverSettings,
         ITestAuthServiceForSetup authService,
-        ITestApiServiceForSetup apiService,
-        ITestDeviceTokenService deviceTokenService)
+        ITestPostLoginNavigation postLoginNav)
     {
         _serverSettings = serverSettings;
         _authService = authService;
-        _apiService = apiService;
-        _deviceTokenService = deviceTokenService;
+        _postLoginNav = postLoginNav;
     }
 
     public async Task ProcessBarcodeAsync(string rawValue)
@@ -96,7 +88,7 @@ public partial class TestScanSetupQrViewModel : ObservableObject
                 if (redeemed)
                 {
                     StatusText = "Zalogowano automatycznie!";
-                    await NavigateAfterAutoLogin();
+                    await _postLoginNav.NavigateAsync();
                     return;
                 }
 
@@ -115,27 +107,6 @@ public partial class TestScanSetupQrViewModel : ObservableObject
         {
             IsBusy = false;
         }
-    }
-
-    private async Task NavigateAfterAutoLogin()
-    {
-        bool needsOnboarding = false;
-
-        try
-        {
-            var status = await _apiService.GetOnboardingStatusAsync();
-            needsOnboarding = !status.IsComplete;
-        }
-        catch
-        {
-        }
-
-        if (!needsOnboarding)
-        {
-            try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
-        }
-
-        NavigatedRoute = needsOnboarding ? "//onboarding" : "//main/invoices";
     }
 
     private static TestQrSetupPayloadForVm? ParsePayload(string rawValue)
@@ -174,15 +145,13 @@ public class ScanSetupQrViewModelTests
 {
     private readonly ITestServerSettingsForSetup _serverSettings;
     private readonly ITestAuthServiceForSetup _authService;
-    private readonly ITestApiServiceForSetup _apiService;
-    private readonly ITestDeviceTokenService _deviceTokenService;
+    private readonly ITestPostLoginNavigation _postLoginNav;
 
     public ScanSetupQrViewModelTests()
     {
         _serverSettings = Substitute.For<ITestServerSettingsForSetup>();
         _authService = Substitute.For<ITestAuthServiceForSetup>();
-        _apiService = Substitute.For<ITestApiServiceForSetup>();
-        _deviceTokenService = Substitute.For<ITestDeviceTokenService>();
+        _postLoginNav = Substitute.For<ITestPostLoginNavigation>();
 
         ConfigureDefaultServerSettings("https://example.com");
     }
@@ -200,7 +169,7 @@ public class ScanSetupQrViewModelTests
     }
 
     private TestScanSetupQrViewModel CreateVm() =>
-        new(_serverSettings, _authService, _apiService, _deviceTokenService);
+        new(_serverSettings, _authService, _postLoginNav);
 
     private static string BuildQrPayload(string serverUrl, string? setupToken = null) =>
         JsonSerializer.Serialize(new
@@ -212,33 +181,17 @@ public class ScanSetupQrViewModelTests
         });
 
     [Fact]
-    public async Task ProcessBarcode_AutoLogin_OnboardingComplete_NavigatesToInvoices()
+    public async Task ProcessBarcode_AutoLogin_CallsPostLoginNavigation()
     {
         _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
             .Returns(true);
-        _apiService.GetOnboardingStatusAsync()
-            .Returns(new TestOnboardingStatus { IsComplete = true });
 
         var vm = CreateVm();
         await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "valid-token"));
 
-        Assert.Equal("//main/invoices", vm.NavigatedRoute);
+        await _postLoginNav.Received(1).NavigateAsync();
         Assert.Equal("Zalogowano automatycznie!", vm.StatusText);
         Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task ProcessBarcode_AutoLogin_OnboardingNeeded_NavigatesToOnboarding()
-    {
-        _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
-            .Returns(true);
-        _apiService.GetOnboardingStatusAsync()
-            .Returns(new TestOnboardingStatus { IsComplete = false });
-
-        var vm = CreateVm();
-        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "valid-token"));
-
-        Assert.Equal("//onboarding", vm.NavigatedRoute);
     }
 
     [Fact]
@@ -303,8 +256,6 @@ public class ScanSetupQrViewModelTests
                 await Task.Delay(100);
                 return true;
             });
-        _apiService.GetOnboardingStatusAsync()
-            .Returns(new TestOnboardingStatus { IsComplete = true });
 
         var vm = CreateVm();
         var first = vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "token1"));
@@ -316,46 +267,14 @@ public class ScanSetupQrViewModelTests
     }
 
     [Fact]
-    public async Task ProcessBarcode_AutoLogin_OnboardingComplete_RegistersDevice()
+    public async Task ProcessBarcode_AutoLogin_DoesNotCallPostLoginNav_WhenRedeemFails()
     {
         _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
-            .Returns(true);
-        _apiService.GetOnboardingStatusAsync()
-            .Returns(new TestOnboardingStatus { IsComplete = true });
+            .Returns(false);
 
         var vm = CreateVm();
-        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "valid-token"));
+        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "expired-token"));
 
-        await _deviceTokenService.Received(1).EnsureDeviceRegisteredAsync();
-    }
-
-    [Fact]
-    public async Task ProcessBarcode_AutoLogin_OnboardingNeeded_SkipsDeviceRegistration()
-    {
-        _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
-            .Returns(true);
-        _apiService.GetOnboardingStatusAsync()
-            .Returns(new TestOnboardingStatus { IsComplete = false });
-
-        var vm = CreateVm();
-        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "valid-token"));
-
-        await _deviceTokenService.DidNotReceive().EnsureDeviceRegisteredAsync();
-    }
-
-    [Fact]
-    public async Task ProcessBarcode_AutoLogin_DeviceRegistrationFails_StillNavigates()
-    {
-        _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
-            .Returns(true);
-        _apiService.GetOnboardingStatusAsync()
-            .Returns(new TestOnboardingStatus { IsComplete = true });
-        _deviceTokenService.EnsureDeviceRegisteredAsync()
-            .Returns<Task>(_ => throw new Exception("Network error"));
-
-        var vm = CreateVm();
-        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "valid-token"));
-
-        Assert.Equal("//main/invoices", vm.NavigatedRoute);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
     }
 }

@@ -64,47 +64,68 @@ public class LoginViewModelTests
     }
 
     [Fact]
-    public async Task NavigateAfterLogin_CallsEnsureDeviceRegistered_WhenOnboardingComplete()
+    public async Task PostLoginNavigation_CallsEnsureDeviceRegistered_WhenOnboardingComplete()
     {
         var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
-        var navVm = new TestNavigationLoginViewModel(
+        var notificationHub = Substitute.For<ITestNotificationHub>();
+        var nav = new TestPostLoginNavigation(
             onboardingComplete: true,
-            deviceTokenService: deviceTokenService);
+            deviceTokenService: deviceTokenService,
+            notificationHub: notificationHub);
 
-        await navVm.SimulateNavigateAfterLogin();
+        await nav.NavigateAsync();
 
         await deviceTokenService.Received(1).EnsureDeviceRegisteredAsync();
-        Assert.Equal("//main/invoices", navVm.NavigatedRoute);
+        Assert.Equal("//main/invoices", nav.NavigatedRoute);
     }
 
     [Fact]
-    public async Task NavigateAfterLogin_SkipsDeviceRegistration_WhenOnboardingNeeded()
+    public async Task PostLoginNavigation_SkipsDeviceRegistration_WhenOnboardingNeeded()
     {
         var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
-        var navVm = new TestNavigationLoginViewModel(
+        var notificationHub = Substitute.For<ITestNotificationHub>();
+        var nav = new TestPostLoginNavigation(
             onboardingComplete: false,
-            deviceTokenService: deviceTokenService);
+            deviceTokenService: deviceTokenService,
+            notificationHub: notificationHub);
 
-        await navVm.SimulateNavigateAfterLogin();
+        await nav.NavigateAsync();
 
         await deviceTokenService.DidNotReceive().EnsureDeviceRegisteredAsync();
-        Assert.Equal("//onboarding", navVm.NavigatedRoute);
+        Assert.Equal("//onboarding", nav.NavigatedRoute);
     }
 
     [Fact]
-    public async Task NavigateAfterLogin_StillNavigates_WhenDeviceRegistrationFails()
+    public async Task PostLoginNavigation_StillNavigates_WhenDeviceRegistrationFails()
     {
         var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
         deviceTokenService.EnsureDeviceRegisteredAsync()
             .Returns<Task>(_ => throw new Exception("Network error"));
+        var notificationHub = Substitute.For<ITestNotificationHub>();
 
-        var navVm = new TestNavigationLoginViewModel(
+        var nav = new TestPostLoginNavigation(
             onboardingComplete: true,
-            deviceTokenService: deviceTokenService);
+            deviceTokenService: deviceTokenService,
+            notificationHub: notificationHub);
 
-        await navVm.SimulateNavigateAfterLogin();
+        await nav.NavigateAsync();
 
-        Assert.Equal("//main/invoices", navVm.NavigatedRoute);
+        Assert.Equal("//main/invoices", nav.NavigatedRoute);
+    }
+
+    [Fact]
+    public async Task PostLoginNavigation_StartsNotificationHub_WhenOnboardingComplete()
+    {
+        var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
+        var notificationHub = Substitute.For<ITestNotificationHub>();
+        var nav = new TestPostLoginNavigation(
+            onboardingComplete: true,
+            deviceTokenService: deviceTokenService,
+            notificationHub: notificationHub);
+
+        await nav.NavigateAsync();
+
+        await notificationHub.Received(1).StartAsync();
     }
 
     private static ITestServerSettings CreateServerSettings(string url, bool isConfigured)
@@ -166,29 +187,42 @@ public interface ITestDeviceTokenService
     Task<bool> AreNotificationsEnabledAsync();
 }
 
+public interface ITestNotificationHub
+{
+    Task StartAsync();
+    bool IsConnected { get; }
+}
+
 /// <summary>
-/// Mirrors the NavigateAfterLogin logic from LoginViewModel without Shell dependency.
+/// Mirrors PostLoginNavigationService logic without Shell dependency.
+/// Keep in sync with src/OpenKSeF.Mobile/Services/PostLoginNavigationService.cs.
 /// </summary>
-public class TestNavigationLoginViewModel
+public class TestPostLoginNavigation
 {
     private readonly bool _onboardingComplete;
     private readonly ITestDeviceTokenService _deviceTokenService;
+    private readonly ITestNotificationHub _notificationHub;
 
     public string? NavigatedRoute { get; private set; }
 
-    public TestNavigationLoginViewModel(bool onboardingComplete, ITestDeviceTokenService deviceTokenService)
+    public TestPostLoginNavigation(
+        bool onboardingComplete,
+        ITestDeviceTokenService deviceTokenService,
+        ITestNotificationHub notificationHub)
     {
         _onboardingComplete = onboardingComplete;
         _deviceTokenService = deviceTokenService;
+        _notificationHub = notificationHub;
     }
 
-    public async Task SimulateNavigateAfterLogin()
+    public async Task NavigateAsync()
     {
         var needsOnboarding = !_onboardingComplete;
 
         if (!needsOnboarding)
         {
             try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
+            try { await _notificationHub.StartAsync(); } catch { }
         }
 
         NavigatedRoute = needsOnboarding ? "//onboarding" : "//main/invoices";
