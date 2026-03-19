@@ -65,8 +65,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install MAUI workloads
-        run: dotnet workload install maui-android maui-ios
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
 
       - name: Decode keystore
         env:
@@ -97,6 +97,7 @@ jobs:
           dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
             -f net10.0-android \
             -c Release \
+            -p:TargetFrameworks=net10.0-android \
             -p:AndroidPackageFormats=aab \
             -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
             -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
@@ -138,8 +139,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install MAUI workloads
-        run: dotnet workload install maui-ios maui-android
+      - name: Install MAUI iOS workload
+        run: dotnet workload install maui-ios
 
       # ── Apple signing (skip if not yet configured) ──
       - name: Check if Apple signing secrets are configured
@@ -196,6 +197,7 @@ jobs:
           dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
             -f net10.0-ios \
             -c Release \
+            -p:TargetFrameworks=net10.0-ios \
             -p:BuildIpa=true \
             -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
             -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
@@ -208,6 +210,7 @@ jobs:
           dotnet build src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
             -f net10.0-ios \
             -c Release \
+            -p:TargetFrameworks=net10.0-ios \
             -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
             -p:ApplicationVersion=${{ steps.appver.outputs.build }}
 
