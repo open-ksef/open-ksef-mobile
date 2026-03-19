@@ -74,9 +74,9 @@
                         <Label Grid.Row="1"
                                Text="{Binding Invoice.IssueDate, StringFormat='{0:dd.MM.yyyy}'}"
                                FontSize="16" />
-                        <Label Grid.Column="1" Text="Data sprzedaży" Style="{StaticResource LabelCaption}" />
+                        <Label Grid.Column="1" Text="Data nabycia" Style="{StaticResource LabelCaption}" />
                         <Label Grid.Row="1" Grid.Column="1"
-                               Text="{Binding Invoice.SaleDate, StringFormat='{0:dd.MM.yyyy}'}"
+                               Text="{Binding Invoice.AcquisitionDate, StringFormat='{0:dd.MM.yyyy}'}"
                                FontSize="16" />
                     </Grid>
                 </Border>

@@ -113,4 +113,16 @@ public partial class AccountViewModel : ObservableObject
     {
         try { await Shell.Current.GoToAsync("//login"); } catch { }
     }
+
+    [RelayCommand]
+    private async Task OpenPrivacyPolicyAsync()
+    {
+        try
+        {
+            await Browser.Default.OpenAsync(
+                "https://open-ksef.pl/docs/polityka-prywatnosci",
+                BrowserLaunchMode.SystemPreferred);
+        }
+        catch { }
+    }
 }
