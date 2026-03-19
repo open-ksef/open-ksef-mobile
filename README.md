@@ -29,21 +29,6 @@ Full documentation is at [open-ksef.pl](https://open-ksef.pl).
 | Android Studio | For Android emulator |
 | Xcode (macOS) | For iOS simulator |
 
-### NuGet: CIRFMF private feed
-
-The MAUI app uses packages from the CIRFMF GitHub Packages feed. Add your credentials once:
-
-```bash
-dotnet nuget update source CIRFMF \
-  --source https://nuget.pkg.github.com/CIRFMF/index.json \
-  --username YOUR_GITHUB_USERNAME \
-  --password YOUR_GITHUB_PAT \
-  --store-password-in-clear-text \
-  --configfile src/nuget.config
-```
-
-A GitHub PAT with `read:packages` scope is required. See [GitHub docs](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-nuget-registry#authenticating-to-github-packages).
-
 ## Build
 
 ```bash
@@ -110,7 +95,6 @@ Required repository secrets:
 
 | Secret | Description |
 |--------|-------------|
-| `NUGET_CIRFMF_PAT` | GitHub PAT for CIRFMF NuGet feed |
 | `ANDROID_KEYSTORE_BASE64` | Base64-encoded Android keystore |
 | `ANDROID_KEY_ALIAS` | Keystore key alias |
 | `ANDROID_KEY_PASSWORD` | Key password |

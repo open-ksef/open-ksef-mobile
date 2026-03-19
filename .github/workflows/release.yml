@@ -68,15 +68,6 @@ jobs:
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android
 
-      - name: Configure CIRFMF NuGet feed
-        run: |
-          dotnet nuget update source CIRFMF \
-            --source https://nuget.pkg.github.com/CIRFMF/index.json \
-            --username ${{ github.actor }} \
-            --password ${{ secrets.NUGET_CIRFMF_PAT }} \
-            --store-password-in-clear-text \
-            --configfile src/nuget.config
-
       - name: Decode keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -149,15 +140,6 @@ jobs:
 
       - name: Install MAUI iOS workload
         run: dotnet workload install maui-ios
-
-      - name: Configure CIRFMF NuGet feed
-        run: |
-          dotnet nuget update source CIRFMF \
-            --source https://nuget.pkg.github.com/CIRFMF/index.json \
-            --username ${{ github.actor }} \
-            --password ${{ secrets.NUGET_CIRFMF_PAT }} \
-            --store-password-in-clear-text \
-            --configfile src/nuget.config
 
       # ── Apple signing (skip if not yet configured) ──
       - name: Check if Apple signing secrets are configured
