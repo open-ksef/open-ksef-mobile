@@ -24,6 +24,14 @@ public class ServerSettingsService : IServerSettingsService
         IsConfigured = true;
     }
 
+    private static readonly HashSet<string> CleartextAllowedHosts = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "localhost",
+        "10.0.2.2",
+    };
+
+    private static bool IsDevHost(string host) => CleartextAllowedHosts.Contains(host);
+
     public bool TryUpdateServerUrl(string url, out string normalizedUrl, out string? validationError)
     {
         normalizedUrl = url.TrimEnd('/');
@@ -39,6 +47,12 @@ public class ServerSettingsService : IServerSettingsService
             || (uri.Scheme != "http" && uri.Scheme != "https"))
         {
             validationError = "Podaj poprawny adres URL (http:// lub https://).";
+            return false;
+        }
+
+        if (uri.Scheme == "http" && !IsDevHost(uri.Host))
+        {
+            validationError = "Polaczenie HTTP dozwolone tylko dla localhost / 10.0.2.2. Uzyj HTTPS.";
             return false;
         }
 
