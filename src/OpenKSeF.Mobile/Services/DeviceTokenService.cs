@@ -75,6 +75,14 @@ public class DeviceTokenService : IDeviceTokenService
     {
         try
         {
+            var nativeToken = await TryGetNativePushTokenAsync();
+            if (!string.IsNullOrWhiteSpace(nativeToken))
+            {
+                var nativePlatform = DeviceInfo.Platform == DevicePlatform.Android ? "Android" : "iOS";
+                await RegisterTokenAsync(nativeToken, nativePlatform);
+                return;
+            }
+
             if (await IsDeviceRegisteredAsync())
                 return;
 
@@ -118,7 +126,10 @@ public class DeviceTokenService : IDeviceTokenService
             var tenantId = GetSelectedTenantId();
 
             var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-            var token = !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
+            var nativeToken = await TryGetNativePushTokenAsync();
+            var token = !string.IsNullOrWhiteSpace(nativeToken)
+                ? nativeToken
+                : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
 
             await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
             {
@@ -171,5 +182,14 @@ public class DeviceTokenService : IDeviceTokenService
         var id = $"device-{Guid.NewGuid():N}";
         Preferences.Default.Set(key, id);
         return id;
+    }
+
+    private static Task<string?> TryGetNativePushTokenAsync()
+    {
+#if ANDROID && FIREBASE_ENABLED
+        return OpenKSeF.Mobile.PushNotificationFirebaseService.TryGetCurrentTokenAsync();
+#else
+        return Task.FromResult<string?>(null);
+#endif
     }
 }
