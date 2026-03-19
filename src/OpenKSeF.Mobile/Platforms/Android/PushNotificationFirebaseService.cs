@@ -10,7 +10,7 @@ namespace OpenKSeF.Mobile;
 [IntentFilter(new[] { "com.google.firebase.MESSAGING_EVENT" })]
 public class PushNotificationFirebaseService : FirebaseMessagingService
 {
-    public static Task<string?> TryGetCurrentTokenAsync()
+    public static async Task<string?> TryGetCurrentTokenAsync()
     {
         var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -24,7 +24,15 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
             tcs.TrySetResult(null);
         }
 
-        return tcs.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        try
+        {
+            return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+        catch (TimeoutException)
+        {
+            // Token fetch can stall on some devices/networks; return null so caller can use fallback.
+            return null;
+        }
     }
 
     public override void OnNewToken(string token)
