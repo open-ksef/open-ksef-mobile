@@ -65,8 +65,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install MAUI Android workload
-        run: dotnet workload install maui-android
+      - name: Install MAUI workloads
+        run: dotnet workload install maui-android maui-ios
 
       - name: Decode keystore
         env:
@@ -138,8 +138,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Install MAUI iOS workload
-        run: dotnet workload install maui-ios
+      - name: Install MAUI workloads
+        run: dotnet workload install maui-ios maui-android
 
       # ── Apple signing (skip if not yet configured) ──
       - name: Check if Apple signing secrets are configured
