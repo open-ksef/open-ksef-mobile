@@ -84,6 +84,22 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Legal -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <VerticalStackLayout Spacing="0">
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10">
+                        <Label Text="🔒" FontSize="20" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="Polityka prywatności" FontSize="15"
+                               VerticalOptions="Center" Margin="12,0,0,0" />
+                        <Label Grid.Column="2" Text="›" FontSize="22"
+                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenPrivacyPolicyCommand}" />
+                        </Grid.GestureRecognizers>
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
         </VerticalStackLayout>
     </ScrollView>
 

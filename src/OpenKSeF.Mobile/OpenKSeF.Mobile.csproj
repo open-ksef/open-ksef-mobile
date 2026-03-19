@@ -51,6 +51,10 @@
     <PackageReference Include="SQLitePCLRaw.bundle_green" Version="2.1.10" />
   </ItemGroup>
 
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <AndroidResource Include="Platforms\Android\Resources\xml\network_security_config.xml" />
+  </ItemGroup>
+
   <!-- Android Firebase: enabled only when google-services.json is present -->
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' AND Exists('Platforms\Android\google-services.json')">
     <DefineConstants>$(DefineConstants);FIREBASE_ENABLED</DefineConstants>

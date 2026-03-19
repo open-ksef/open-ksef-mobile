@@ -18,7 +18,6 @@ Thank you for your interest in contributing to OpenKSeF Mobile! This guide will 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) with MAUI workloads
 - [Android Studio](https://developer.android.com/studio) (for Android emulator)
 - [Xcode](https://developer.apple.com/xcode/) (macOS, for iOS simulator)
-- A GitHub PAT with `read:packages` scope (for CIRFMF NuGet feed -- see README)
 
 ### Install MAUI workloads
 
