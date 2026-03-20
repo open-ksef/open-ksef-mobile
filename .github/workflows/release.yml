@@ -50,10 +50,10 @@ jobs:
             ---
 
   # ─────────────────────────────────────────────
-  # 2. MAUI Android → AAB (signed)
+  # 2. MAUI Android → signed AAB + APK
   # ─────────────────────────────────────────────
   android:
-    name: Android AAB (signed)
+    name: Android (signed)
     needs: create-release
     runs-on: ubuntu-latest
     permissions:
@@ -92,13 +92,13 @@ jobs:
           echo "display=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
 
-      - name: Build Android AAB
+      - name: Build Android AAB + APK
         run: |
           dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
             -f net10.0-android \
             -c Release \
             -p:TargetFrameworks=net10.0-android \
-            -p:AndroidPackageFormats=aab \
+            -p:AndroidPackageFormats="aab;apk" \
             -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
             -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
             -p:AndroidSigningKeyStore=openksef.keystore \
@@ -106,19 +106,25 @@ jobs:
             -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
             -p:AndroidSigningStorePass=${{ secrets.ANDROID_STORE_PASSWORD }}
 
-      - name: Find and rename AAB
-        id: aab
+      - name: Collect artifacts
+        id: artifacts
         run: |
-          SRC=$(find src/OpenKSeF.Mobile/bin/Release/net10.0-android -name "*.aab" | head -1)
-          DEST="openksef-${{ github.ref_name }}.aab"
-          cp "$SRC" "$DEST"
-          echo "path=$DEST" >> $GITHUB_OUTPUT
+          AAB_SRC=$(find src/OpenKSeF.Mobile/bin/Release/net10.0-android -name "*-Signed.aab" -o -name "*.aab" | head -1)
+          APK_SRC=$(find src/OpenKSeF.Mobile/bin/Release/net10.0-android -name "*-Signed.apk" -o -name "*.apk" | head -1)
+          AAB_DEST="openksef-${{ github.ref_name }}.aab"
+          APK_DEST="openksef-${{ github.ref_name }}.apk"
+          cp "$AAB_SRC" "$AAB_DEST"
+          cp "$APK_SRC" "$APK_DEST"
+          echo "aab=$AAB_DEST" >> $GITHUB_OUTPUT
+          echo "apk=$APK_DEST" >> $GITHUB_OUTPUT
 
-      - name: Upload AAB to release
+      - name: Upload artifacts to release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: ${{ steps.aab.outputs.path }}
+          files: |
+            ${{ steps.artifacts.outputs.aab }}
+            ${{ steps.artifacts.outputs.apk }}
 
   # ─────────────────────────────────────────────
   # 3. MAUI iOS → IPA
@@ -130,6 +136,7 @@ jobs:
     name: iOS IPA
     needs: create-release
     runs-on: macos-latest
+    continue-on-error: true
     permissions:
       contents: write
     steps:
