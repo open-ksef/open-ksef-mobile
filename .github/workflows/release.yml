@@ -98,7 +98,6 @@ jobs:
             -f net10.0-android \
             -c Release \
             -p:TargetFrameworks=net10.0-android \
-            -p:AndroidPackageFormats="aab;apk" \
             -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
             -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
             -p:AndroidSigningKeyStore=openksef.keystore \
@@ -109,8 +108,11 @@ jobs:
       - name: Collect artifacts
         id: artifacts
         run: |
-          AAB_SRC=$(find src/OpenKSeF.Mobile/bin/Release/net10.0-android -name "*-Signed.aab" -o -name "*.aab" | head -1)
-          APK_SRC=$(find src/OpenKSeF.Mobile/bin/Release/net10.0-android -name "*-Signed.apk" -o -name "*.apk" | head -1)
+          OUTDIR="src/OpenKSeF.Mobile/bin/Release/net10.0-android"
+          AAB_SRC=$(find "$OUTDIR" -name "*-Signed.aab" | head -1)
+          [ -z "$AAB_SRC" ] && AAB_SRC=$(find "$OUTDIR" -name "*.aab" | head -1)
+          APK_SRC=$(find "$OUTDIR" -name "*-Signed.apk" | head -1)
+          [ -z "$APK_SRC" ] && APK_SRC=$(find "$OUTDIR" -name "*.apk" | head -1)
           AAB_DEST="openksef-${{ github.ref_name }}.aab"
           APK_DEST="openksef-${{ github.ref_name }}.apk"
           cp "$AAB_SRC" "$AAB_DEST"
