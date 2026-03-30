@@ -15,7 +15,7 @@ public partial class InvoiceListViewModel : ObservableObject
     private bool _autoSelectAttempted;
 
     [ObservableProperty]
-    private ObservableCollection<InvoiceDto> _invoices = [];
+    private ObservableCollection<InvoiceGroup> _invoices = [];
 
     [ObservableProperty]
     private bool _isBusy;
@@ -82,7 +82,7 @@ public partial class InvoiceListViewModel : ObservableObject
             try
             {
                 var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage);
-                Invoices = new ObservableCollection<InvoiceDto>(result.Items);
+                Invoices = GroupByMonth(result.Items);
                 _totalPages = result.TotalPages;
                 HasMorePages = _currentPage < _totalPages;
                 IsEmpty = Invoices.Count == 0;
@@ -119,7 +119,7 @@ public partial class InvoiceListViewModel : ObservableObject
             if (cached.Count == 0)
                 return false;
 
-            Invoices = new ObservableCollection<InvoiceDto>(cached);
+            Invoices = GroupByMonth(cached);
             HasMorePages = false;
             IsEmpty = false;
             IsOfflineMode = true;
@@ -154,8 +154,23 @@ public partial class InvoiceListViewModel : ObservableObject
                 return;
 
             var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage);
-            foreach (var invoice in result.Items)
-                Invoices.Add(invoice);
+            var newGroups = GroupByMonth(result.Items);
+            if (newGroups.Count > 0)
+            {
+                var lastExisting = Invoices.LastOrDefault();
+                var firstNew = newGroups[0];
+                if (lastExisting != null && lastExisting.Year == firstNew.Year && lastExisting.Month == firstNew.Month)
+                {
+                    lastExisting.AddRange(firstNew);
+                    for (int i = 1; i < newGroups.Count; i++)
+                        Invoices.Add(newGroups[i]);
+                }
+                else
+                {
+                    foreach (var group in newGroups)
+                        Invoices.Add(group);
+                }
+            }
 
             _totalPages = result.TotalPages;
             HasMorePages = _currentPage < _totalPages;
@@ -204,5 +219,27 @@ public partial class InvoiceListViewModel : ObservableObject
     {
         var idStr = Preferences.Default.Get("SelectedTenantId", string.Empty);
         return Guid.TryParse(idStr, out var id) ? id : null;
+    }
+
+    private static string FormatMonthLabel(int year, int month)
+    {
+        var date = new DateTime(year, month, 1);
+        var culture = new System.Globalization.CultureInfo("pl-PL");
+        var name = date.ToString("MMMM", culture);
+        return $"{char.ToUpper(name[0])}{name[1..]} {year}";
+    }
+
+    private static ObservableCollection<InvoiceGroup> GroupByMonth(IEnumerable<InvoiceDto> invoices)
+    {
+        var groups = invoices
+            .GroupBy(i => (i.IssueDate.Year, i.IssueDate.Month))
+            .OrderByDescending(g => g.Key)
+            .Select(g =>
+            {
+                var group = new InvoiceGroup(FormatMonthLabel(g.Key.Year, g.Key.Month), g.Key.Year, g.Key.Month);
+                group.AddRange(g);
+                return group;
+            });
+        return new ObservableCollection<InvoiceGroup>(groups);
     }
 }
