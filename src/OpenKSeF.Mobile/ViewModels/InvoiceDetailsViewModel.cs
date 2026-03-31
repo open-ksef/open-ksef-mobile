@@ -18,7 +18,10 @@ public partial class InvoiceDetailsViewModel : ObservableObject
     private string? _invoiceId;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLines))]
     private InvoiceDto? _invoice;
+
+    public bool HasLines => _invoice?.Lines is { Count: > 0 };
 
     [ObservableProperty]
     private bool _isBusy;
