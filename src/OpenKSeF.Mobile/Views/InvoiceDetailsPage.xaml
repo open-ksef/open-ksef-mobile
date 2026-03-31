@@ -100,12 +100,11 @@
                         <Label Text="Pozycje faktury"
                                Style="{StaticResource LabelCaption}"
                                Margin="0,0,0,8" />
-                        <CollectionView ItemsSource="{Binding Invoice.Lines}"
-                                        SelectionMode="None">
-                            <CollectionView.ItemTemplate>
+                        <VerticalStackLayout Spacing="4"
+                                             BindableLayout.ItemsSource="{Binding Invoice.Lines}">
+                            <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="models:InvoiceLineDto">
-                                    <Border Margin="0,4"
-                                            BackgroundColor="{StaticResource Background}"
+                                    <Border BackgroundColor="{StaticResource Background}"
                                             StrokeShape="RoundRectangle 6"
                                             StrokeThickness="0"
                                             Padding="10">
@@ -154,8 +153,8 @@
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
 
