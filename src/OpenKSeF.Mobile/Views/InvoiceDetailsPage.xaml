@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:models="clr-namespace:OpenKSeF.Mobile.Models"
              x:Class="OpenKSeF.Mobile.Views.InvoiceDetailsPage"
              x:DataType="vm:InvoiceDetailsViewModel"
              Title="Szczegóły faktury">
@@ -89,6 +90,71 @@
                                AutomationId="InvoiceDetailsPageLabelKsefNumber" />
                         <Label Text="Numer referencyjny" Style="{StaticResource LabelCaption}" />
                         <Label Text="{Binding Invoice.KSeFReferenceNumber}" FontSize="14" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Invoice lines -->
+                <Border Margin="15,5" Style="{StaticResource CardBorder}"
+                        IsVisible="{Binding HasLines}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="Pozycje faktury"
+                               Style="{StaticResource LabelCaption}"
+                               Margin="0,0,0,8" />
+                        <VerticalStackLayout Spacing="4"
+                                             BindableLayout.ItemsSource="{Binding Invoice.Lines}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="models:InvoiceLineDto">
+                                    <Border BackgroundColor="{StaticResource Background}"
+                                            StrokeShape="RoundRectangle 6"
+                                            StrokeThickness="0"
+                                            Padding="10">
+                                        <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
+                                            <!-- Line number + name -->
+                                            <Label Grid.Column="0"
+                                                   FontSize="14"
+                                                   FontAttributes="Bold"
+                                                   Text="{Binding Name}"
+                                                   LineBreakMode="WordWrap" />
+                                            <Label Grid.Column="1"
+                                                   FontSize="11"
+                                                   TextColor="{StaticResource TextMuted}"
+                                                   Text="{Binding LineNumber, StringFormat='#{0}'}"
+                                                   HorizontalTextAlignment="End" />
+                                            <!-- Quantity × unit -->
+                                            <Label Grid.Row="1" Grid.ColumnSpan="2"
+                                                   FontSize="12"
+                                                   TextColor="{StaticResource TextMuted}">
+                                                <Label.FormattedText>
+                                                    <FormattedString>
+                                                        <Span Text="{Binding Quantity, StringFormat='{0:N4}'}" />
+                                                        <Span Text=" " />
+                                                        <Span Text="{Binding Unit}" />
+                                                        <Span Text="  ×  " TextColor="{StaticResource TextMuted}" />
+                                                        <Span Text="{Binding UnitPriceNet, StringFormat='{0:N2}'}" />
+                                                        <Span Text=" netto" TextColor="{StaticResource TextMuted}" />
+                                                    </FormattedString>
+                                                </Label.FormattedText>
+                                            </Label>
+                                            <!-- Amounts -->
+                                            <Label Grid.Row="2" Grid.ColumnSpan="2"
+                                                   FontSize="13"
+                                                   FontAttributes="Bold">
+                                                <Label.FormattedText>
+                                                    <FormattedString>
+                                                        <Span Text="Netto: " TextColor="{StaticResource TextMuted}" FontSize="11" />
+                                                        <Span Text="{Binding AmountNet, StringFormat='{0:N2}'}" />
+                                                        <Span Text="   Brutto: " TextColor="{StaticResource TextMuted}" FontSize="11" />
+                                                        <Span Text="{Binding AmountGross, StringFormat='{0:N2}'}" />
+                                                        <Span Text="   VAT: " TextColor="{StaticResource TextMuted}" FontSize="11" />
+                                                        <Span Text="{Binding VatRate}" />
+                                                    </FormattedString>
+                                                </Label.FormattedText>
+                                            </Label>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
 

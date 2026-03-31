@@ -18,4 +18,5 @@ public class InvoiceDto
     public DateTime? AcquisitionDate { get; set; }
     public string? InvoiceType { get; set; }
     public DateTime FirstSeenAt { get; set; }
+    public List<InvoiceLineDto> Lines { get; set; } = new();
 }
