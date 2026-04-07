@@ -90,6 +90,8 @@
                         <Label Text="Numer KSeF" Style="{StaticResource LabelCaption}" />
                         <Label Text="{Binding Invoice.KSeFInvoiceNumber}" FontSize="14"
                                AutomationId="InvoiceDetailsPageLabelKsefNumber" />
+                        <Label Text="Numer referencyjny" Style="{StaticResource LabelCaption}" />
+                        <Label Text="{Binding Invoice.KSeFReferenceNumber}" FontSize="14" />
                     </VerticalStackLayout>
                 </Border>
 
