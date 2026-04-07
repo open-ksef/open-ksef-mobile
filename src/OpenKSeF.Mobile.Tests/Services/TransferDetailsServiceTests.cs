@@ -20,7 +20,7 @@ public class TransferDetailsServiceTests
             lines.Add($"NIP: {vendorNip}");
 
         lines.Add($"Kwota: {amount.ToString("N2", CultureInfo.InvariantCulture)} {currency}");
-        lines.Add($"Tytul: Faktura {invoiceNumber}");
+        lines.Add($"Tytul: {invoiceNumber}");
 
         return string.Join("\n", lines);
     }
@@ -33,7 +33,7 @@ public class TransferDetailsServiceTests
         Assert.Contains("Odbiorca: Test Sp. z o.o.", result);
         Assert.Contains("NIP: 5261040828", result);
         Assert.Contains("Kwota: 1,230.50 PLN", result);
-        Assert.Contains("Tytul: Faktura FV/2026/001", result);
+        Assert.Contains("Tytul: FV/2026/001", result);
     }
 
     [Fact]

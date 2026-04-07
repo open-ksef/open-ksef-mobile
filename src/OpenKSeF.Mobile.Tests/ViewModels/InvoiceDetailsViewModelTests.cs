@@ -9,6 +9,7 @@ public class InvoiceDto
     public string VendorNip { get; set; } = string.Empty;
     public decimal AmountGross { get; set; }
     public string Currency { get; set; } = "PLN";
+    public string? InvoiceNumber { get; set; }
     public string KSeFInvoiceNumber { get; set; } = string.Empty;
 }
 
@@ -20,7 +21,7 @@ public class InvoiceDetailsViewModelTests
         return $"Odbiorca: {invoice.VendorName}\n" +
                $"NIP: {invoice.VendorNip}\n" +
                $"Kwota: {invoice.AmountGross:N2} {invoice.Currency}\n" +
-               $"Tytul: Faktura {invoice.KSeFInvoiceNumber}";
+               $"Tytul: {invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber}";
     }
 
     [Fact]
@@ -40,7 +41,7 @@ public class InvoiceDetailsViewModelTests
         Assert.Contains("Odbiorca: Test Sp. z o.o.", result);
         Assert.Contains("NIP: 5261040828", result);
         Assert.Contains("1,230.50 PLN", result); // or 1 230,50 depending on culture
-        Assert.Contains("Tytul: Faktura FV/2026/001", result);
+        Assert.Contains("Tytul: FV/2026/001", result);
     }
 
     [Fact]
@@ -62,5 +63,41 @@ public class InvoiceDetailsViewModelTests
         Assert.Contains("Kwota:", result);
         Assert.Contains("Tytul:", result);
         Assert.Contains("EUR", result);
+    }
+
+    [Fact]
+    public void BuildTransferDetails_PrefersSellerInvoiceNumber()
+    {
+        var invoice = new InvoiceDto
+        {
+            VendorName = "Vendor",
+            VendorNip = "1234567890",
+            AmountGross = 100m,
+            Currency = "PLN",
+            InvoiceNumber = "15445/04/2026",
+            KSeFInvoiceNumber = "KSEF-001"
+        };
+
+        var result = BuildTransferDetails(invoice);
+
+        Assert.Contains("Tytul: 15445/04/2026", result);
+    }
+
+    [Fact]
+    public void BuildTransferDetails_UsesKsefNumberWhenSellerInvoiceNumberMissing()
+    {
+        var invoice = new InvoiceDto
+        {
+            VendorName = "Vendor",
+            VendorNip = "1234567890",
+            AmountGross = 100m,
+            Currency = "PLN",
+            InvoiceNumber = null,
+            KSeFInvoiceNumber = "KSEF-001"
+        };
+
+        var result = BuildTransferDetails(invoice);
+
+        Assert.Contains("Tytul: KSEF-001", result);
     }
 }

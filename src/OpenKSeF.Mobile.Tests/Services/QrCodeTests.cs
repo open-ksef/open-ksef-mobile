@@ -29,7 +29,7 @@ public class QrCodeTests
                 sb.Append(ch);
         }
 
-        var cleaned = Regex.Replace(sb.ToString(), "[^a-zA-Z0-9 .\\-]", "");
+        var cleaned = Regex.Replace(sb.ToString(), "[^a-zA-Z0-9 .\\-/]", "");
         return cleaned.Length <= maxLength ? cleaned : cleaned[..maxLength];
     }
 
@@ -51,7 +51,7 @@ public class QrCodeTests
         }
 
         var name = Sanitize(vendorName, 20);
-        var title = Sanitize($"Faktura {invoiceNumber}", 32);
+        var title = Sanitize(invoiceNumber, 32);
         var grosze = AmountToGrosze(amount);
 
         return $"|PL|{sanitizedAccount}|{grosze}|{name}|{title}|||";
@@ -167,7 +167,7 @@ public class QrCodeTests
     [Fact]
     public void QrCodeGeneration_ProducesValidPng()
     {
-        var payload = "|PL||50000|Test Vendor|Faktura FV-001|||";
+        var payload = "|PL||50000|Test Vendor|FV-001|||";
 
         using var qrGenerator = new QRCodeGenerator();
         using var qrCodeData = qrGenerator.CreateQrCode(payload, QRCodeGenerator.ECCLevel.M);

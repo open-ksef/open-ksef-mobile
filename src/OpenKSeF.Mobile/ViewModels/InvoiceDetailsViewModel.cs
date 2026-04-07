@@ -111,6 +111,6 @@ public partial class InvoiceDetailsViewModel : ObservableObject
         return $"Odbiorca: {invoice.VendorName}\n" +
                $"NIP: {invoice.VendorNip}\n" +
                $"Kwota: {invoice.AmountGross:N2} {invoice.Currency}\n" +
-               $"Tytul: Faktura {invoice.KSeFInvoiceNumber}";
+               $"Tytul: {invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber}";
     }
 }
