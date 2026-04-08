@@ -92,6 +92,39 @@ jobs:
           echo "display=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
 
+      - name: Resolve Android signing credentials
+        id: android-signing
+        env:
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS_RAW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASS_RAW: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          KEY_PASS="$KEY_PASS_RAW"
+          STORE_PASS="$STORE_PASS_RAW"
+
+          if [ -z "$KEY_PASS" ]; then
+            KEY_PASS="$STORE_PASS"
+          fi
+
+          if [ -z "$STORE_PASS" ]; then
+            STORE_PASS="$KEY_PASS"
+          fi
+
+          if [ -z "$KEY_ALIAS" ]; then
+            KEY_ALIAS="openksef"
+          fi
+
+          if [ -z "$KEY_PASS" ] || [ -z "$STORE_PASS" ]; then
+            echo "ANDROID_KEY_PASSWORD and ANDROID_STORE_PASSWORD are both empty or missing."
+            exit 1
+          fi
+
+          echo "::add-mask::$KEY_PASS"
+          echo "::add-mask::$STORE_PASS"
+          echo "key_alias=$KEY_ALIAS" >> $GITHUB_OUTPUT
+          echo "key_pass=$KEY_PASS" >> $GITHUB_OUTPUT
+          echo "store_pass=$STORE_PASS" >> $GITHUB_OUTPUT
+
       - name: Build Android AAB + APK
         run: |
           dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
@@ -102,9 +135,9 @@ jobs:
             -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
             -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
             -p:AndroidSigningKeyStore=openksef.keystore \
-            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
-            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
-            -p:AndroidSigningStorePass=${{ secrets.ANDROID_STORE_PASSWORD }}
+            -p:AndroidSigningKeyAlias=${{ steps.android-signing.outputs.key_alias }} \
+            -p:AndroidSigningKeyPass=${{ steps.android-signing.outputs.key_pass }} \
+            -p:AndroidSigningStorePass=${{ steps.android-signing.outputs.store_pass }}
 
       - name: Collect artifacts
         id: artifacts
