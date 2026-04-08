@@ -85,6 +85,8 @@
                 <!-- KSeF identifiers -->
                 <Border Margin="15,5" Style="{StaticResource CardBorder}">
                     <VerticalStackLayout Spacing="8">
+                        <Label Text="Numer faktury" Style="{StaticResource LabelCaption}" />
+                        <Label Text="{Binding Invoice.InvoiceNumber, TargetNullValue='---'}" FontSize="14" />
                         <Label Text="Numer KSeF" Style="{StaticResource LabelCaption}" />
                         <Label Text="{Binding Invoice.KSeFInvoiceNumber}" FontSize="14"
                                AutomationId="InvoiceDetailsPageLabelKsefNumber" />

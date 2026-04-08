@@ -6,6 +6,7 @@ public class InvoiceDto
     public string KSeFInvoiceNumber { get; set; } = string.Empty;
     public string KSeFReferenceNumber { get; set; } = string.Empty;
     public string? InvoiceNumber { get; set; }
+    public string DisplayNumber => InvoiceNumber ?? KSeFInvoiceNumber;
     public string VendorName { get; set; } = string.Empty;
     public string VendorNip { get; set; } = string.Empty;
     public string? BuyerName { get; set; }

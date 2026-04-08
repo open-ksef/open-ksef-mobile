@@ -36,7 +36,7 @@ public static partial class TransferQrGenerator
     {
         var amount = AmountToGrosze(invoice.AmountGross);
         var name = Sanitize(invoice.VendorName, MaxNameLength);
-        var title = Sanitize($"Faktura {invoice.KSeFInvoiceNumber}", MaxTitleLength);
+        var title = Sanitize(invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber, MaxTitleLength);
 
         return $"|PL||{amount}|{name}|{title}|||";
     }
@@ -68,6 +68,6 @@ public static partial class TransferQrGenerator
         return cleaned.Length <= maxLength ? cleaned : cleaned[..maxLength];
     }
 
-    [GeneratedRegex("[^a-zA-Z0-9 .\\-]")]
+    [GeneratedRegex("[^a-zA-Z0-9 .\\-/]")]
     private static partial Regex AllowedCharsRegex();
 }
