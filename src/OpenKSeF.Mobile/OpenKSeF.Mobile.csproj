@@ -23,6 +23,7 @@
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 
     <!-- Android signing (Release) -->
+    <AndroidKeyStore Condition="'$(Configuration)' == 'Release'">true</AndroidKeyStore>
     <AndroidSigningKeyStore Condition="'$(Configuration)' == 'Release'">openksef.keystore</AndroidSigningKeyStore>
     <AndroidSigningKeyAlias Condition="'$(Configuration)' == 'Release'">openksef</AndroidSigningKeyAlias>
     <AndroidSigningKeyPass Condition="'$(Configuration)' == 'Release' AND '$(AndroidSigningKeyPass)' == ''">$(ANDROID_SIGNING_PASSWORD)</AndroidSigningKeyPass>
