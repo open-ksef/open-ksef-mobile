@@ -88,10 +88,20 @@
                      Command="{Binding RefreshCommand}"
                      IsRefreshing="{Binding IsRefreshing}">
             <CollectionView ItemsSource="{Binding Invoices}"
+                            IsGrouped="True"
                             AutomationId="InvoiceListPageCollectionViewInvoices"
                             SelectionMode="None"
                             RemainingItemsThreshold="3"
                             RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
+                <CollectionView.GroupHeaderTemplate>
+                    <DataTemplate x:DataType="vm:InvoiceGroup">
+                        <Label Text="{Binding MonthLabel}"
+                               FontAttributes="Bold"
+                               FontSize="13"
+                               Margin="10,12,10,2"
+                               HorizontalOptions="Start" />
+                    </DataTemplate>
+                </CollectionView.GroupHeaderTemplate>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="models:InvoiceDto">
                         <Border Margin="10,5" Padding="15"
