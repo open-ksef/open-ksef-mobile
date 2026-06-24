@@ -19,8 +19,11 @@ public class DeviceTokenService : IDeviceTokenService
     public async Task RegisterTokenAsync(string token, string platform)
     {
         var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-        if (storedToken == token)
+        if (storedToken == token && await ServerHasTokenAsync(token))
+        {
+            Preferences.Default.Set(DeviceRegisteredKey, true);
             return;
+        }
 
         try
         {
@@ -45,9 +48,6 @@ public class DeviceTokenService : IDeviceTokenService
 
     public async Task<bool> IsDeviceRegisteredAsync()
     {
-        if (Preferences.Default.Get(DeviceRegisteredKey, false))
-            return true;
-
         try
         {
             var devices = await _apiService.GetDevicesAsync();
@@ -62,6 +62,8 @@ public class DeviceTokenService : IDeviceTokenService
 
             if (found)
                 Preferences.Default.Set(DeviceRegisteredKey, true);
+            else
+                Preferences.Default.Set(DeviceRegisteredKey, false);
 
             return found;
         }
@@ -98,6 +100,8 @@ public class DeviceTokenService : IDeviceTokenService
                 TenantId = tenantId
             });
 
+            Preferences.Default.Set(TokenStorageKey, deviceId);
+            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
             Preferences.Default.Set(DeviceRegisteredKey, true);
         }
         catch
@@ -138,6 +142,8 @@ public class DeviceTokenService : IDeviceTokenService
                 TenantId = tenantId
             });
 
+            Preferences.Default.Set(TokenStorageKey, token);
+            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
             Preferences.Default.Set(DeviceRegisteredKey, true);
             registered = true;
         }
@@ -167,6 +173,11 @@ public class DeviceTokenService : IDeviceTokenService
         return DeviceInfo.Platform == DevicePlatform.Android ? 0 : 1;
     }
 
+    private static string GetCurrentPlatformName()
+    {
+        return DeviceInfo.Platform == DevicePlatform.Android ? "Android" : "iOS";
+    }
+
     private static int ParsePlatform(string platform)
     {
         return platform.Equals("iOS", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
@@ -191,5 +202,18 @@ public class DeviceTokenService : IDeviceTokenService
 #else
         return Task.FromResult<string?>(null);
 #endif
+    }
+
+    private async Task<bool> ServerHasTokenAsync(string token)
+    {
+        try
+        {
+            var devices = await _apiService.GetDevicesAsync();
+            return devices.Any(d => d.Token == token);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

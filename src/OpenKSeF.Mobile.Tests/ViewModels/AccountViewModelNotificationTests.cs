@@ -67,15 +67,17 @@ public class AccountViewModelNotificationTests
     }
 
     [Fact]
-    public async Task ToggleNotifications_AlreadyEnabled_ShowsSystemSettingsMessage()
+    public async Task ToggleNotifications_AlreadyEnabled_RefreshesRegistration()
     {
         _deviceTokenService.AreNotificationsEnabledAsync().Returns(true);
+        _deviceTokenService.EnableNotificationsAsync().Returns(true);
 
         await _vm.LoadSettingsAsync();
         await _vm.ToggleNotificationsAsync();
 
-        await _deviceTokenService.DidNotReceive().EnableNotificationsAsync();
-        Assert.Contains("system", _vm.NotificationStatusText.ToLower());
+        await _deviceTokenService.Received(1).EnableNotificationsAsync();
+        Assert.True(_vm.NotificationsEnabled);
+        Assert.Contains("wĹ‚Ä…czone", _vm.NotificationStatusText);
     }
 
     [Fact]
@@ -156,8 +158,11 @@ public partial class TestAccountViewModel : ObservableObject
 
             if (alreadyEnabled)
             {
-                NotificationsEnabled = true;
-                NotificationStatusText = "Aby wyłączyć powiadomienia, zmień ustawienia w systemie.";
+                var refreshed = await _deviceTokenService.EnableNotificationsAsync();
+                NotificationsEnabled = refreshed;
+                NotificationStatusText = refreshed
+                    ? "Powiadomienia push sÄ… wĹ‚Ä…czone."
+                    : "Nie udaĹ‚o siÄ™ odnowiÄ‡ rejestracji powiadomieĹ„.";
                 return;
             }
 
