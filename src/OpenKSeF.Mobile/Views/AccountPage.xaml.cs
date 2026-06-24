@@ -5,6 +5,7 @@ namespace OpenKSeF.Mobile.Views;
 public partial class AccountPage : ContentPage
 {
     private readonly AccountViewModel _viewModel;
+    private bool _isLoadingSettings;
 
     public AccountPage(AccountViewModel vm)
     {
@@ -13,14 +14,25 @@ public partial class AccountPage : ContentPage
         _viewModel = vm;
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
-        _viewModel.LoadSettingsCommand.Execute(null);
+        _isLoadingSettings = true;
+        try
+        {
+            await _viewModel.LoadSettingsAsync();
+        }
+        finally
+        {
+            _isLoadingSettings = false;
+        }
     }
 
     private void OnNotificationToggled(object? sender, ToggledEventArgs e)
     {
+        if (_isLoadingSettings)
+            return;
+
         _viewModel.ToggleNotificationsCommand.Execute(null);
     }
 }
