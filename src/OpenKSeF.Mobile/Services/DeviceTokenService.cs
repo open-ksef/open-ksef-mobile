@@ -27,13 +27,14 @@ public class DeviceTokenService : IDeviceTokenService
 
         try
         {
-            var tenantId = GetSelectedTenantId();
 
+            // TenantId = null: the device gets pushes for all of the user's companies.
+            // Per-company scoping is an explicit choice made in the portal.
             await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
             {
                 Token = token,
                 Platform = ParsePlatform(platform),
-                TenantId = tenantId
+                TenantId = null
             });
 
             Preferences.Default.Set(TokenStorageKey, token);
@@ -89,7 +90,6 @@ public class DeviceTokenService : IDeviceTokenService
                 return;
 
             var platformInt = GetCurrentPlatform();
-            var tenantId = GetSelectedTenantId();
 
             var deviceId = GetOrCreateDeviceId();
 
@@ -97,7 +97,7 @@ public class DeviceTokenService : IDeviceTokenService
             {
                 Token = deviceId,
                 Platform = platformInt,
-                TenantId = tenantId
+                TenantId = null
             });
 
             Preferences.Default.Set(TokenStorageKey, deviceId);
@@ -127,7 +127,6 @@ public class DeviceTokenService : IDeviceTokenService
         try
         {
             var platformInt = GetCurrentPlatform();
-            var tenantId = GetSelectedTenantId();
 
             var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
             var nativeToken = await TryGetNativePushTokenAsync();
@@ -139,7 +138,7 @@ public class DeviceTokenService : IDeviceTokenService
             {
                 Token = token,
                 Platform = platformInt,
-                TenantId = tenantId
+                TenantId = null
             });
 
             Preferences.Default.Set(TokenStorageKey, token);
@@ -158,14 +157,6 @@ public class DeviceTokenService : IDeviceTokenService
     {
         var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
         return status == PermissionStatus.Granted;
-    }
-
-    private static Guid? GetSelectedTenantId()
-    {
-        var tenantIdStr = Preferences.Default.Get("SelectedTenantId", string.Empty);
-        if (Guid.TryParse(tenantIdStr, out var tenantId))
-            return tenantId;
-        return null;
     }
 
     private static int GetCurrentPlatform()
