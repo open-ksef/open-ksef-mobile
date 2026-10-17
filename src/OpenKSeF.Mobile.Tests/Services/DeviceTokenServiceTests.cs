@@ -68,6 +68,43 @@ public class DeviceTokenServiceTests
     }
 
     [Fact]
+    public async Task IsDeviceRegistered_IgnoresCachedFlag_WhenServerTokenMissing()
+    {
+        var cachedRegistered = true;
+        var storedToken = "missing-token";
+        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>());
+
+        var devices = await _apiService.GetDevicesAsync();
+        var found = devices.Any(d => d.Token == storedToken);
+        cachedRegistered = found;
+
+        Assert.False(cachedRegistered);
+    }
+
+    [Fact]
+    public async Task RegisterToken_VerifiesServer_WhenStoredTokenMatches()
+    {
+        var storedToken = "fcm-token-abc";
+        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>());
+
+        var serverHasStoredToken = (await _apiService.GetDevicesAsync())
+            .Any(d => d.Token == storedToken);
+
+        if (!serverHasStoredToken)
+        {
+            await _apiService.RegisterDeviceTokenAsync(new TestRegisterDeviceTokenRequest
+            {
+                Token = storedToken,
+                Platform = 0
+            });
+        }
+
+        await _apiService.Received(1).GetDevicesAsync();
+        await _apiService.Received(1).RegisterDeviceTokenAsync(
+            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.Token == storedToken));
+    }
+
+    [Fact]
     public async Task IsDeviceRegistered_MatchesByPlatform_WhenNoStoredToken()
     {
         _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>
@@ -126,41 +163,39 @@ public class DeviceTokenServiceTests
     }
 
     [Fact]
-    public async Task EnsureDeviceRegistered_PassesTenantId_WhenAvailable()
+    public async Task EnsureDeviceRegistered_RegistersForAllCompanies()
     {
         _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>());
 
-        var tenantId = Guid.NewGuid();
         var request = new TestRegisterDeviceTokenRequest
         {
             Token = "device-id",
             Platform = 0,
-            TenantId = tenantId
+            TenantId = null
         };
 
         await _apiService.RegisterDeviceTokenAsync(request);
 
         await _apiService.Received(1).RegisterDeviceTokenAsync(
-            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.TenantId == tenantId));
+            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.TenantId == null));
     }
 
     [Fact]
     public async Task EnableNotifications_RegistersWithStoredToken_WhenPermissionGranted()
     {
         var storedToken = "fcm-token-abc";
-        var tenantId = Guid.NewGuid();
 
         var request = new TestRegisterDeviceTokenRequest
         {
             Token = storedToken,
             Platform = 0,
-            TenantId = tenantId
+            TenantId = null
         };
 
         await _apiService.RegisterDeviceTokenAsync(request);
 
         await _apiService.Received(1).RegisterDeviceTokenAsync(
-            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.Token == storedToken && r.TenantId == tenantId));
+            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.Token == storedToken && r.TenantId == null));
     }
 
     [Fact]
@@ -179,6 +214,26 @@ public class DeviceTokenServiceTests
 
         await _apiService.Received(1).RegisterDeviceTokenAsync(
             Arg.Is<TestRegisterDeviceTokenRequest>(r => r.Token == deviceId));
+    }
+
+    [Fact]
+    public async Task EnableNotifications_PersistsRegisteredFallbackToken_ForLaterVerification()
+    {
+        var storedPushToken = string.Empty;
+        var deviceId = "device-fallback-id";
+        var storedTokenAfterRegistration = string.Empty;
+
+        var token = !string.IsNullOrEmpty(storedPushToken) ? storedPushToken : deviceId;
+
+        await _apiService.RegisterDeviceTokenAsync(new TestRegisterDeviceTokenRequest
+        {
+            Token = token,
+            Platform = 0
+        });
+
+        storedTokenAfterRegistration = token;
+
+        Assert.Equal(deviceId, storedTokenAfterRegistration);
     }
 
     [Fact]

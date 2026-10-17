@@ -19,18 +19,22 @@ public class DeviceTokenService : IDeviceTokenService
     public async Task RegisterTokenAsync(string token, string platform)
     {
         var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-        if (storedToken == token)
+        if (storedToken == token && await ServerHasTokenAsync(token))
+        {
+            Preferences.Default.Set(DeviceRegisteredKey, true);
             return;
+        }
 
         try
         {
-            var tenantId = GetSelectedTenantId();
 
+            // TenantId = null: the device gets pushes for all of the user's companies.
+            // Per-company scoping is an explicit choice made in the portal.
             await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
             {
                 Token = token,
                 Platform = ParsePlatform(platform),
-                TenantId = tenantId
+                TenantId = null
             });
 
             Preferences.Default.Set(TokenStorageKey, token);
@@ -45,9 +49,6 @@ public class DeviceTokenService : IDeviceTokenService
 
     public async Task<bool> IsDeviceRegisteredAsync()
     {
-        if (Preferences.Default.Get(DeviceRegisteredKey, false))
-            return true;
-
         try
         {
             var devices = await _apiService.GetDevicesAsync();
@@ -62,6 +63,8 @@ public class DeviceTokenService : IDeviceTokenService
 
             if (found)
                 Preferences.Default.Set(DeviceRegisteredKey, true);
+            else
+                Preferences.Default.Set(DeviceRegisteredKey, false);
 
             return found;
         }
@@ -87,7 +90,6 @@ public class DeviceTokenService : IDeviceTokenService
                 return;
 
             var platformInt = GetCurrentPlatform();
-            var tenantId = GetSelectedTenantId();
 
             var deviceId = GetOrCreateDeviceId();
 
@@ -95,9 +97,11 @@ public class DeviceTokenService : IDeviceTokenService
             {
                 Token = deviceId,
                 Platform = platformInt,
-                TenantId = tenantId
+                TenantId = null
             });
 
+            Preferences.Default.Set(TokenStorageKey, deviceId);
+            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
             Preferences.Default.Set(DeviceRegisteredKey, true);
         }
         catch
@@ -123,7 +127,6 @@ public class DeviceTokenService : IDeviceTokenService
         try
         {
             var platformInt = GetCurrentPlatform();
-            var tenantId = GetSelectedTenantId();
 
             var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
             var nativeToken = await TryGetNativePushTokenAsync();
@@ -135,9 +138,11 @@ public class DeviceTokenService : IDeviceTokenService
             {
                 Token = token,
                 Platform = platformInt,
-                TenantId = tenantId
+                TenantId = null
             });
 
+            Preferences.Default.Set(TokenStorageKey, token);
+            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
             Preferences.Default.Set(DeviceRegisteredKey, true);
             registered = true;
         }
@@ -154,17 +159,14 @@ public class DeviceTokenService : IDeviceTokenService
         return status == PermissionStatus.Granted;
     }
 
-    private static Guid? GetSelectedTenantId()
-    {
-        var tenantIdStr = Preferences.Default.Get("SelectedTenantId", string.Empty);
-        if (Guid.TryParse(tenantIdStr, out var tenantId))
-            return tenantId;
-        return null;
-    }
-
     private static int GetCurrentPlatform()
     {
         return DeviceInfo.Platform == DevicePlatform.Android ? 0 : 1;
+    }
+
+    private static string GetCurrentPlatformName()
+    {
+        return DeviceInfo.Platform == DevicePlatform.Android ? "Android" : "iOS";
     }
 
     private static int ParsePlatform(string platform)
@@ -191,5 +193,18 @@ public class DeviceTokenService : IDeviceTokenService
 #else
         return Task.FromResult<string?>(null);
 #endif
+    }
+
+    private async Task<bool> ServerHasTokenAsync(string token)
+    {
+        try
+        {
+            var devices = await _apiService.GetDevicesAsync();
+            return devices.Any(d => d.Token == token);
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

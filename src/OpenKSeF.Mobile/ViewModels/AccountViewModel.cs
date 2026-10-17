@@ -71,8 +71,11 @@ public partial class AccountViewModel : ObservableObject
 
             if (alreadyEnabled)
             {
-                NotificationsEnabled = true;
-                NotificationStatusText = "Aby wyłączyć powiadomienia, zmień ustawienia w systemie.";
+                var refreshed = await _deviceTokenService.EnableNotificationsAsync();
+                NotificationsEnabled = refreshed;
+                NotificationStatusText = refreshed
+                    ? "Powiadomienia push są włączone."
+                    : "Nie udało się odnowić rejestracji powiadomień.";
                 return;
             }
 
