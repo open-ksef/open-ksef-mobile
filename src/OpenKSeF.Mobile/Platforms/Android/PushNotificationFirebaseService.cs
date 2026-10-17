@@ -83,9 +83,12 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
             notificationManager.CreateNotificationChannel(channel);
         }
 
+        // Unique id per notification: several invoices in one sync must not overwrite each other
+        // or share a one-shot PendingIntent.
+        var notificationId = Random.Shared.Next();
         var intent = new Intent(this, typeof(MainActivity));
         intent.AddFlags(ActivityFlags.ClearTop);
-        var pendingIntent = PendingIntent.GetActivity(this, 0, intent,
+        var pendingIntent = PendingIntent.GetActivity(this, notificationId, intent,
             PendingIntentFlags.OneShot | PendingIntentFlags.Immutable);
 
         var builder = new Notification.Builder(this, channelId)
@@ -95,7 +98,7 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
             .SetAutoCancel(true)
             .SetContentIntent(pendingIntent);
 
-        notificationManager.Notify(DateTime.UtcNow.Millisecond, builder.Build());
+        notificationManager.Notify(notificationId, builder.Build());
     }
 
     private sealed class FcmTokenCompleteListener : Java.Lang.Object, Android.Gms.Tasks.IOnCompleteListener
