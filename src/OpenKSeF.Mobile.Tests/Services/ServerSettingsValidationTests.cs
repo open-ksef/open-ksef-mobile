@@ -71,6 +71,18 @@ public class ServerSettingsValidationTests
     }
 
     [Fact]
+    public void AllowDevCleartext_FollowsBuildConfiguration()
+    {
+#if DEBUG
+        Assert.True(ServerUrlRules.AllowDevCleartext);
+#else
+        Assert.False(ServerUrlRules.AllowDevCleartext);
+        Assert.False(ServerUrlRules.TryNormalize("http://10.0.2.2:8080", ServerUrlRules.AllowDevCleartext, out _, out var error));
+        Assert.Equal("Wymagane jest polaczenie HTTPS.", error);
+#endif
+    }
+
+    [Fact]
     public void TryNormalize_Https_AcceptedInRelease()
     {
         Assert.True(ServerUrlRules.TryNormalize("https://demo.open-ksef.pl", allowDevCleartext: false, out _, out _));
