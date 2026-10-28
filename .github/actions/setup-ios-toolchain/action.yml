@@ -1,0 +1,22 @@
+name: Setup iOS toolchain
+description: Pinned .NET SDK, Xcode and MAUI iOS workload shared by ios-build.yml and release.yml.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.3xx'
+
+    - uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '26.6'
+
+    # Workload set 10.0.303.1 ships .NET for iOS 26.5, the newest that runs on Xcode 26.x.
+    - name: Pin .NET SDK
+      shell: bash
+      run: dotnet new globaljson --sdk-version 10.0.303 --roll-forward latestPatch --force && dotnet --version
+
+    - name: Install MAUI iOS workload
+      shell: bash
+      run: dotnet workload install maui-ios --version 10.0.303.1
