@@ -52,7 +52,33 @@ public partial class ScanSetupQrViewModel : ObservableObject
                 return;
             }
 
-            if (!_serverSettings.TryUpdateServerUrl(payload.ServerUrl, out var normalizedUrl, out var validationError))
+            if (!ServerUrlRules.TryNormalize(payload.ServerUrl, ServerUrlRules.AllowDevCleartext, out var normalizedUrl, out var validationError))
+            {
+                ErrorMessage = validationError;
+                _processed = false;
+                return;
+            }
+
+            if (ServerUrlRules.IsDifferentServer(_serverSettings.ServerUrl, normalizedUrl))
+            {
+                var confirmed = await Shell.Current.DisplayAlertAsync(
+                    "Zmiana serwera",
+                    $"Przełączyć na serwer {ServerUrlRules.DisplayHost(normalizedUrl)}? Wpisuj hasło tylko, jeśli ufasz temu adresowi.",
+                    "Przełącz",
+                    "Anuluj");
+
+                if (!confirmed)
+                {
+                    StatusText = "Serwer nie został zmieniony.";
+                    try { await Shell.Current.GoToAsync("//login"); } catch { }
+                    return;
+                }
+
+                StatusText = "Przełączanie serwera...";
+                await _postLoginNav.SignOutAsync();
+            }
+
+            if (!_serverSettings.TryUpdateServerUrl(normalizedUrl, out normalizedUrl, out validationError))
             {
                 ErrorMessage = validationError;
                 _processed = false;

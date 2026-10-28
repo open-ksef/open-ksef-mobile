@@ -179,15 +179,33 @@
                                    IsVisible="{Binding IsBusy}"
                                    HorizontalOptions="Center" />
 
-                <!-- Server URL (collapsed by default) -->
+                <!-- Active server (always visible), edit section collapsed by default -->
                 <VerticalStackLayout Spacing="6" Margin="0,8,0,0">
-                    <Label Text="Serwer"
-                           FontSize="11"
-                           TextColor="{StaticResource TextMuted}">
-                        <Label.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding ToggleServerCommand}" />
-                        </Label.GestureRecognizers>
-                    </Label>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Label FontSize="12"
+                               TextColor="{StaticResource TextMuted}"
+                               VerticalOptions="Center"
+                               LineBreakMode="MiddleTruncation"
+                               AutomationId="LoginPageLabelServerHost">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Serwer: " />
+                                    <Span Text="{Binding ActiveServerHost}" FontAttributes="Bold" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                        <Label Grid.Column="1"
+                               Text="Zmień serwer"
+                               FontSize="12"
+                               TextColor="{StaticResource Primary}"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center"
+                               AutomationId="LoginPageButtonChangeServer">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ToggleServerCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Grid>
                     <VerticalStackLayout Spacing="6" IsVisible="{Binding IsServerVisible}">
                         <Entry Text="{Binding ServerUrl}"
                                Placeholder="https://demo.open-ksef.pl"

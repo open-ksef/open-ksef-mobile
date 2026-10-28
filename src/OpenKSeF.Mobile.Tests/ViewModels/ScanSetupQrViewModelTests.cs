@@ -1,3 +1,4 @@
+using OpenKSeF.Mobile.Services;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -13,6 +14,7 @@ public interface ITestAuthServiceForSetup
 
 public interface ITestServerSettingsForSetup
 {
+    string ServerUrl { get; }
     bool TryUpdateServerUrl(string url, out string normalizedUrl, out string? validationError);
     void MarkAsConfigured();
 }
@@ -20,6 +22,7 @@ public interface ITestServerSettingsForSetup
 public interface ITestPostLoginNavigation
 {
     Task NavigateAsync();
+    Task SignOutAsync();
 }
 
 /// <summary>
@@ -32,6 +35,7 @@ public partial class TestScanSetupQrViewModel : ObservableObject
     private readonly ITestServerSettingsForSetup _serverSettings;
     private readonly ITestAuthServiceForSetup _authService;
     private readonly ITestPostLoginNavigation _postLoginNav;
+    private readonly Func<string, Task<bool>> _confirmSwitch;
     private bool _processed;
 
     [ObservableProperty]
@@ -48,12 +52,16 @@ public partial class TestScanSetupQrViewModel : ObservableObject
     public TestScanSetupQrViewModel(
         ITestServerSettingsForSetup serverSettings,
         ITestAuthServiceForSetup authService,
-        ITestPostLoginNavigation postLoginNav)
+        ITestPostLoginNavigation postLoginNav,
+        Func<string, Task<bool>> confirmSwitch)
     {
         _serverSettings = serverSettings;
         _authService = authService;
         _postLoginNav = postLoginNav;
+        _confirmSwitch = confirmSwitch;
     }
+
+    public string? ConfirmMessage { get; private set; }
 
     public async Task ProcessBarcodeAsync(string rawValue)
     {
@@ -75,7 +83,28 @@ public partial class TestScanSetupQrViewModel : ObservableObject
                 return;
             }
 
-            if (!_serverSettings.TryUpdateServerUrl(payload.ServerUrl, out var normalizedUrl, out var validationError))
+            if (!ServerUrlRules.TryNormalize(payload.ServerUrl, ServerUrlRules.AllowDevCleartext, out var normalizedUrl, out var validationError))
+            {
+                ErrorMessage = validationError;
+                _processed = false;
+                return;
+            }
+
+            if (ServerUrlRules.IsDifferentServer(_serverSettings.ServerUrl, normalizedUrl))
+            {
+                ConfirmMessage = $"Przełączyć na serwer {ServerUrlRules.DisplayHost(normalizedUrl)}? Wpisuj hasło tylko, jeśli ufasz temu adresowi.";
+                if (!await _confirmSwitch(ConfirmMessage))
+                {
+                    StatusText = "Serwer nie został zmieniony.";
+                    NavigatedRoute = "//login";
+                    return;
+                }
+
+                StatusText = "Przełączanie serwera...";
+                await _postLoginNav.SignOutAsync();
+            }
+
+            if (!_serverSettings.TryUpdateServerUrl(normalizedUrl, out normalizedUrl, out validationError))
             {
                 ErrorMessage = validationError;
                 _processed = false;
@@ -153,8 +182,11 @@ public class ScanSetupQrViewModelTests
         _authService = Substitute.For<ITestAuthServiceForSetup>();
         _postLoginNav = Substitute.For<ITestPostLoginNavigation>();
 
+        _serverSettings.ServerUrl.Returns("https://example.com");
         ConfigureDefaultServerSettings("https://example.com");
     }
+
+    private bool _confirmAnswer = true;
 
     private void ConfigureDefaultServerSettings(string normalizedUrl)
     {
@@ -169,7 +201,7 @@ public class ScanSetupQrViewModelTests
     }
 
     private TestScanSetupQrViewModel CreateVm() =>
-        new(_serverSettings, _authService, _postLoginNav);
+        new(_serverSettings, _authService, _postLoginNav, _ => Task.FromResult(_confirmAnswer));
 
     private static string BuildQrPayload(string serverUrl, string? setupToken = null) =>
         JsonSerializer.Serialize(new
@@ -231,20 +263,56 @@ public class ScanSetupQrViewModelTests
     [Fact]
     public async Task ProcessBarcode_ServerValidationFails_ShowsError()
     {
-        _serverSettings.TryUpdateServerUrl(
-            Arg.Any<string>(), out Arg.Any<string>(), out Arg.Any<string?>())
-            .Returns(x =>
-            {
-                x[1] = "";
-                x[2] = "Nieprawidłowy adres serwera.";
-                return false;
-            });
-
         var vm = CreateVm();
         await vm.ProcessBarcodeAsync(BuildQrPayload("bad-url"));
 
         Assert.Null(vm.NavigatedRoute);
-        Assert.Equal("Nieprawidłowy adres serwera.", vm.ErrorMessage);
+        Assert.Contains("poprawny adres URL", vm.ErrorMessage);
+        _serverSettings.DidNotReceiveWithAnyArgs().TryUpdateServerUrl(default!, out _, out _);
+    }
+
+    [Fact]
+    public async Task ProcessBarcode_DifferentServer_Rejected_LeavesServerUnchanged()
+    {
+        _confirmAnswer = false;
+
+        var vm = CreateVm();
+        await vm.ProcessBarcodeAsync(BuildQrPayload("https://rogue.example.org", "token"));
+
+        Assert.Contains("rogue.example.org", vm.ConfirmMessage);
+        Assert.Equal("//login", vm.NavigatedRoute);
+        _serverSettings.DidNotReceiveWithAnyArgs().TryUpdateServerUrl(default!, out _, out _);
+        await _postLoginNav.DidNotReceive().SignOutAsync();
+        await _authService.DidNotReceiveWithAnyArgs().RedeemSetupTokenAsync(default!, default!);
+    }
+
+    [Fact]
+    public async Task ProcessBarcode_DifferentServer_Confirmed_SignsOutThenSwitches()
+    {
+        ConfigureDefaultServerSettings("https://other.example.org");
+
+        var vm = CreateVm();
+        await vm.ProcessBarcodeAsync(BuildQrPayload("https://other.example.org/"));
+
+        Received.InOrder(() =>
+        {
+            _postLoginNav.SignOutAsync();
+            _serverSettings.TryUpdateServerUrl("https://other.example.org", out Arg.Any<string>(), out Arg.Any<string?>());
+        });
+        Assert.Equal("//login", vm.NavigatedRoute);
+    }
+
+    [Fact]
+    public async Task ProcessBarcode_SameServer_NoConfirmation()
+    {
+        _confirmAnswer = false;
+
+        var vm = CreateVm();
+        await vm.ProcessBarcodeAsync(BuildQrPayload("https://EXAMPLE.com/"));
+
+        Assert.Null(vm.ConfirmMessage);
+        await _postLoginNav.DidNotReceive().SignOutAsync();
+        Assert.Contains("Serwer ustawiony", vm.StatusText);
     }
 
     [Fact]

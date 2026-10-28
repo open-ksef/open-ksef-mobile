@@ -20,6 +20,7 @@
   <ItemGroup>
     <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Exclude="..\OpenKSeF.Mobile\Models\CachedInvoice.cs;..\OpenKSeF.Mobile\Models\QrSetupPayload.cs" Link="Linked\Models\%(Filename)%(Extension)" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IApiService.cs" Link="Linked\Services\IApiService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\ServerUrlRules.cs" Link="Linked\Services\ServerUrlRules.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\TenantFormViewModel.cs" Link="Linked\ViewModels\TenantFormViewModel.cs" />
   </ItemGroup>
 

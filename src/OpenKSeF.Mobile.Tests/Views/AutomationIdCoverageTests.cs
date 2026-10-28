@@ -19,7 +19,9 @@ public class AutomationIdCoverageTests
             "LoginPageButtonSaveServer",
             "LoginPageButtonScanQr",
             "LoginPageActivityIndicatorBusy",
-            "LoginPageLabelError");
+            "LoginPageLabelError",
+            "LoginPageLabelServerHost",
+            "LoginPageButtonChangeServer");
 
         AssertFileContainsAll(
             "TenantsPage.xaml",

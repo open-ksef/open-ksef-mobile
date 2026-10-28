@@ -6,11 +6,10 @@ namespace OpenKSeF.Mobile.ViewModels;
 
 public partial class AccountViewModel : ObservableObject
 {
-    private readonly IAuthService _authService;
     private readonly IServerSettingsService _serverSettings;
     private readonly IDeviceTokenService _deviceTokenService;
     private readonly INotificationHubService _notificationHub;
-    private readonly LocalDbService _localDb;
+    private readonly IPostLoginNavigationService _session;
 
     [ObservableProperty]
     private string _serverUrl = "";
@@ -28,17 +27,15 @@ public partial class AccountViewModel : ObservableObject
     private bool _isBusy;
 
     public AccountViewModel(
-        IAuthService authService,
         IServerSettingsService serverSettings,
         IDeviceTokenService deviceTokenService,
         INotificationHubService notificationHub,
-        LocalDbService localDb)
+        IPostLoginNavigationService session)
     {
-        _authService = authService;
         _serverSettings = serverSettings;
         _deviceTokenService = deviceTokenService;
         _notificationHub = notificationHub;
-        _localDb = localDb;
+        _session = session;
         ServerUrl = _serverSettings.ServerUrl;
         AppVersion = $"v{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
     }
@@ -125,10 +122,7 @@ public partial class AccountViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            try { await _notificationHub.StopAsync(); } catch { }
-            try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
-            try { await _localDb.ClearUserDataAsync(); } catch { }
-            await _authService.LogoutAsync();
+            await _session.SignOutAsync();
         }
         finally
         {
