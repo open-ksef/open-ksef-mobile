@@ -43,10 +43,6 @@ jobs:
 
             Download the `.aab` (Google Play) or `.apk` artifact below.
 
-            ### iOS
-
-            Download the `.ipa` artifact below (requires Apple distribution certificate to install).
-
             ---
 
   # ─────────────────────────────────────────────
@@ -276,6 +272,7 @@ jobs:
   publish-release:
     name: Publish Release
     needs: [android, ios]
+    if: ${{ !cancelled() && needs.android.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
