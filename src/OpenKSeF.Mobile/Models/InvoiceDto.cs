@@ -9,6 +9,7 @@ public class InvoiceDto
     public string DisplayNumber => InvoiceNumber ?? KSeFInvoiceNumber;
     public string VendorName { get; set; } = string.Empty;
     public string VendorNip { get; set; } = string.Empty;
+    public string? VendorBankAccount { get; set; }
     public string? BuyerName { get; set; }
     public string? BuyerNip { get; set; }
     public decimal AmountNet { get; set; }
