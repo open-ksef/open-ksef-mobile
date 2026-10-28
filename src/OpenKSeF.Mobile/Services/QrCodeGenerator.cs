@@ -34,11 +34,23 @@ public static partial class TransferQrGenerator
 
     internal static string BuildPayload(InvoiceDto invoice)
     {
+        var account = SanitizeAccount(invoice.VendorBankAccount);
         var amount = AmountToGrosze(invoice.AmountGross);
         var name = Sanitize(invoice.VendorName, MaxNameLength);
         var title = Sanitize(invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber, MaxTitleLength);
 
-        return $"|PL||{amount}|{name}|{title}|||";
+        // ZBP 2D payment code: recipientId|country|account(NRB)|amount(grosze)|name|title|res|res|res
+        return $"|PL|{account}|{amount}|{name}|{title}|||";
+    }
+
+    // NRB = 26 digits, no spaces, no "PL". Banks reject a malformed account, so emit it only when exactly 26 digits.
+    internal static string SanitizeAccount(string? account)
+    {
+        if (string.IsNullOrWhiteSpace(account))
+            return string.Empty;
+
+        var digits = DigitsOnlyRegex().Replace(account, "");
+        return digits.Length == 26 ? digits : string.Empty;
     }
 
     internal static string AmountToGrosze(decimal amount)
@@ -70,4 +82,7 @@ public static partial class TransferQrGenerator
 
     [GeneratedRegex("[^a-zA-Z0-9 .\\-/]")]
     private static partial Regex AllowedCharsRegex();
+
+    [GeneratedRegex("[^0-9]")]
+    private static partial Regex DigitsOnlyRegex();
 }

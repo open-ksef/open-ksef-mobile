@@ -50,11 +50,11 @@
                            Aspect="AspectFit" />
                 </Border>
 
-                <Label Text="Zeskanuj kodem w aplikacji bankowej, aby wykonać przelew."
+                <Label Text="Zeskanuj kod w aplikacji banku (np. PeoPay, IKO), aby wypełnić przelew. Na tym telefonie: Udostępnij → zapisz obraz, a w banku wczytaj kod z galerii."
                        Style="{StaticResource LabelMuted}"
                        HorizontalTextAlignment="Center" />
 
-                <Button Text="Udostępnij kod QR"
+                <Button Text="Udostępnij / zapisz kod QR"
                         AutomationId="QrCodePageButtonShare"
                         Command="{Binding ShareQrCommand}"
                         HorizontalOptions="Fill" />

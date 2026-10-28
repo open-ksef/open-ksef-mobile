@@ -108,8 +108,13 @@ public partial class InvoiceDetailsViewModel : ObservableObject
 
     internal static string BuildTransferDetails(InvoiceDto invoice)
     {
+        var account = string.IsNullOrWhiteSpace(invoice.VendorBankAccount)
+            ? string.Empty
+            : $"Nr rachunku: {invoice.VendorBankAccount}\n";
+
         return $"Odbiorca: {invoice.VendorName}\n" +
                $"NIP: {invoice.VendorNip}\n" +
+               account +
                $"Kwota: {invoice.AmountGross:N2} {invoice.Currency}\n" +
                $"Tytul: {invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber}";
     }

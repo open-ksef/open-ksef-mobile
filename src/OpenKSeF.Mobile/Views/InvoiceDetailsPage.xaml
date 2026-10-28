@@ -162,13 +162,13 @@
 
                 <!-- Action buttons -->
                 <VerticalStackLayout Spacing="10" Padding="15,15,15,30">
+                    <Button Text="Zapłać"
+                            AutomationId="InvoiceDetailsPageButtonShowQr"
+                            Command="{Binding ShowQrCodeCommand}"
+                            HorizontalOptions="Fill" />
                     <Button Text="Kopiuj dane przelewu"
                             AutomationId="InvoiceDetailsPageButtonCopyTransfer"
                             Command="{Binding CopyTransferDetailsCommand}"
-                            HorizontalOptions="Fill" />
-                    <Button Text="Pokaż kod QR"
-                            AutomationId="InvoiceDetailsPageButtonShowQr"
-                            Command="{Binding ShowQrCodeCommand}"
                             Style="{StaticResource ButtonSecondary}"
                             HorizontalOptions="Fill" />
                 </VerticalStackLayout>
