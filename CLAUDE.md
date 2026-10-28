@@ -16,7 +16,7 @@ Solution file: `src/OpenKSeF.Mobile.slnx` (.slnx format, VS 17.10+ / .NET 9+)
 
 ## Architecture
 
-The app is fully self-contained -- it has **no ProjectReference** to any backend project. It communicates with the [open-ksef backend](https://github.com/OpenKSeF/open-ksef) exclusively over:
+The app is fully self-contained -- it has **no ProjectReference** to any backend project. It communicates with the [open-ksef backend](https://github.com/open-ksef/open-ksef) exclusively over:
 - REST API (`ApiService.cs`)
 - Keycloak OIDC (`AuthService.cs`, `WebAuthenticatorBrowser.cs`)
 - SignalR hub for real-time invoice notifications
@@ -73,7 +73,7 @@ Do not merge responsibilities across services. New features should fit into an e
 
 ## Backend dependency
 
-E2E tests and running the app locally require the backend stack. Start it from the [open-ksef](https://github.com/OpenKSeF/open-ksef) repo:
+E2E tests and running the app locally require the backend stack. Start it from the [open-ksef](https://github.com/open-ksef/open-ksef) repo:
 
 ```powershell
 ./scripts/dev-env-up.ps1        # starts Docker, ngrok, Keycloak, provisions test user
@@ -143,11 +143,11 @@ dotnet test src/OpenKSeF.Mobile.E2E.Android/OpenKSeF.Mobile.E2E.Android.csproj -
 
 - **Debug APK**: .NET 10 MAUI Debug uses fast deployment (no standalone APK). Use `-t:Run` to install directly on emulator.
 - **Release APK**: Do NOT pass `-p:PublishTrimmed=false` -- it breaks JNI bindings and the app crashes on launch (`MauiApplication.n_onCreate not found`). Let Release use default trimming.
-- **Emulator server URL**: After installing, set `server_url` in shared_prefs to `http://10.0.2.2:8080` (see `build-android-apk` command).
+- **Emulator server URL**: After installing, set `server_url` in shared_prefs to `http://10.0.2.2:8080`.
 
 ## MCP servers for agent testing
 
-Configured in `.cursor/mcp.json`. Connects to the local Docker stack from the backend repo.
+Configured in `.cursor/mcp.json` (Cursor only, gitignored, not in the repo). Claude Code reads `.mcp.json`; none is committed yet. Connects to the local Docker stack from the backend repo.
 
 | Server | Purpose |
 |--------|---------|
@@ -170,9 +170,8 @@ Configured in `.cursor/mcp.json`. Connects to the local Docker stack from the ba
 
 ## Skills
 
-`.cursor/skills/` contains 35 skills:
-- **34 .NET MAUI skills** -- auto-detected by Cursor for MAUI topics (authentication, navigation, SQLite, theming, accessibility, etc.)
-- **android-e2e-appium** -- E2E testing for the MAUI Android app. Preferred: `./scripts/run-mobile-e2e.ps1`. Fall back to Appium MCP only for new features.
+No skills are committed (`.cursor/skills/` is whitelisted in `.gitignore` but absent).
+- Android E2E: `./scripts/run-mobile-e2e.ps1` (setup: `./scripts/setup-android-e2e.ps1`). Fall back to Appium MCP only for new features.
 
 ## Push notifications
 
