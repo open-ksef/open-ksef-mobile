@@ -11,4 +11,9 @@ public class ApiException : Exception
     {
         StatusCode = statusCode;
     }
+
+    public static bool IsNetworkFailure(Exception ex) =>
+        ex is ApiException { StatusCode: HttpStatusCode.ServiceUnavailable }
+            or TaskCanceledException
+            or HttpRequestException;
 }

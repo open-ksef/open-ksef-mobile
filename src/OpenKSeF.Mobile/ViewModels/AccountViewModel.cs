@@ -10,6 +10,7 @@ public partial class AccountViewModel : ObservableObject
     private readonly IServerSettingsService _serverSettings;
     private readonly IDeviceTokenService _deviceTokenService;
     private readonly INotificationHubService _notificationHub;
+    private readonly LocalDbService _localDb;
 
     [ObservableProperty]
     private string _serverUrl = "";
@@ -30,12 +31,14 @@ public partial class AccountViewModel : ObservableObject
         IAuthService authService,
         IServerSettingsService serverSettings,
         IDeviceTokenService deviceTokenService,
-        INotificationHubService notificationHub)
+        INotificationHubService notificationHub,
+        LocalDbService localDb)
     {
         _authService = authService;
         _serverSettings = serverSettings;
         _deviceTokenService = deviceTokenService;
         _notificationHub = notificationHub;
+        _localDb = localDb;
         ServerUrl = _serverSettings.ServerUrl;
         AppVersion = $"v{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
     }
@@ -107,6 +110,8 @@ public partial class AccountViewModel : ObservableObject
             return;
 
         try { await _notificationHub.StopAsync(); } catch { }
+        await _deviceTokenService.UnregisterCurrentDeviceAsync();
+        try { await _localDb.ClearUserDataAsync(); } catch { }
         await _authService.LogoutAsync();
         try { await Shell.Current.GoToAsync("//login"); } catch { }
     }

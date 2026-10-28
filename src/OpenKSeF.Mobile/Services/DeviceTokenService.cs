@@ -159,6 +159,27 @@ public class DeviceTokenService : IDeviceTokenService
         return status == PermissionStatus.Granted;
     }
 
+    public async Task UnregisterCurrentDeviceAsync()
+    {
+        var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
+        try
+        {
+            if (!string.IsNullOrEmpty(storedToken))
+            {
+                var devices = await _apiService.GetDevicesAsync();
+                foreach (var device in devices.Where(d => d.Token == storedToken))
+                    await _apiService.UnregisterDeviceAsync(device.Id);
+            }
+        }
+        catch
+        {
+        }
+
+        Preferences.Default.Remove(TokenStorageKey);
+        Preferences.Default.Remove(PlatformStorageKey);
+        Preferences.Default.Remove(DeviceRegisteredKey);
+    }
+
     private static int GetCurrentPlatform()
     {
         return DeviceInfo.Platform == DevicePlatform.Android ? 0 : 1;

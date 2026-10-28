@@ -7,4 +7,5 @@ public interface IDeviceTokenService
     Task EnsureDeviceRegisteredAsync();
     Task<bool> EnableNotificationsAsync();
     Task<bool> AreNotificationsEnabledAsync();
+    Task UnregisterCurrentDeviceAsync();
 }

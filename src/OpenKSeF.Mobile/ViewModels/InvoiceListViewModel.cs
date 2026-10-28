@@ -90,7 +90,7 @@ public partial class InvoiceListViewModel : ObservableObject
                 if (result.Items.Count > 0)
                     await _localDb.SaveInvoicesAsync(tenantId.Value, result.Items);
             }
-            catch (Exception)
+            catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
             {
                 if (!await TryLoadFromCacheAsync(tenantId.Value))
                     throw;
