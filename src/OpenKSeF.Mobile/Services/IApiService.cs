@@ -16,4 +16,5 @@ public interface IApiService
     Task<SyncResultDto> ForceCredentialSyncAsync(Guid tenantId);
     Task RegisterDeviceTokenAsync(RegisterDeviceTokenRequest request);
     Task<List<DeviceTokenDto>> GetDevicesAsync();
+    Task UnregisterDeviceAsync(Guid deviceId);
 }

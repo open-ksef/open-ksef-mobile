@@ -84,6 +84,11 @@ public class ApiService : IApiService
         return await SendAsync<List<DeviceTokenDto>>(HttpMethod.Get, "/api/devices");
     }
 
+    public async Task UnregisterDeviceAsync(Guid deviceId)
+    {
+        await SendNoContentAsync(HttpMethod.Delete, $"/api/devices/{deviceId}");
+    }
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null)
     {
         using var response = await ExecuteAsync(method, path, body);

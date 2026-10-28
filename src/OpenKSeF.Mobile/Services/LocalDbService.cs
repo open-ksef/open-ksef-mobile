@@ -8,6 +8,7 @@ public class LocalDbService
     private SQLiteAsyncConnection? _db;
     private const int MaxCachedInvoicesPerTenant = 100;
     private const int CacheExpirationDays = 7;
+    private const string LastUserKey = "last_user";
 
     public async Task InitAsync()
     {
@@ -71,5 +72,22 @@ public class LocalDbService
     {
         await InitAsync();
         await _db!.DeleteAllAsync<CachedInvoice>();
+    }
+
+    public async Task ClearUserDataAsync()
+    {
+        Preferences.Default.Remove("SelectedTenantId");
+        Preferences.Default.Remove("SelectedTenantNip");
+        Preferences.Default.Remove(LastUserKey);
+        await ClearAllCacheAsync();
+    }
+
+    public async Task EnsureCurrentUserAsync(string userKey)
+    {
+        if (Preferences.Default.Get(LastUserKey, string.Empty) == userKey)
+            return;
+
+        await ClearUserDataAsync();
+        Preferences.Default.Set(LastUserKey, userKey);
     }
 }

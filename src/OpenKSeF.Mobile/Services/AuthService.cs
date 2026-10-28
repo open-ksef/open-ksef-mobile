@@ -142,6 +142,29 @@ public class AuthService : IAuthService
     public async Task LogoutAsync()
     {
         EnsureConfiguration();
+
+        if (_refreshToken is null)
+            await TryLoadTokensAsync();
+
+        if (_refreshToken is not null)
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                using var response = await _httpClient.PostAsync(
+                    $"{_authority}/protocol/openid-connect/logout",
+                    new FormUrlEncodedContent(new Dictionary<string, string>
+                    {
+                        ["client_id"] = _options.ClientId,
+                        ["refresh_token"] = _refreshToken
+                    }),
+                    cts.Token);
+            }
+            catch
+            {
+            }
+        }
+
         _accessToken = null;
         _refreshToken = null;
         _tokenExpiry = DateTimeOffset.MinValue;
@@ -149,8 +172,6 @@ public class AuthService : IAuthService
         SecureStorage.Default.Remove(GetAccessTokenKey());
         SecureStorage.Default.Remove(GetRefreshTokenKey());
         SecureStorage.Default.Remove(GetTokenExpiryKey());
-
-        await Task.CompletedTask;
     }
 
     public async Task<string?> GetAccessTokenAsync()
