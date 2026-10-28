@@ -61,7 +61,7 @@ Do not merge responsibilities across services. New features should fit into an e
 - `Models/` contains DTOs that mirror the backend REST API contracts (`open-ksef` repo, `Api/Models/`).
 - When the backend API changes a response shape, update the corresponding mobile model to match.
 - Document any intentional deviation from the backend contract (e.g. `CachedInvoice` is a local-only SQLite entity, `QrSetupPayload` is client-only).
-- Known current mismatches to watch: `TenantDto` (mobile adds `HasKSeFToken`; backend has `NotificationEmail`), `InvoiceDto` (mobile lacks `IsPaid`/`PaidAt`).
+- `TenantDto` mirrors backend `TenantResponse`, `UpdateTenantRequest` sends `NotificationEmail` (backend PUT overwrites it, so the edit form round-trips the loaded value). `InvoiceDto` carries `IsPaid`/`PaidAt`.
 
 ### SOLID checklist
 
