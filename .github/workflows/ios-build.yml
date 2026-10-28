@@ -5,8 +5,9 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/OpenKSeF.Mobile/**/*.csproj'
-      - 'src/OpenKSeF.Mobile/Platforms/iOS/**'
+      - 'src/OpenKSeF.Mobile/**'
+      - '!src/OpenKSeF.Mobile/Platforms/Android/**'
+      - 'src/nuget.config'
       - '.github/workflows/ios-build.yml'
 
 permissions:
@@ -19,7 +20,11 @@ env:
 jobs:
   ios:
     name: iOS Release build (unsigned, no upload)
-    runs-on: macos-latest
+    runs-on: macos-26
+    timeout-minutes: 40
+    concurrency:
+      group: ios-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
@@ -29,9 +34,12 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          xcode-version: '26.6'
 
-      # Workload set 10.0.303.1 ships .NET for iOS 26.5, the newest that runs on the runner's Xcode 26.x.
+      # Workload set 10.0.303.1 ships .NET for iOS 26.5, the newest that runs on Xcode 26.x.
+      - name: Pin .NET SDK
+        run: dotnet new globaljson --sdk-version 10.0.303 --roll-forward latestPatch --force && dotnet --version
+
       - name: Install MAUI iOS workload
         run: dotnet workload install maui-ios --version 10.0.303.1
 
