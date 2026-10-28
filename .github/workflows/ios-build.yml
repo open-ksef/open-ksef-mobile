@@ -25,14 +25,15 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.3xx'
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
+      # Workload set 10.0.303.1 ships .NET for iOS 26.5, the newest that runs on the runner's Xcode 26.x.
       - name: Install MAUI iOS workload
-        run: dotnet workload install maui-ios
+        run: dotnet workload install maui-ios --version 10.0.303.1
 
       - name: Build iOS Release
         run: |
