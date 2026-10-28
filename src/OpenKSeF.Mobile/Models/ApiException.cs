@@ -13,7 +13,7 @@ public class ApiException : Exception
     }
 
     public static bool IsNetworkFailure(Exception ex) =>
-        ex is ApiException { StatusCode: HttpStatusCode.ServiceUnavailable }
+        ex is ApiException { StatusCode: HttpStatusCode.ServiceUnavailable or HttpStatusCode.BadGateway or HttpStatusCode.GatewayTimeout }
             or TaskCanceledException
             or HttpRequestException;
 }

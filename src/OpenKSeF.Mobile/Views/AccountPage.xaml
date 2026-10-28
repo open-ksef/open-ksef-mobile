@@ -81,6 +81,11 @@
                             <TapGestureRecognizer Command="{Binding LogoutCommand}" />
                         </Grid.GestureRecognizers>
                     </Grid>
+
+                    <ActivityIndicator AutomationId="AccountPageIndicatorBusy"
+                                       IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}"
+                                       HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Border>
 

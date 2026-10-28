@@ -8,6 +8,7 @@ public class DeviceTokenService : IDeviceTokenService
     private const string PlatformStorageKey = "device_push_platform";
     private const string PermissionRequestedKey = "push_permission_requested";
     private const string DeviceRegisteredKey = "device_registered";
+    private const string DeviceIdKey = "device_stable_id";
 
     private readonly IApiService _apiService;
 
@@ -52,21 +53,21 @@ public class DeviceTokenService : IDeviceTokenService
         try
         {
             var devices = await _apiService.GetDevicesAsync();
-            var currentPlatform = GetCurrentPlatform();
             var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
+            var deviceId = Preferences.Default.Get(DeviceIdKey, string.Empty);
 
-            bool found;
-            if (!string.IsNullOrEmpty(storedToken))
-                found = devices.Any(d => d.Token == storedToken);
-            else
-                found = devices.Any(d => d.Platform == currentPlatform);
+            var match = devices.FirstOrDefault(d =>
+                d.Token.Length > 0 && (d.Token == storedToken || d.Token == deviceId));
 
-            if (found)
-                Preferences.Default.Set(DeviceRegisteredKey, true);
-            else
+            if (match is null)
+            {
                 Preferences.Default.Set(DeviceRegisteredKey, false);
+                return false;
+            }
 
-            return found;
+            Preferences.Default.Set(TokenStorageKey, match.Token);
+            Preferences.Default.Set(DeviceRegisteredKey, true);
+            return true;
         }
         catch
         {
@@ -161,23 +162,33 @@ public class DeviceTokenService : IDeviceTokenService
 
     public async Task UnregisterCurrentDeviceAsync()
     {
-        var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-        try
+        var tokens = new HashSet<string>
         {
-            if (!string.IsNullOrEmpty(storedToken))
-            {
-                var devices = await _apiService.GetDevicesAsync();
-                foreach (var device in devices.Where(d => d.Token == storedToken))
-                    await _apiService.UnregisterDeviceAsync(device.Id);
-            }
-        }
-        catch
-        {
-        }
+            Preferences.Default.Get(TokenStorageKey, string.Empty),
+            Preferences.Default.Get(DeviceIdKey, string.Empty)
+        };
 
         Preferences.Default.Remove(TokenStorageKey);
         Preferences.Default.Remove(PlatformStorageKey);
         Preferences.Default.Remove(DeviceRegisteredKey);
+
+        try
+        {
+            var nativeToken = await TryGetNativePushTokenAsync();
+            if (!string.IsNullOrEmpty(nativeToken))
+                tokens.Add(nativeToken);
+
+            tokens.Remove(string.Empty);
+            if (tokens.Count == 0)
+                return;
+
+            var devices = await _apiService.GetDevicesAsync();
+            foreach (var device in devices.Where(d => tokens.Contains(d.Token)))
+                await _apiService.UnregisterDeviceAsync(device.Id);
+        }
+        catch
+        {
+        }
     }
 
     private static int GetCurrentPlatform()
@@ -197,13 +208,12 @@ public class DeviceTokenService : IDeviceTokenService
 
     private static string GetOrCreateDeviceId()
     {
-        const string key = "device_stable_id";
-        var existing = Preferences.Default.Get(key, string.Empty);
+        var existing = Preferences.Default.Get(DeviceIdKey, string.Empty);
         if (!string.IsNullOrEmpty(existing))
             return existing;
 
         var id = $"device-{Guid.NewGuid():N}";
-        Preferences.Default.Set(key, id);
+        Preferences.Default.Set(DeviceIdKey, id);
         return id;
     }
 

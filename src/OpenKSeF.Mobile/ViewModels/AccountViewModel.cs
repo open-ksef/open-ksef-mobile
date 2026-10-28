@@ -109,17 +109,33 @@ public partial class AccountViewModel : ObservableObject
         if (!confirmed)
             return;
 
-        try { await _notificationHub.StopAsync(); } catch { }
-        await _deviceTokenService.UnregisterCurrentDeviceAsync();
-        try { await _localDb.ClearUserDataAsync(); } catch { }
-        await _authService.LogoutAsync();
-        try { await Shell.Current.GoToAsync("//login"); } catch { }
+        await SignOutAsync();
     }
 
     [RelayCommand]
     private async Task ChangeServerAsync()
     {
-        try { await Shell.Current.GoToAsync("//login"); } catch { }
+        await SignOutAsync();
+    }
+
+    private async Task SignOutAsync()
+    {
+        if (IsBusy) return;
+
+        IsBusy = true;
+        try
+        {
+            try { await _notificationHub.StopAsync(); } catch { }
+            try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+            try { await _localDb.ClearUserDataAsync(); } catch { }
+            await _authService.LogoutAsync();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+
+        Application.Current!.Windows[0].Page = new AppShell();
     }
 
     [RelayCommand]

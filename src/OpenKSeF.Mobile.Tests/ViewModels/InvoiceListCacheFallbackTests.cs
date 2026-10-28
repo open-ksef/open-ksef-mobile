@@ -6,10 +6,13 @@ namespace OpenKSeF.Mobile.Tests.ViewModels;
 
 public class InvoiceListCacheFallbackTests
 {
-    [Fact]
-    public void ServiceUnavailable_FallsBackToCache()
+    [Theory]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.BadGateway)]
+    [InlineData(HttpStatusCode.GatewayTimeout)]
+    public void ServerUnreachable_FallsBackToCache(HttpStatusCode status)
     {
-        Assert.True(ApiException.IsNetworkFailure(new ApiException(HttpStatusCode.ServiceUnavailable, "offline")));
+        Assert.True(ApiException.IsNetworkFailure(new ApiException(status, "offline")));
     }
 
     [Fact]
