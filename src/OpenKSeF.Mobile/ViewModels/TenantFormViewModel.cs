@@ -9,6 +9,7 @@ namespace OpenKSeF.Mobile.ViewModels;
 public partial class TenantFormViewModel : ObservableObject
 {
     private readonly IApiService _apiService;
+    private string? _notificationEmail;
 
     [ObservableProperty]
     private string? _tenantId;
@@ -61,6 +62,7 @@ public partial class TenantFormViewModel : ObservableObject
             {
                 Nip = tenant.Nip;
                 DisplayName = tenant.DisplayName ?? string.Empty;
+                _notificationEmail = tenant.NotificationEmail;
             }
         }
         catch (ApiException ex)
@@ -93,7 +95,7 @@ public partial class TenantFormViewModel : ObservableObject
             {
                 await _apiService.UpdateTenantAsync(
                     Guid.Parse(TenantId),
-                    new UpdateTenantRequest { DisplayName = DisplayName });
+                    new UpdateTenantRequest { DisplayName = DisplayName, NotificationEmail = _notificationEmail });
             }
             else
             {
