@@ -23,8 +23,11 @@
 
     <!-- Main app tabs (post-login) -->
     <TabBar Route="main">
-        <Tab Title="Faktury" Route="invoices" Icon="tab_invoices.png">
+        <Tab Title="Otrzymane" Route="invoices" Icon="tab_invoices.png">
             <ShellContent ContentTemplate="{DataTemplate views:InvoiceListPage}" />
+        </Tab>
+        <Tab Title="Wystawione" Route="issued" Icon="tab_invoices.png">
+            <ShellContent ContentTemplate="{DataTemplate views:IssuedInvoiceListPage}" />
         </Tab>
         <Tab Title="Firmy" Route="tenants" Icon="tab_companies.png">
             <ShellContent ContentTemplate="{DataTemplate views:TenantsPage}" />

@@ -74,6 +74,35 @@ public class AutomationIdCoverageTests
             "SellerProfilePageEntryLegalName",
             "SellerProfilePageEntryBankAccount",
             "SellerProfilePageButtonSave");
+
+        AssertFileContainsAll(
+            "IssuedInvoiceListPage.xaml",
+            "IssuedInvoiceListPageCollectionViewInvoices",
+            "IssuedInvoiceListPageFrameInvoiceItem",
+            "IssuedInvoiceListPageButtonNew",
+            "IssuedInvoiceListPageUnsupportedState",
+            "IssuedInvoiceListPageEmptyState",
+            "IssuedInvoiceListPageLabelError");
+
+        AssertFileContainsAll(
+            "InvoiceDraftPage.xaml",
+            "InvoiceDraftPageSegmentCompany",
+            "InvoiceDraftPageSegmentPerson",
+            "InvoiceDraftPageEntryBuyerNip",
+            "InvoiceDraftPageButtonLookup",
+            "InvoiceDraftPageButtonAddLine",
+            "InvoiceDraftPageAlertSplitPayment",
+            "InvoiceDraftPageButtonIssue",
+            "InvoiceDraftPageLabelError");
+
+        AssertFileContainsAll(
+            "IssuedInvoiceDetailsPage.xaml",
+            "IssuedInvoiceDetailsPageStatusCard",
+            "IssuedInvoiceDetailsPageButtonIssue",
+            "IssuedInvoiceDetailsPageButtonFix",
+            "IssuedInvoiceDetailsPageLabelKsefNumber",
+            "IssuedInvoiceDetailsPageLabelRejection",
+            "IssuedInvoiceDetailsPageToolbarCopy");
     }
 
     private static void AssertFileContainsAll(string fileName, params string[] automationIds)

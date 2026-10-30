@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:OpenKSeF.Mobile.Views.Controls"
+             x:Class="OpenKSeF.Mobile.Views.InvoiceDraftPage"
+             x:DataType="vm:InvoiceDraftViewModel"
+             Style="{StaticResource UiPage}"
+             Title="{Binding Title}">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Zapisz szkic"
+                     AutomationId="InvoiceDraftPageToolbarSave"
+                     Command="{Binding SaveDraftCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="16">
+
+                <HorizontalStackLayout Spacing="8">
+                    <controls:KsefBadge Status="Draft" />
+                    <Label Text="{Binding SavedAt}" Style="{StaticResource UiMutedText}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <Border Style="{StaticResource UiAlert}"
+                        IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}">
+                    <Label Text="{Binding ErrorMessage}" AutomationId="InvoiceDraftPageLabelError"
+                           TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Nabywca" Style="{StaticResource UiH2}" />
+                        <Border Style="{StaticResource UiSegmentTrack}">
+                            <Grid ColumnDefinitions="*,*"
+                                  RadioButtonGroup.GroupName="buyerKind"
+                                  RadioButtonGroup.SelectedValue="{Binding BuyerKind}">
+                                <RadioButton Style="{StaticResource UiSegment}" Content="Firma" Value="Company"
+                                             AutomationId="InvoiceDraftPageSegmentCompany" />
+                                <RadioButton Grid.Column="1" Style="{StaticResource UiSegment}" Content="Osoba prywatna" Value="Person"
+                                             AutomationId="InvoiceDraftPageSegmentPerson" />
+                            </Grid>
+                        </Border>
+
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding IsCompany}">
+                            <Label Text="NIP" Style="{StaticResource UiFieldLabel}" />
+                            <Grid ColumnDefinitions="*,56" ColumnSpacing="8">
+                                <Entry Text="{Binding BuyerNip}" Style="{StaticResource UiEntry}" Keyboard="Numeric" MaxLength="10"
+                                       AutomationId="InvoiceDraftPageEntryBuyerNip" />
+                                <Button Grid.Column="1" Text="🔍" Padding="0"
+                                        Style="{StaticResource UiButtonTonal}"
+                                        SemanticProperties.Description="Pobierz z NIP"
+                                        Command="{Binding LookupBuyerNipCommand}"
+                                        AutomationId="InvoiceDraftPageButtonLookup" />
+                            </Grid>
+                            <ActivityIndicator IsRunning="{Binding IsLookingUp}" IsVisible="{Binding IsLookingUp}" HeightRequest="24" />
+                            <Label Text="{Binding LookupStatus}" FontSize="13"
+                                   AutomationId="InvoiceDraftPageLabelLookupStatus"
+                                   IsVisible="{Binding LookupStatus, Converter={StaticResource IsNotNullConverter}}"
+                                   TextColor="{AppThemeBinding Light={StaticResource UiSuccess}, Dark={StaticResource UiSuccessDark}}">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding LookupTone}" Value="Warning">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding LookupTone}" Value="Error">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                            <Label Text="{Binding BuyerNipError}" Style="{StaticResource UiFieldError}"
+                                   AutomationId="InvoiceDraftPageLabelBuyerNipError"
+                                   IsVisible="{Binding BuyerNipError, Converter={StaticResource IsNotNullConverter}}" />
+                        </VerticalStackLayout>
+
+                        <Label Text="Nazwa" Style="{StaticResource UiFieldLabel}" />
+                        <Entry Text="{Binding BuyerName}" Style="{StaticResource UiEntry}" AutomationId="InvoiceDraftPageEntryBuyerName" />
+                        <Label Text="{Binding BuyerNameError}" Style="{StaticResource UiFieldError}"
+                               IsVisible="{Binding BuyerNameError, Converter={StaticResource IsNotNullConverter}}" />
+                        <Label Text="Adres (ulica i numer)" Style="{StaticResource UiFieldLabel}" />
+                        <Entry Text="{Binding BuyerAddressLine1}" Style="{StaticResource UiEntry}" AutomationId="InvoiceDraftPageEntryBuyerAddress1" />
+                        <Label Text="Kod pocztowy i miejscowość" Style="{StaticResource UiFieldLabel}" />
+                        <Entry Text="{Binding BuyerAddressLine2}" Style="{StaticResource UiEntry}" AutomationId="InvoiceDraftPageEntryBuyerAddress2" />
+                        <Label Text="{Binding BuyerAddressError}" Style="{StaticResource UiFieldError}"
+                               IsVisible="{Binding BuyerAddressError, Converter={StaticResource IsNotNullConverter}}" />
+                        <Label Text="Nabywca dostaje PDF z kodem KOD I." Style="{StaticResource UiMutedText}" FontSize="12"
+                               IsVisible="{Binding IsCompany, Converter={StaticResource InvertedBoolConverter}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Daty" Style="{StaticResource UiH2}" />
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12">
+                            <Label Text="Data wystawienia" Style="{StaticResource UiFieldLabel}" />
+                            <Label Grid.Column="1" Text="Data sprzedaży" Style="{StaticResource UiFieldLabel}" />
+                            <DatePicker Grid.Row="1" Date="{Binding IssueDate}" Style="{StaticResource UiDatePicker}"
+                                        AutomationId="InvoiceDraftPageDateIssue" />
+                            <DatePicker Grid.Row="1" Grid.Column="1" Date="{Binding SaleDate}" Style="{StaticResource UiDatePicker}"
+                                        AutomationId="InvoiceDraftPageDateSale" />
+                        </Grid>
+                        <Label Text="Data sprzedaży różni się od daty wystawienia — trafi na fakturę osobno."
+                               Style="{StaticResource UiMutedText}" FontSize="12" IsVisible="{Binding DatesDiffer}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Pozycje" Style="{StaticResource UiH2}" />
+                        <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Lines}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DraftLineViewModel">
+                                    <Border Padding="12" StrokeThickness="1" StrokeShape="RoundRectangle 8"
+                                            Stroke="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}"
+                                            AutomationId="InvoiceDraftPageFrameLine">
+                                        <VerticalStackLayout Spacing="6">
+                                            <Grid ColumnDefinitions="*,48">
+                                                <Entry Text="{Binding Name}" Placeholder="Nazwa towaru lub usługi" Style="{StaticResource UiEntry}"
+                                                       AutomationId="InvoiceDraftPageEntryLineName" />
+                                                <Button Grid.Column="1" Text="✕" Padding="0" Style="{StaticResource UiButtonGhost}"
+                                                        SemanticProperties.Description="Usuń pozycję"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:InvoiceDraftViewModel}}, Path=RemoveLineCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+                                                <Label Text="Ilość" Style="{StaticResource UiCaption}" />
+                                                <Label Grid.Column="1" Text="J.m." Style="{StaticResource UiCaption}" />
+                                                <Label Grid.Column="2" Text="Cena netto" Style="{StaticResource UiCaption}" />
+                                                <Entry Grid.Row="1" Text="{Binding Quantity}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                       HorizontalTextAlignment="End" AutomationId="InvoiceDraftPageEntryLineQuantity" />
+                                                <Entry Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" Style="{StaticResource UiEntry}" />
+                                                <Entry Grid.Row="1" Grid.Column="2" Text="{Binding UnitNetPrice}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                       HorizontalTextAlignment="End" AutomationId="InvoiceDraftPageEntryLinePrice" />
+                                            </Grid>
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Picker ItemsSource="{x:Static vm:DraftLineViewModel.VatRateLabels}"
+                                                        SelectedItem="{Binding VatRateLabel}"
+                                                        Title="VAT"
+                                                        Style="{StaticResource UiPicker}"
+                                                        AutomationId="InvoiceDraftPagePickerLineVat" />
+                                                <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontAttributes="Bold"
+                                                       VerticalOptions="Center" />
+                                            </Grid>
+                                            <Label Text="{Binding Error}" Style="{StaticResource UiFieldError}"
+                                                   IsVisible="{Binding Error, Converter={StaticResource IsNotNullConverter}}" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="{Binding LinesError}" Style="{StaticResource UiFieldError}"
+                               IsVisible="{Binding LinesError, Converter={StaticResource IsNotNullConverter}}" />
+                        <Button Text="+ Dodaj pozycję" Style="{StaticResource UiButtonOutline}"
+                                Command="{Binding AddLineCommand}" AutomationId="InvoiceDraftPageButtonAddLine" />
+                        <Label Text="VAT w wierszu jest poglądowy — liczymy go od sumy netto dla każdej stawki."
+                               Style="{StaticResource UiMutedText}" FontSize="12" />
+
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding HasExemptLine}">
+                            <Label Text="Podstawa zwolnienia z VAT" Style="{StaticResource UiFieldLabel}" />
+                            <Picker ItemsSource="{x:Static vm:InvoiceDraftViewModel.ExemptionKindLabels}"
+                                    SelectedItem="{Binding ExemptionKindLabel}" Style="{StaticResource UiPicker}"
+                                    AutomationId="InvoiceDraftPagePickerExemptionKind" />
+                            <Entry Text="{Binding ExemptionText}" Style="{StaticResource UiEntry}"
+                                   AutomationId="InvoiceDraftPageEntryExemptionText" />
+                            <Label Text="{Binding ExemptionError}" Style="{StaticResource UiFieldError}"
+                                   IsVisible="{Binding ExemptionError, Converter={StaticResource IsNotNullConverter}}" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Płatność" Style="{StaticResource UiH2}" />
+                        <Border Style="{StaticResource UiSegmentTrack}">
+                            <Grid ColumnDefinitions="*,*,*"
+                                  RadioButtonGroup.GroupName="paymentMethod"
+                                  RadioButtonGroup.SelectedValue="{Binding PaymentMethod}">
+                                <RadioButton Style="{StaticResource UiSegment}" Content="Przelew" Value="Transfer"
+                                             AutomationId="InvoiceDraftPageSegmentTransfer" />
+                                <RadioButton Grid.Column="1" Style="{StaticResource UiSegment}" Content="Gotówka" Value="Cash"
+                                             AutomationId="InvoiceDraftPageSegmentCash" />
+                                <RadioButton Grid.Column="2" Style="{StaticResource UiSegment}" Content="Karta" Value="Card"
+                                             AutomationId="InvoiceDraftPageSegmentCard" />
+                            </Grid>
+                        </Border>
+
+                        <Label Text="Termin płatności" Style="{StaticResource UiFieldLabel}" />
+                        <HorizontalStackLayout Spacing="8"
+                                               RadioButtonGroup.GroupName="dueDays"
+                                               RadioButtonGroup.SelectedValue="{Binding DueDays}">
+                            <RadioButton Style="{StaticResource UiChip}" Content="7 dni" Value="7" />
+                            <RadioButton Style="{StaticResource UiChip}" Content="14 dni" Value="14" />
+                            <RadioButton Style="{StaticResource UiChip}" Content="30 dni" Value="30" />
+                        </HorizontalStackLayout>
+                        <DatePicker Date="{Binding DueDate}" Style="{StaticResource UiDatePicker}"
+                                    AutomationId="InvoiceDraftPageDateDue" />
+                        <Label Text="{Binding DueDateError}" Style="{StaticResource UiFieldError}"
+                               IsVisible="{Binding DueDateError, Converter={StaticResource IsNotNullConverter}}" />
+
+                        <VerticalStackLayout Spacing="4" IsVisible="{Binding IsTransfer}">
+                            <Label Text="Rachunek" Style="{StaticResource UiFieldLabel}" />
+                            <Label Text="{Binding BankAccount}" Style="{StaticResource UiMono}" />
+                        </VerticalStackLayout>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <CheckBox IsChecked="{Binding SplitPayment}" AutomationId="InvoiceDraftPageCheckSplitPayment"
+                                      Color="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                            <Label Grid.Column="1" Text="Mechanizm podzielonej płatności" Style="{StaticResource UiBody}" VerticalOptions="Center" />
+                        </Grid>
+                        <Border Style="{StaticResource UiAlert}"
+                                IsVisible="{Binding ShowSplitPaymentWarning}"
+                                AutomationId="InvoiceDraftPageAlertSplitPayment"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}">
+                            <Label Text="Sprawdź, czy faktura wymaga mechanizmu podzielonej płatności (załącznik nr 15)."
+                                   TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
+                        </Border>
+                        <Label Text="{Binding PaymentError}" Style="{StaticResource UiFieldError}"
+                               IsVisible="{Binding PaymentError, Converter={StaticResource IsNotNullConverter}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Podsumowanie VAT" Style="{StaticResource UiH2}" />
+                        <Grid ColumnDefinitions="Auto,*,*,*" ColumnSpacing="8">
+                            <Label Text="Stawka" Style="{StaticResource UiCaption}" />
+                            <Label Grid.Column="1" Text="Netto" Style="{StaticResource UiCaption}" HorizontalTextAlignment="End" />
+                            <Label Grid.Column="2" Text="VAT" Style="{StaticResource UiCaption}" HorizontalTextAlignment="End" />
+                            <Label Grid.Column="3" Text="Brutto" Style="{StaticResource UiCaption}" HorizontalTextAlignment="End" />
+                        </Grid>
+                        <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding VatSummary}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:VatSummaryRow">
+                                    <Grid ColumnDefinitions="Auto,*,*,*" ColumnSpacing="8">
+                                        <Label Text="{Binding Rate}" Style="{StaticResource UiMutedText}" WidthRequest="64" />
+                                        <Label Grid.Column="1" Text="{Binding Net}" Style="{StaticResource UiMutedText}" HorizontalTextAlignment="End" />
+                                        <Label Grid.Column="2" Text="{Binding Vat}" Style="{StaticResource UiMutedText}" HorizontalTextAlignment="End" />
+                                        <Label Grid.Column="3" Text="{Binding Gross}" Style="{StaticResource UiMutedText}" HorizontalTextAlignment="End" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="{Binding NumberPreview}" Style="{StaticResource UiMutedText}" FontSize="12" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Border Grid.Row="1" Padding="16,12" StrokeThickness="0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="8">
+                <Label Text="Do zapłaty" Style="{StaticResource UiMutedText}" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding TotalGrossText}" Style="{StaticResource UiH2}"
+                       AutomationId="InvoiceDraftPageLabelTotal" />
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Button Text="Wystaw i wyślij do KSeF" Style="{StaticResource UiButtonPrimary}"
+                            Command="{Binding IssueCommand}" AutomationId="InvoiceDraftPageButtonIssue" />
+                    <controls:KsefBadge Grid.Column="1" Environment="{Binding Environment}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <ActivityIndicator Grid.RowSpan="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           VerticalOptions="Center" HorizontalOptions="Center" />
+    </Grid>
+
+</ContentPage>

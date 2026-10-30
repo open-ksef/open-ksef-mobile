@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:OpenKSeF.Mobile.Views.Controls"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="OpenKSeF.Mobile.Views.IssuedInvoiceDetailsPage"
+             x:DataType="vm:IssuedInvoiceDetailsViewModel"
+             Style="{StaticResource UiPage}"
+             Title="{Binding Title}">
+
+    <ContentPage.Resources>
+        <toolkit:ByteArrayToImageSourceConverter x:Key="BytesToImage" />
+    </ContentPage.Resources>
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Kopiuj jako nową" Order="Secondary"
+                     AutomationId="IssuedInvoiceDetailsPageToolbarCopy"
+                     Command="{Binding CopyAsNewCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="16"
+                                 IsVisible="{Binding Invoice, Converter={StaticResource IsNotNullConverter}}">
+
+                <Border Style="{StaticResource UiCard}" AutomationId="IssuedInvoiceDetailsPageStatusCard">
+                    <VerticalStackLayout Spacing="10">
+                        <HorizontalStackLayout Spacing="8">
+                            <controls:KsefBadge Status="{Binding Status}" />
+                            <controls:KsefBadge Environment="{Binding Environment}" />
+                        </HorizontalStackLayout>
+
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding IsDraft}">
+                            <Label Text="Bez numeru. Możesz edytować i usunąć." Style="{StaticResource UiMutedText}" />
+                            <Button Text="Wystaw i wyślij" Style="{StaticResource UiButtonPrimary}"
+                                    Command="{Binding IssueCommand}" AutomationId="IssuedInvoiceDetailsPageButtonIssue" />
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Text="Edytuj" Style="{StaticResource UiButtonOutline}"
+                                        Command="{Binding EditCommand}" AutomationId="IssuedInvoiceDetailsPageButtonEdit" />
+                                <Button Grid.Column="1" Text="Usuń szkic" Style="{StaticResource UiButtonOutline}"
+                                        Command="{Binding DeleteCommand}" AutomationId="IssuedInvoiceDetailsPageButtonDelete" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6" IsVisible="{Binding IsSending}">
+                            <HorizontalStackLayout Spacing="8">
+                                <ActivityIndicator IsRunning="{Binding IsSending}" HeightRequest="20" WidthRequest="20" />
+                                <Label Text="Wysłano do KSeF, czekamy na przyjęcie" Style="{StaticResource UiBody}" VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <Label Text="✓ Sprawdzono · ✓ Nadano numer · Pobranie UPO po przyjęciu" Style="{StaticResource UiMutedText}" FontSize="12" />
+                            <Label Text="Odświeżamy automatycznie. Możesz zamknąć ekran." Style="{StaticResource UiMutedText}" FontSize="12" />
+                            <Border Style="{StaticResource UiAlert}"
+                                    IsVisible="{Binding KsefUnavailableText, Converter={StaticResource IsNotNullConverter}}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}">
+                                <Label Text="{Binding KsefUnavailableText}"
+                                       TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="6" IsVisible="{Binding IsAccepted}">
+                            <Label Text="Numer KSeF" Style="{StaticResource UiCaption}" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="{Binding KsefNumber}" Style="{StaticResource UiMono}" LineBreakMode="CharacterWrap"
+                                       AutomationId="IssuedInvoiceDetailsPageLabelKsefNumber" />
+                                <Button Grid.Column="1" Text="Kopiuj" Style="{StaticResource UiButtonGhost}" HeightRequest="40"
+                                        Command="{Binding CopyKsefNumberCommand}" AutomationId="IssuedInvoiceDetailsPageButtonCopyKsef" />
+                            </Grid>
+                            <Label Text="{Binding AcceptedText}" Style="{StaticResource UiMutedText}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding IsRejected}">
+                            <Label Text="{Binding RejectionText}" Style="{StaticResource UiBody}"
+                                   AutomationId="IssuedInvoiceDetailsPageLabelRejection"
+                                   TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                            <Button Text="Popraw i wyślij ponownie" Style="{StaticResource UiButtonPrimary}"
+                                    Command="{Binding EditCommand}" AutomationId="IssuedInvoiceDetailsPageButtonFix" />
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Do zapłaty" Style="{StaticResource UiCaption}" />
+                        <Label Text="{Binding GrossText}" Style="{StaticResource UiDisplay}" AutomationId="IssuedInvoiceDetailsPageLabelTotal" />
+                        <Label Text="{Binding DatesText}" Style="{StaticResource UiMutedText}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Nabywca" Style="{StaticResource UiCaption}" />
+                        <Label Text="{Binding BuyerText}" Style="{StaticResource UiBody}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Pozycje" Style="{StaticResource UiCaption}" />
+                        <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Lines}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:IssuedLineRow">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+                                        <Label Text="{Binding Name}" Style="{StaticResource UiBody}" FontAttributes="Bold" />
+                                        <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontAttributes="Bold" />
+                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource UiMutedText}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}"
+                        IsVisible="{Binding VerificationQr, Converter={StaticResource IsNotNullConverter}}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="KOD I" Style="{StaticResource UiCaption}" />
+                        <Image Source="{Binding VerificationQr, Converter={StaticResource BytesToImage}}"
+                               WidthRequest="200" HeightRequest="200" HorizontalOptions="Center"
+                               AutomationId="IssuedInvoiceDetailsPageImageQr" />
+                        <Label Text="{Binding KsefNumber}" Style="{StaticResource UiMono}" FontSize="12" HorizontalTextAlignment="Center" />
+                        <Label Text="Pokaż kod nabywcy — sprawdzi fakturę w KSeF." Style="{StaticResource UiMutedText}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Label Text="{Binding ErrorMessage}" Style="{StaticResource UiFieldError}" FontSize="14"
+               AutomationId="IssuedInvoiceDetailsPageLabelError"
+               Margin="16" VerticalOptions="End" HorizontalTextAlignment="Center"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           VerticalOptions="Center" HorizontalOptions="Center" />
+    </Grid>
+
+</ContentPage>

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:OpenKSeF.Mobile.Views.Controls"
+             x:Class="OpenKSeF.Mobile.Views.IssuedInvoiceListPage"
+             x:DataType="vm:IssuedInvoiceListViewModel"
+             Style="{StaticResource UiPage}"
+             Title="Wystawione">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Dane do faktur"
+                     AutomationId="IssuedInvoiceListPageToolbarSellerProfile"
+                     Command="{Binding OpenSellerProfileCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <Grid Padding="16,12,16,0" ColumnDefinitions="*,Auto" IsVisible="{Binding CanIssue}">
+            <SearchBar Text="{Binding Search}"
+                       SearchCommand="{Binding LoadCommand}"
+                       Placeholder="Numer, nabywca, NIP"
+                       AutomationId="IssuedInvoiceListPageSearch" />
+            <controls:KsefBadge Grid.Column="1" Environment="{Binding Environment}" Margin="8,0,0,0" />
+        </Grid>
+
+        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" IsVisible="{Binding CanIssue}">
+            <HorizontalStackLayout Padding="16,8" Spacing="8"
+                                   RadioButtonGroup.GroupName="issuedStatus"
+                                   RadioButtonGroup.SelectedValue="{Binding SelectedStatus}"
+                                   BindableLayout.ItemsSource="{Binding Filters}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:StatusFilter">
+                        <RadioButton Style="{StaticResource UiChip}" Content="{Binding Label}" Value="{Binding Value}" />
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <VerticalStackLayout Grid.Row="2" Padding="32" Spacing="12" VerticalOptions="Center"
+                             IsVisible="{Binding IsUnsupported}"
+                             AutomationId="IssuedInvoiceListPageUnsupportedState">
+            <Label Text="Wystawianie faktur niedostępne" Style="{StaticResource UiH2}" HorizontalOptions="Center" />
+            <Label Text="Ten serwer OpenKSeF nie obsługuje jeszcze wystawiania faktur. Zaktualizuj serwer, aby wystawiać faktury z aplikacji."
+                   Style="{StaticResource UiMutedText}" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="2" Padding="32" Spacing="12" VerticalOptions="Center"
+                             IsVisible="{Binding IsNoTenantSelected}">
+            <Label Text="Nie wybrano firmy" Style="{StaticResource UiH2}" HorizontalOptions="Center" />
+            <Label Text="Przejdź do zakładki Firmy i wybierz firmę." Style="{StaticResource UiMutedText}" HorizontalTextAlignment="Center" />
+        </VerticalStackLayout>
+
+        <RefreshView Grid.Row="2" Command="{Binding LoadCommand}" IsRefreshing="{Binding IsRefreshing}"
+                     IsVisible="{Binding CanIssue}">
+            <CollectionView ItemsSource="{Binding Invoices}"
+                            AutomationId="IssuedInvoiceListPageCollectionViewInvoices"
+                            SelectionMode="None"
+                            RemainingItemsThreshold="3"
+                            RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:IssuedInvoiceRow">
+                        <Border Style="{StaticResource UiCard}" Margin="16,4" Padding="16,12"
+                                AutomationId="IssuedInvoiceListPageFrameInvoiceItem">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:IssuedInvoiceListViewModel}}, Path=OpenCommand}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="6" ColumnSpacing="8">
+                                <Label Text="{Binding Buyer}" Style="{StaticResource UiBody}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontAttributes="Bold" />
+                                <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource UiMutedText}" LineBreakMode="TailTruncation" />
+                                <controls:KsefBadge Grid.Row="1" Grid.Column="1" Status="{Binding Status}" Short="True" HorizontalOptions="End" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <ActivityIndicator IsRunning="{Binding IsLoadingMore}" IsVisible="{Binding IsLoadingMore}" Margin="0,8,0,88" />
+                </CollectionView.Footer>
+            </CollectionView>
+        </RefreshView>
+
+        <Border Grid.Row="2" Margin="16" Padding="24" VerticalOptions="Center"
+                StrokeDashArray="4,3" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                Stroke="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}"
+                IsVisible="{Binding IsEmpty}"
+                AutomationId="IssuedInvoiceListPageEmptyState">
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Nie wystawiono jeszcze faktur" Style="{StaticResource UiH2}" HorizontalOptions="Center" />
+                <Button Text="Nowa faktura" Style="{StaticResource UiButtonPrimary}" HorizontalOptions="Center"
+                        Command="{Binding NewInvoiceCommand}" AutomationId="IssuedInvoiceListPageButtonNewEmpty" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Label Grid.Row="2" Text="{Binding ErrorMessage}" Style="{StaticResource UiFieldError}" FontSize="14"
+               AutomationId="IssuedInvoiceListPageLabelError"
+               Margin="16,16,16,96" VerticalOptions="End" HorizontalTextAlignment="Center"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           VerticalOptions="Center" HorizontalOptions="Center" />
+
+        <Button Grid.Row="2" Text="+" FontSize="28" Padding="0"
+                Style="{StaticResource UiButtonPrimary}"
+                WidthRequest="56" HeightRequest="56" CornerRadius="16"
+                HorizontalOptions="End" VerticalOptions="End" Margin="16"
+                IsVisible="{Binding CanIssue}"
+                SemanticProperties.Description="Nowa faktura"
+                Command="{Binding NewInvoiceCommand}"
+                AutomationId="IssuedInvoiceListPageButtonNew" />
+    </Grid>
+
+</ContentPage>
