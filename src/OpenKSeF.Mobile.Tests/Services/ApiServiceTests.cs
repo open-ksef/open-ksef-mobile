@@ -39,7 +39,7 @@ public class ApiServiceTests
     {
         var tenantId = Guid.NewGuid();
         _handler.RespondJson(HttpStatusCode.OK, """
-            {"items":[{"id":"6f2a3a0e-8f3e-4a8e-9f1e-7d2b3c4d5e6f","kSeFInvoiceNumber":"FV/2026/001","vendorName":"Vendor Sp. z o.o.","amountGross":1230.00,"currency":"PLN","issueDate":"2026-01-15T00:00:00Z","isPaid":true}],
+            {"items":[{"id":"6f2a3a0e-8f3e-4a8e-9f1e-7d2b3c4d5e6f","ksefInvoiceNumber":"FV/2026/001","vendorName":"Vendor Sp. z o.o.","amountGross":1230.00,"currency":"PLN","issueDate":"2026-01-15T00:00:00Z","isPaid":true}],
              "page":2,"pageSize":20,"totalCount":21}
             """);
 
