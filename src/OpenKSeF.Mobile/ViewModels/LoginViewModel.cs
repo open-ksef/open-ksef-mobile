@@ -50,6 +50,8 @@ public partial class LoginViewModel : ObservableObject
         ? "Zaloguj się do portalu OpenKSeF"
         : "Utwórz nowe konto";
 
+    public string ActiveServerHost => ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
+
     public string LoginButtonText => IsBusy ? "Logowanie..." : "Zaloguj się";
     public string RegisterButtonText => IsBusy ? "Tworzenie konta..." : "Utwórz konto";
     public string SwitchPromptText => IsLoginMode ? "Nie masz konta?" : "Masz już konto?";
@@ -71,6 +73,7 @@ public partial class LoginViewModel : ObservableObject
     {
         ServerUrl = _serverSettings.ServerUrl;
         IsServerVisible = !_serverSettings.IsConfigured;
+        OnPropertyChanged(nameof(ActiveServerHost));
     }
 
     partial void OnIsLoginModeChanged(bool value)
@@ -235,6 +238,7 @@ public partial class LoginViewModel : ObservableObject
         }
 
         ServerUrl = normalizedUrl;
+        OnPropertyChanged(nameof(ActiveServerHost));
     }
 
     [RelayCommand]
@@ -251,5 +255,6 @@ public partial class LoginViewModel : ObservableObject
         }
 
         ServerUrl = normalizedUrl;
+        OnPropertyChanged(nameof(ActiveServerHost));
     }
 }

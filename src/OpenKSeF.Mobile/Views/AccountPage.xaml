@@ -50,7 +50,7 @@
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Serwer" Style="{StaticResource LabelCaption}" />
-                    <Label Text="{Binding ServerUrl}" FontSize="14" />
+                    <Label Text="{Binding ServerHost}" FontSize="14" />
                 </VerticalStackLayout>
             </Border>
 

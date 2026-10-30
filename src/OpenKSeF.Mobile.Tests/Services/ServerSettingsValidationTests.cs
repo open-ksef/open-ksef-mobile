@@ -1,3 +1,4 @@
+using OpenKSeF.Mobile.Services;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Services;
@@ -8,42 +9,45 @@ public class ServerSettingsValidationTests
     [InlineData("https://example.com", "https://example.com")]
     [InlineData("https://example.com/", "https://example.com")]
     [InlineData("https://example.com/some/path", "https://example.com")]
+    [InlineData(" https://example.com:8443/ ", "https://example.com:8443")]
     [InlineData("http://localhost:8080", "http://localhost:8080")]
     [InlineData("http://localhost:8080/", "http://localhost:8080")]
-    public void TryUpdateServerUrl_ValidUrl_NormalizesCorrectly(string input, string expected)
+    [InlineData("https://Example.COM", "https://example.com")]
+    [InlineData("https://example.com.", "https://example.com")]
+    [InlineData("https://example.com.:8443/", "https://example.com:8443")]
+    [InlineData("https://example.com:443", "https://example.com")]
+    [InlineData("http://localhost:80", "http://localhost")]
+    [InlineData("https://bаnk.pl/login", "https://xn--bnk-6cd.pl")]
+    public void TryNormalize_ValidUrl_NormalizesCorrectly(string input, string expected)
     {
-        var (success, normalized, error) = ValidateAndNormalize(input);
+        var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out var normalized, out var error);
 
         Assert.True(success);
         Assert.Equal(expected, normalized);
         Assert.Null(error);
     }
 
-    [Fact]
-    public void TryUpdateServerUrl_EmptyUrl_ReturnsError()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("not-a-url")]
+    [InlineData("ftp://example.com")]
+    [InlineData("://missing-scheme")]
+    public void TryNormalize_InvalidUrl_ReturnsError(string input)
     {
-        var (success, _, error) = ValidateAndNormalize("");
-
-        Assert.False(success);
-        Assert.NotNull(error);
-    }
-
-    [Fact]
-    public void TryUpdateServerUrl_WhitespaceOnly_ReturnsError()
-    {
-        var (success, _, error) = ValidateAndNormalize("   ");
+        var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out _, out var error);
 
         Assert.False(success);
         Assert.NotNull(error);
     }
 
     [Theory]
-    [InlineData("not-a-url")]
-    [InlineData("ftp://example.com")]
-    [InlineData("://missing-scheme")]
-    public void TryUpdateServerUrl_InvalidUrl_ReturnsError(string input)
+    [InlineData("https://user:pass@example.com")]
+    [InlineData("https://user@example.com")]
+    [InlineData("https://demo.open-ksef.pl@rogue.example.org")]
+    public void TryNormalize_UserInfo_Rejected(string input)
     {
-        var (success, _, error) = ValidateAndNormalize(input);
+        var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out _, out var error);
 
         Assert.False(success);
         Assert.NotNull(error);
@@ -52,59 +56,75 @@ public class ServerSettingsValidationTests
     [Theory]
     [InlineData("http://10.0.2.2:8080", "http://10.0.2.2:8080")]
     [InlineData("http://localhost:8080", "http://localhost:8080")]
-    public void TryUpdateServerUrl_HttpDevHost_IsAccepted(string input, string expected)
+    public void TryNormalize_HttpDevHost_AcceptedInDebug(string input, string expected)
     {
-        var (success, normalized, _) = ValidateAndNormalize(input);
+        var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out var normalized, out _);
 
         Assert.True(success);
         Assert.Equal(expected, normalized);
     }
 
     [Theory]
+    [InlineData("http://10.0.2.2:8080")]
+    [InlineData("http://localhost:8080")]
+    [InlineData("http://example.com")]
+    public void TryNormalize_Http_RejectedInRelease(string input)
+    {
+        var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: false, out _, out var error);
+
+        Assert.False(success);
+        Assert.Contains("HTTPS", error);
+    }
+
+    [Theory]
     [InlineData("http://192.168.1.100:8080")]
     [InlineData("http://my-server.local")]
     [InlineData("http://example.com")]
-    public void TryUpdateServerUrl_HttpNonDevHost_ReturnsError(string input)
+    public void TryNormalize_HttpNonDevHost_RejectedInDebug(string input)
     {
-        var (success, _, error) = ValidateAndNormalize(input);
+        var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out _, out var error);
 
         Assert.False(success);
         Assert.NotNull(error);
     }
 
     [Fact]
-    public void Authority_IsDerivedFromServerUrl()
+    public void AllowDevCleartext_FollowsBuildConfiguration()
     {
-        const string serverUrl = "https://example.com";
-        const string realmPath = "/auth/realms/openksef";
-
-        Assert.Equal("https://example.com/auth/realms/openksef", serverUrl + realmPath);
+#if DEBUG
+        Assert.True(ServerUrlRules.AllowDevCleartext);
+#else
+        Assert.False(ServerUrlRules.AllowDevCleartext);
+        Assert.False(ServerUrlRules.TryNormalize("http://10.0.2.2:8080", ServerUrlRules.AllowDevCleartext, out _, out var error));
+        Assert.Equal("Wymagane jest polaczenie HTTPS.", error);
+#endif
     }
 
-    private static readonly HashSet<string> CleartextAllowedHosts = new(StringComparer.OrdinalIgnoreCase)
+    [Fact]
+    public void TryNormalize_Https_AcceptedInRelease()
     {
-        "localhost",
-        "10.0.2.2",
-    };
+        Assert.True(ServerUrlRules.TryNormalize("https://demo.open-ksef.pl", allowDevCleartext: false, out _, out _));
+    }
 
-    /// <summary>
-    /// Mirror of ServerSettingsService.TryUpdateServerUrl validation logic.
-    /// </summary>
-    private static (bool success, string normalized, string? error) ValidateAndNormalize(string url)
+    [Theory]
+    [InlineData("https://a.example.com", "https://b.example.com", true)]
+    [InlineData("https://example.com", "https://example.com:8443", true)]
+    [InlineData("http://10.0.2.2:8080", "https://10.0.2.2:8080", true)]
+    [InlineData("https://example.com", "https://EXAMPLE.com", false)]
+    [InlineData("https://example.com/", "https://example.com", false)]
+    public void IsDifferentServer_ComparesSchemeHostPort(string current, string scanned, bool expected)
     {
-        var normalizedUrl = url.TrimEnd('/');
+        Assert.Equal(expected, ServerUrlRules.IsDifferentServer(current, scanned));
+    }
 
-        if (string.IsNullOrWhiteSpace(normalizedUrl))
-            return (false, normalizedUrl, "Adres serwera nie moze byc pusty.");
-
-        if (!Uri.TryCreate(normalizedUrl, UriKind.Absolute, out var uri)
-            || (uri.Scheme != "http" && uri.Scheme != "https"))
-            return (false, normalizedUrl, "Podaj poprawny adres URL (http:// lub https://).");
-
-        if (uri.Scheme == "http" && !CleartextAllowedHosts.Contains(uri.Host))
-            return (false, normalizedUrl, "Polaczenie HTTP dozwolone tylko dla localhost / 10.0.2.2. Uzyj HTTPS.");
-
-        normalizedUrl = uri.GetLeftPart(UriPartial.Authority);
-        return (true, normalizedUrl, null);
+    [Theory]
+    [InlineData("https://demo.open-ksef.pl", "demo.open-ksef.pl")]
+    [InlineData("http://10.0.2.2:8080", "10.0.2.2:8080")]
+    [InlineData("https://bаnk.pl", "xn--bnk-6cd.pl")]
+    [InlineData("https://example.com.", "example.com")]
+    [InlineData("https://example.com:443", "example.com")]
+    public void DisplayHost_ShowsPunycodeHostAndNonDefaultPort(string url, string expected)
+    {
+        Assert.Equal(expected, ServerUrlRules.DisplayHost(url));
     }
 }

@@ -3,6 +3,7 @@ namespace OpenKSeF.Mobile.Services;
 public class PostLoginNavigationService : IPostLoginNavigationService
 {
     private readonly IApiService _apiService;
+    private readonly IAuthService _authService;
     private readonly IDeviceTokenService _deviceTokenService;
     private readonly INotificationHubService _notificationHub;
     private readonly IServerSettingsService _serverSettings;
@@ -10,12 +11,14 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
     public PostLoginNavigationService(
         IApiService apiService,
+        IAuthService authService,
         IDeviceTokenService deviceTokenService,
         INotificationHubService notificationHub,
         IServerSettingsService serverSettings,
         LocalDbService localDb)
     {
         _apiService = apiService;
+        _authService = authService;
         _deviceTokenService = deviceTokenService;
         _notificationHub = notificationHub;
         _serverSettings = serverSettings;
@@ -57,5 +60,13 @@ public class PostLoginNavigationService : IPostLoginNavigationService
                 await Shell.Current.GoToAsync("//main/invoices");
         }
         catch { }
+    }
+
+    public async Task SignOutAsync()
+    {
+        try { await _notificationHub.StopAsync(); } catch { }
+        try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+        try { await _localDb.ClearUserDataAsync(); } catch { }
+        await _authService.LogoutAsync();
     }
 }
