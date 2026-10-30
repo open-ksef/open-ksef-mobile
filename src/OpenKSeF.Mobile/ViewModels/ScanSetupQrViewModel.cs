@@ -139,12 +139,6 @@ public partial class ScanSetupQrViewModel : ObservableObject
             var bytes = new byte[stream.Length];
             _ = await stream.ReadAsync(bytes);
 
-            var reader = new ZXing.BarcodeReaderGeneric();
-            var luminanceSource = new ZXing.RGBLuminanceSource(bytes, 1, 1);
-
-            // ZXing can't decode raw file bytes directly; use the ImageSharp/SkiaSharp approach
-            // For now, fall back to a simpler decode via ZXing.Net MAUI built-in
-            // The gallery pick + decode is best handled by reading the image properly
             var decoded = DecodeQrFromImageBytes(bytes);
             if (decoded is not null)
             {

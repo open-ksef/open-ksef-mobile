@@ -179,7 +179,6 @@
                                    IsVisible="{Binding IsBusy}"
                                    HorizontalOptions="Center" />
 
-                <!-- Active server (always visible), edit section collapsed by default -->
                 <VerticalStackLayout Spacing="6" Margin="0,8,0,0">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <Label FontSize="12"

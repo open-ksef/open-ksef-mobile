@@ -18,9 +18,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Exclude="..\OpenKSeF.Mobile\Models\CachedInvoice.cs;..\OpenKSeF.Mobile\Models\QrSetupPayload.cs" Link="Linked\Models\%(Filename)%(Extension)" />
+    <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Exclude="..\OpenKSeF.Mobile\Models\CachedInvoice.cs" Link="Linked\Models\%(Filename)%(Extension)" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IApiService.cs" Link="Linked\Services\IApiService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\IAuthService.cs" Link="Linked\Services\IAuthService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\IPostLoginNavigationService.cs" Link="Linked\Services\IPostLoginNavigationService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\IServerSettingsService.cs" Link="Linked\Services\IServerSettingsService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ServerUrlRules.cs" Link="Linked\Services\ServerUrlRules.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\ScanSetupQrViewModel.cs" Link="Linked\ViewModels\ScanSetupQrViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\TenantFormViewModel.cs" Link="Linked\ViewModels\TenantFormViewModel.cs" />
   </ItemGroup>
 

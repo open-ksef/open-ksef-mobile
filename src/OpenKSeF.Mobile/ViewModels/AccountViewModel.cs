@@ -12,7 +12,7 @@ public partial class AccountViewModel : ObservableObject
     private readonly IPostLoginNavigationService _session;
 
     [ObservableProperty]
-    private string _serverUrl = "";
+    private string _serverHost = "";
 
     [ObservableProperty]
     private string _appVersion = "";
@@ -36,7 +36,7 @@ public partial class AccountViewModel : ObservableObject
         _deviceTokenService = deviceTokenService;
         _notificationHub = notificationHub;
         _session = session;
-        ServerUrl = _serverSettings.ServerUrl;
+        ServerHost = ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
         AppVersion = $"v{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
     }
 

@@ -12,6 +12,12 @@ public class ServerSettingsValidationTests
     [InlineData(" https://example.com:8443/ ", "https://example.com:8443")]
     [InlineData("http://localhost:8080", "http://localhost:8080")]
     [InlineData("http://localhost:8080/", "http://localhost:8080")]
+    [InlineData("https://Example.COM", "https://example.com")]
+    [InlineData("https://example.com.", "https://example.com")]
+    [InlineData("https://example.com.:8443/", "https://example.com:8443")]
+    [InlineData("https://example.com:443", "https://example.com")]
+    [InlineData("http://localhost:80", "http://localhost")]
+    [InlineData("https://bаnk.pl/login", "https://xn--bnk-6cd.pl")]
     public void TryNormalize_ValidUrl_NormalizesCorrectly(string input, string expected)
     {
         var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out var normalized, out var error);
@@ -28,6 +34,18 @@ public class ServerSettingsValidationTests
     [InlineData("ftp://example.com")]
     [InlineData("://missing-scheme")]
     public void TryNormalize_InvalidUrl_ReturnsError(string input)
+    {
+        var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out _, out var error);
+
+        Assert.False(success);
+        Assert.NotNull(error);
+    }
+
+    [Theory]
+    [InlineData("https://user:pass@example.com")]
+    [InlineData("https://user@example.com")]
+    [InlineData("https://demo.open-ksef.pl@rogue.example.org")]
+    public void TryNormalize_UserInfo_Rejected(string input)
     {
         var success = ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out _, out var error);
 
@@ -103,6 +121,8 @@ public class ServerSettingsValidationTests
     [InlineData("https://demo.open-ksef.pl", "demo.open-ksef.pl")]
     [InlineData("http://10.0.2.2:8080", "10.0.2.2:8080")]
     [InlineData("https://bаnk.pl", "xn--bnk-6cd.pl")]
+    [InlineData("https://example.com.", "example.com")]
+    [InlineData("https://example.com:443", "example.com")]
     public void DisplayHost_ShowsPunycodeHostAndNonDefaultPort(string url, string expected)
     {
         Assert.Equal(expected, ServerUrlRules.DisplayHost(url));

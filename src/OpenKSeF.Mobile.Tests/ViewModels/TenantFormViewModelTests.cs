@@ -8,6 +8,7 @@ using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.ViewModels;
 
+[Collection("Shell")]
 public class TenantFormViewModelTests
 {
     private const string TenantsJson = """

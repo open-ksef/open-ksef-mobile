@@ -33,6 +33,12 @@ public static class ServerUrlRules
             return false;
         }
 
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+        {
+            validationError = "Adres serwera nie moze zawierac nazwy uzytkownika ani hasla.";
+            return false;
+        }
+
         if (uri.Scheme == "http" && !(allowDevCleartext && CleartextDevHosts.Contains(uri.Host)))
         {
             validationError = allowDevCleartext
@@ -41,7 +47,7 @@ public static class ServerUrlRules
             return false;
         }
 
-        normalizedUrl = uri.GetLeftPart(UriPartial.Authority);
+        normalizedUrl = $"{uri.Scheme}://{DisplayHost(uri)}";
         return true;
     }
 
@@ -49,7 +55,11 @@ public static class ServerUrlRules
         !string.Equals(currentUrl.TrimEnd('/'), newNormalizedUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
 
     public static string DisplayHost(string url) =>
-        Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            ? (uri.IsDefaultPort ? uri.IdnHost : $"{uri.IdnHost}:{uri.Port}")
-            : url;
+        Uri.TryCreate(url, UriKind.Absolute, out var uri) ? DisplayHost(uri) : url;
+
+    private static string DisplayHost(Uri uri)
+    {
+        var host = uri.HostNameType == UriHostNameType.IPv6 ? uri.Host : uri.IdnHost.TrimEnd('.');
+        return uri.IsDefaultPort ? host : $"{host}:{uri.Port}";
+    }
 }
