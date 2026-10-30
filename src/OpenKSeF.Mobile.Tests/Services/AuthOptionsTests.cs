@@ -1,32 +1,18 @@
+using OpenKSeF.Mobile.Services;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Services;
 
-/// <summary>
-/// Tests for auth configuration defaults. AuthOptions is a simple POCO
-/// duplicated here to avoid referencing the MAUI project (which requires workloads).
-/// When a shared Domain/Contracts project is available, these can reference it directly.
-/// </summary>
 public class AuthOptionsTests
 {
     [Fact]
-    public void DefaultAuthority_IsEmpty_SetByServerSettingsService()
+    public void Defaults_MatchKeycloakMobileClient()
     {
-        var defaultAuthority = "";
-        Assert.Equal("", defaultAuthority);
-    }
+        var options = new AuthOptions();
 
-    [Fact]
-    public void DefaultClientId_IsOpeksefMobile()
-    {
-        var expectedClientId = "openksef-mobile";
-        Assert.Equal(expectedClientId, expectedClientId);
-    }
-
-    [Fact]
-    public void DefaultRedirectUri_UsesCustomScheme()
-    {
-        var expectedUri = "openksef://auth/callback";
-        Assert.StartsWith("openksef://", expectedUri);
+        Assert.Equal("", options.Authority);
+        Assert.Equal("openksef-mobile", options.ClientId);
+        Assert.Equal("openksef://auth/callback", options.RedirectUri);
+        Assert.Equal("openksef://auth/logout", options.PostLogoutRedirectUri);
     }
 }

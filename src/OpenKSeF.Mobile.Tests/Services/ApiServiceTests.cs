@@ -1,175 +1,150 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using NSubstitute;
+using OpenKSeF.Mobile.Models;
+using OpenKSeF.Mobile.Services;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Services;
 
-// Minimal duplicates of Mobile types for testing without MAUI project reference.
-// These will be removed once a shared contracts project exists.
-
-public interface IAuthService
-{
-    Task<bool> LoginAsync();
-    Task LogoutAsync();
-    Task<string?> GetAccessTokenAsync();
-    bool IsAuthenticated { get; }
-}
-
-public class PagedResult<T>
-{
-    public List<T> Items { get; set; } = [];
-    public int Page { get; set; }
-    public int PageSize { get; set; }
-    public int TotalCount { get; set; }
-}
-
-public class InvoiceDto
-{
-    public Guid Id { get; set; }
-    public string KSeFInvoiceNumber { get; set; } = string.Empty;
-    public string VendorName { get; set; } = string.Empty;
-    public decimal AmountGross { get; set; }
-    public string Currency { get; set; } = "PLN";
-    public DateTime IssueDate { get; set; }
-}
-
-public class TenantDto
-{
-    public Guid Id { get; set; }
-    public string Nip { get; set; } = string.Empty;
-    public string? DisplayName { get; set; }
-}
-
-public class UserInfo
-{
-    public string UserId { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// Tests the HTTP client patterns used by ApiService without referencing the MAUI project.
-/// Verifies that our API interaction patterns (auth header injection, error handling,
-/// JSON deserialization) work correctly.
-/// </summary>
 public class ApiServiceTests
 {
-    private readonly IAuthService _authService;
+    private readonly IAuthService _auth = Substitute.For<IAuthService>();
+    private readonly IServerSettingsService _serverSettings = Substitute.For<IServerSettingsService>();
+    private readonly FakeHandler _handler = new();
 
     public ApiServiceTests()
     {
-        _authService = Substitute.For<IAuthService>();
-        _authService.GetAccessTokenAsync().Returns("test-access-token");
+        _auth.GetAccessTokenAsync().Returns("test-access-token");
+        _serverSettings.ServerUrl.Returns("https://ksef.example.com");
     }
 
-    private HttpClient CreateClient(HttpStatusCode statusCode, object? responseBody = null)
+    private ApiService CreateService() => new(new HttpClient(_handler), _auth, _serverSettings);
+
+    [Fact]
+    public async Task GetMe_SendsBearerTokenToConfiguredServer()
     {
-        var handler = new FakeHandler(statusCode, responseBody);
-        return new HttpClient(handler) { BaseAddress = new Uri("http://localhost:8081") };
+        _handler.Respond(HttpStatusCode.OK, new UserInfo { UserId = "u1", Email = "test@example.com" });
+
+        var me = await CreateService().GetMeAsync();
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Equal("https://ksef.example.com/api/account/me", request.Uri);
+        Assert.Equal("Bearer test-access-token", request.Authorization);
+        Assert.Equal("u1", me.UserId);
     }
 
     [Fact]
-    public async Task AuthHeader_IsSetFromAuthService()
+    public async Task GetInvoices_BuildsPagedUrlAndDeserializesBackendJson()
     {
-        var handler = new FakeHandler(HttpStatusCode.OK,
-            new UserInfo { UserId = "u1", Email = "test@example.com" });
-        var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:8081") };
+        var tenantId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.OK, """
+            {"items":[{"id":"6f2a3a0e-8f3e-4a8e-9f1e-7d2b3c4d5e6f","ksefInvoiceNumber":"FV/2026/001","vendorName":"Vendor Sp. z o.o.","amountGross":1230.00,"currency":"PLN","issueDate":"2026-01-15T00:00:00Z","isPaid":true}],
+             "page":2,"pageSize":20,"totalCount":21}
+            """);
 
-        var token = await _authService.GetAccessTokenAsync();
-        client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        var result = await CreateService().GetInvoicesAsync(tenantId, page: 2);
 
-        var response = await client.GetAsync("/api/account/me");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Bearer", client.DefaultRequestHeaders.Authorization.Scheme);
-        Assert.Equal("test-access-token", client.DefaultRequestHeaders.Authorization.Parameter);
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/invoices?page=2&pageSize=20", Assert.Single(_handler.Requests).Uri);
+        var invoice = Assert.Single(result.Items);
+        Assert.Equal("FV/2026/001", invoice.KSeFInvoiceNumber);
+        Assert.Equal(1230.00m, invoice.AmountGross);
+        Assert.True(invoice.IsPaid);
+        Assert.Equal(21, result.TotalCount);
     }
 
     [Fact]
-    public async Task GetTenants_DeserializesCorrectly()
+    public async Task Unauthorized_RetriesOnceWithFreshToken()
     {
-        var tenants = new List<TenantDto>
+        _auth.GetAccessTokenAsync().Returns("expired-token", "refreshed-token");
+        _handler.Respond(HttpStatusCode.Unauthorized);
+        _handler.Respond(HttpStatusCode.OK, new List<TenantDto>());
+
+        await CreateService().GetTenantsAsync();
+
+        Assert.Equal(["Bearer expired-token", "Bearer refreshed-token"], _handler.Requests.Select(r => r.Authorization));
+    }
+
+    [Fact]
+    public async Task Unauthorized_AfterRetry_ThrowsSessionExpired()
+    {
+        _handler.Respond(HttpStatusCode.Unauthorized);
+        _handler.Respond(HttpStatusCode.Unauthorized);
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetMeAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Equal(2, _handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task Unauthorized_NoToken_DoesNotRetry()
+    {
+        _auth.GetAccessTokenAsync().Returns((string?)null);
+        _handler.Respond(HttpStatusCode.Unauthorized);
+
+        await Assert.ThrowsAsync<ApiException>(() => CreateService().GetMeAsync());
+
+        Assert.Single(_handler.Requests);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task ErrorStatus_ThrowsApiExceptionWithStatus(HttpStatusCode status)
+    {
+        _handler.Respond(status);
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetTenantsAsync());
+
+        Assert.Equal(status, ex.StatusCode);
+        Assert.False(ApiException.IsNetworkFailure(ex));
+    }
+
+    [Fact]
+    public async Task ConnectionFailure_ThrowsNetworkFailure()
+    {
+        _handler.Throw(new HttpRequestException("no route"));
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetTenantsAsync());
+
+        Assert.True(ApiException.IsNetworkFailure(ex));
+    }
+
+    [Fact]
+    public async Task RegisterDeviceToken_PostsBackendContract()
+    {
+        _handler.Respond(HttpStatusCode.OK);
+
+        await CreateService().RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest { Token = "fcm-1", Platform = 0, TenantId = null });
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Equal("POST", request.Method);
+        Assert.Equal("https://ksef.example.com/api/devices/register", request.Uri);
+        Assert.Equal("""{"token":"fcm-1","platform":0,"tenantId":null}""", request.Body);
+    }
+
+    private sealed record SentRequest(string Method, string Uri, string? Authorization, string? Body);
+
+    private sealed class FakeHandler : HttpMessageHandler
+    {
+        private readonly Queue<Func<HttpResponseMessage>> _responses = new();
+
+        public List<SentRequest> Requests { get; } = [];
+
+        public void Respond(HttpStatusCode status, object? body = null) =>
+            _responses.Enqueue(() => new HttpResponseMessage(status) { Content = body is null ? null : JsonContent.Create(body) });
+
+        public void RespondJson(HttpStatusCode status, string json) =>
+            _responses.Enqueue(() => new HttpResponseMessage(status) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") });
+
+        public void Throw(Exception ex) => _responses.Enqueue(() => throw ex);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            new() { Id = Guid.NewGuid(), Nip = "1234567890", DisplayName = "Test Sp. z o.o." }
-        };
-
-        var client = CreateClient(HttpStatusCode.OK, tenants);
-        var response = await client.GetAsync("/api/tenants");
-        var result = await response.Content.ReadFromJsonAsync<List<TenantDto>>();
-
-        Assert.NotNull(result);
-        Assert.Single(result);
-        Assert.Equal("1234567890", result[0].Nip);
-    }
-
-    [Fact]
-    public async Task GetInvoices_PagedResult_DeserializesCorrectly()
-    {
-        var pagedResult = new PagedResult<InvoiceDto>
-        {
-            Items = [new InvoiceDto
-            {
-                Id = Guid.NewGuid(),
-                KSeFInvoiceNumber = "FV/2026/001",
-                VendorName = "Vendor Sp. z o.o.",
-                AmountGross = 1230.00m,
-                Currency = "PLN",
-                IssueDate = new DateTime(2026, 1, 15, 0, 0, 0, DateTimeKind.Utc)
-            }],
-            Page = 1,
-            PageSize = 20,
-            TotalCount = 1
-        };
-
-        var client = CreateClient(HttpStatusCode.OK, pagedResult);
-        var response = await client.GetAsync("/api/tenants/123/invoices?page=1&pageSize=20");
-        var result = await response.Content.ReadFromJsonAsync<PagedResult<InvoiceDto>>();
-
-        Assert.NotNull(result);
-        Assert.Single(result.Items);
-        Assert.Equal(1230.00m, result.Items[0].AmountGross);
-        Assert.Equal("PLN", result.Items[0].Currency);
-    }
-
-    [Fact]
-    public async Task UnauthorizedResponse_Returns401()
-    {
-        var client = CreateClient(HttpStatusCode.Unauthorized);
-        var response = await client.GetAsync("/api/account/me");
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task ForbiddenResponse_Returns403()
-    {
-        var client = CreateClient(HttpStatusCode.Forbidden);
-        var response = await client.GetAsync("/api/tenants");
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-    }
-
-    private class FakeHandler : HttpMessageHandler
-    {
-        private readonly HttpStatusCode _statusCode;
-        private readonly object? _responseBody;
-
-        public FakeHandler(HttpStatusCode statusCode, object? responseBody = null)
-        {
-            _statusCode = statusCode;
-            _responseBody = responseBody;
-        }
-
-        protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            var response = new HttpResponseMessage(_statusCode);
-            if (_responseBody is not null)
-            {
-                response.Content = JsonContent.Create(_responseBody);
-            }
-            return Task.FromResult(response);
+            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            Requests.Add(new SentRequest(request.Method.Method, request.RequestUri!.ToString(), request.Headers.Authorization?.ToString(), body));
+            return _responses.Dequeue()();
         }
     }
 }

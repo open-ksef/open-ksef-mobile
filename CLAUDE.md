@@ -139,6 +139,8 @@ dotnet test src/OpenKSeF.Mobile.E2E.Android/OpenKSeF.Mobile.E2E.Android.csproj -
 | E2E Smoke+Login | `dotnet test ... --filter "Category=Smoke\|Category=Login"` | ~30s | Docker + emulator + Appium |
 | E2E Regression | `dotnet test ... --filter "Category=Regression"` | ~5min | Docker + emulator + Appium |
 
+Unit tests compile app sources as linked files (`OpenKSeF.Mobile.Tests.csproj` `Compile Include`) against `ViewModels/MauiStubs.cs`, never copies of app logic. ViewModels call `Shell.Current` statically, and real MAUI on plain `net10.0` hangs on `DisplayAlertAsync` without a handler, so a ProjectReference cannot run them. `TEST_CULTURE=en-US` (or `pl-PL`) runs the suite under that culture.
+
 ### Build gotchas
 
 - **Debug APK**: .NET 10 MAUI Debug uses fast deployment (no standalone APK). Use `-t:Run` to install directly on emulator.
