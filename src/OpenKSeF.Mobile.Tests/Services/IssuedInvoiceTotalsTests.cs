@@ -1,50 +1,40 @@
+using System.Text.Json;
 using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Services;
 
+/// <summary>Runs the backend's shared totals vectors (open-ksef src/OpenKSeF.Domain.Tests/Invoicing/TotalsVectors.json, copied verbatim).</summary>
 public class IssuedInvoiceTotalsTests
 {
-    private static IssuedInvoiceLineRequest Line(decimal quantity, decimal price, string rate) =>
-        new() { Name = "Usługa", Quantity = quantity, UnitNetPrice = price, VatRate = rate };
+    private sealed record Expected(List<decimal> LineNet, List<VatSummaryDto> VatSummary, decimal TotalNet, decimal TotalVat, decimal TotalGross);
 
-    [Fact]
-    public void ThreeLinesOf033At23_RoundsVatOnSummedNet()
-    {
-        var totals = IssuedInvoiceTotals.Compute([Line(1, 0.33m, "23"), Line(1, 0.33m, "23"), Line(1, 0.33m, "23")]);
+    private sealed record Vector(string Name, List<IssuedInvoiceLineRequest> Lines, Expected Expected);
 
-        Assert.Equal(0.99m, totals.TotalNet);
-        Assert.Equal(0.23m, totals.TotalVat);
-        Assert.Equal(1.22m, totals.TotalGross);
-        var summary = Assert.Single(totals.VatSummary);
-        Assert.Equal(("23", 0.99m, 0.23m), (summary.VatRate, summary.Net, summary.Vat));
-    }
+    private static readonly List<Vector> Vectors = JsonSerializer.Deserialize<List<Vector>>(
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Services", "Vectors", "TotalsVectors.json")),
+        new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
 
-    [Fact]
-    public void TwoRates_SummarisedPerRate()
-    {
-        var totals = IssuedInvoiceTotals.Compute([Line(1, 100m, "23"), Line(1, 100m, "8")]);
-
-        Assert.Equal(231.00m, totals.TotalGross);
-        Assert.Equal([("23", 23m), ("8", 8m)], totals.VatSummary.Select(s => (s.VatRate, s.Vat)));
-    }
+    public static TheoryData<string> VectorNames => [.. Vectors.Select(v => v.Name)];
 
     [Theory]
-    [InlineData("0 KR")]
-    [InlineData("zw")]
-    public void NonNumericRate_HasZeroVat(string rate)
+    [MemberData(nameof(VectorNames))]
+    public void Compute_MatchesServerVector(string name)
     {
-        var totals = IssuedInvoiceTotals.Compute([Line(1, 50m, rate)]);
+        var vector = Vectors.Single(v => v.Name == name);
 
-        Assert.Equal(0m, totals.TotalVat);
-        Assert.Equal(50m, totals.TotalGross);
+        var totals = IssuedInvoiceTotals.Compute(vector.Lines);
+
+        Assert.Equal(vector.Expected.LineNet, vector.Lines.Select(IssuedInvoiceTotals.LineNet));
+        Assert.Equal(
+            vector.Expected.VatSummary.Select(s => (s.VatRate, s.Net, s.Vat)),
+            totals.VatSummary.Select(s => (s.VatRate, s.Net, s.Vat)));
+        Assert.Equal(
+            (vector.Expected.TotalNet, vector.Expected.TotalVat, vector.Expected.TotalGross),
+            (totals.TotalNet, totals.TotalVat, totals.TotalGross));
     }
 
     [Fact]
-    public void LineNet_RoundsHalfAwayFromZero()
-    {
-        Assert.Equal(0.13m, IssuedInvoiceTotals.LineNet(Line(0.5m, 0.25m, "23")));
-        Assert.Equal(0.03m, IssuedInvoiceTotals.Compute([Line(1, 0.11m, "23")]).TotalVat);
-    }
+    public void Vectors_AreLoaded() => Assert.Equal(9, Vectors.Count);
 }

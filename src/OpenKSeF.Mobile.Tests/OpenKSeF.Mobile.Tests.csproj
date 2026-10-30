@@ -41,4 +41,8 @@
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\TenantFormViewModel.cs" Link="Linked\ViewModels\TenantFormViewModel.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Services/Vectors/TotalsVectors.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
