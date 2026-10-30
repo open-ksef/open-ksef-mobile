@@ -119,12 +119,15 @@ public class ApiService : IApiService
         }
     }
 
-    public async Task<PagedResult<IssuedInvoiceListItemDto>> GetIssuedInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20, string? status = null)
+    public async Task<PagedResult<IssuedInvoiceListItemDto>> GetIssuedInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20, string? status = null, string? month = null, string? q = null)
     {
-        var statusQuery = status is null ? string.Empty : $"&status={Uri.EscapeDataString(status)}";
+        var filters = string.Concat(
+            new[] { ("status", status), ("month", month), ("q", q) }
+                .Where(f => !string.IsNullOrEmpty(f.Item2))
+                .Select(f => $"&{f.Item1}={Uri.EscapeDataString(f.Item2!)}"));
         return await SendAsync<PagedResult<IssuedInvoiceListItemDto>>(
             HttpMethod.Get,
-            $"/api/tenants/{tenantId}/issued-invoices?page={page}&pageSize={pageSize}{statusQuery}");
+            $"/api/tenants/{tenantId}/issued-invoices?page={page}&pageSize={pageSize}{filters}");
     }
 
     public async Task<IssuedInvoiceDto> GetIssuedInvoiceAsync(Guid tenantId, Guid invoiceId)

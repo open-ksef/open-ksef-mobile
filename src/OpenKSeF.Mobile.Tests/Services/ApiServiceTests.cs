@@ -188,6 +188,19 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task GetIssuedInvoices_AddsMonthAndSearchFilters()
+    {
+        var tenantId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.OK, $$"""{"items":[{{IssuedInvoiceContractTests.ListItemJson}}],"page":1,"pageSize":20,"totalCount":1}""");
+
+        var result = await CreateService().GetIssuedInvoicesAsync(tenantId, month: "2026-11", q: "FV/1 Nabywca");
+
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices?page=1&pageSize=20&month=2026-11&q=FV%2F1 Nabywca", Assert.Single(_handler.Requests).Uri);
+        var item = Assert.Single(result.Items);
+        Assert.Equal((new DateOnly(2026, 11, 17), 100.00m), (item.DueDate, item.TotalNet));
+    }
+
+    [Fact]
     public async Task IssueInvoice_Unprocessable_ExposesValidationEnvelope()
     {
         var tenantId = Guid.NewGuid();

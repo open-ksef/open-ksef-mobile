@@ -8,6 +8,8 @@ public class IssuedInvoiceListItemDto
     public string? BuyerName { get; set; }
     public string? BuyerNip { get; set; }
     public DateOnly IssueDate { get; set; }
+    public DateOnly DueDate { get; set; }
+    public decimal TotalNet { get; set; }
     public decimal TotalGross { get; set; }
     public string Currency { get; set; } = "PLN";
     public string? KsefNumber { get; set; }

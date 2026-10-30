@@ -64,7 +64,7 @@ public class IssuedInvoiceContractTests
 
     public const string ListItemJson = """
         { "id": "0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a", "status": "Accepted", "number": "FV/1/11/2026", "buyerName": "Nabywca sp. z o.o.", "buyerNip": "1234567890",
-          "issueDate": "2026-11-03", "totalGross": 123.00, "currency": "PLN", "ksefNumber": "1234567890-20261103-0100A0B0C0D0-E1" }
+          "issueDate": "2026-11-03", "dueDate": "2026-11-17", "totalNet": 100.00, "totalGross": 123.00, "currency": "PLN", "ksefNumber": "1234567890-20261103-0100A0B0C0D0-E1" }
         """;
 
     public const string ValidationEnvelopeJson = """
