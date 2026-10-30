@@ -62,6 +62,7 @@ Do not merge responsibilities across services. New features should fit into an e
 - When the backend API changes a response shape, update the corresponding mobile model to match.
 - Document any intentional deviation from the backend contract (e.g. `CachedInvoice` is a local-only SQLite entity, `QrSetupPayload` is client-only).
 - `TenantDto` mirrors backend `TenantResponse`, `UpdateTenantRequest` sends `NotificationEmail` (backend PUT overwrites it, so the edit form round-trips the loaded value). `InvoiceDto` carries `IsPaid`/`PaidAt`.
+- Issuing DTOs mirror `Api/Models/{IssuedInvoiceModels,SellerProfileModels,NipLookupModels,ValidationEnvelope}.cs` (contract `open-ksef/docs/issuing-api.md`); wire names match, type names keep the mobile `Dto` suffix (`PartyDto` = `IssuedInvoiceBuyerModel`, `SellerPartyDto`, `KsefSubmissionDto`). `SellerProfileDto` extends `SellerProfileRequest`, `IssuedInvoiceLineDto` extends `IssuedInvoiceLineRequest`. `GetSellerProfileAsync`/`LookupNipAsync` return `null` on 404 (seller-profile 404 = server without issuing). 400/422 bodies land in `ApiException.Validation`. `IssuedInvoiceTotals` is the client totals preview and must match the server rounding rule.
 
 ### SOLID checklist
 

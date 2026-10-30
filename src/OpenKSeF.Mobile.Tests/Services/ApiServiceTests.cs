@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using NSubstitute;
 using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
@@ -124,6 +126,101 @@ public class ApiServiceTests
         Assert.Equal("""{"token":"fcm-1","platform":0,"tenantId":null}""", request.Body);
     }
 
+    [Fact]
+    public async Task GetSellerProfile_NotFound_ReturnsNullAsIssuingNotSupported()
+    {
+        var tenantId = Guid.NewGuid();
+        _handler.Respond(HttpStatusCode.NotFound);
+
+        var profile = await CreateService().GetSellerProfileAsync(tenantId);
+
+        Assert.Null(profile);
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/seller-profile", Assert.Single(_handler.Requests).Uri);
+    }
+
+    [Fact]
+    public async Task GetSellerProfile_DeserializesResponse()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, IssuedInvoiceContractTests.SellerProfileResponseJson);
+
+        var profile = await CreateService().GetSellerProfileAsync(Guid.NewGuid());
+
+        Assert.NotNull(profile);
+        Assert.Equal("FV/57/11/2026", profile.NextNumberPreview);
+        Assert.Equal(57, profile.NextNumber);
+    }
+
+    [Fact]
+    public async Task LookupNip_NotFound_ReturnsNull()
+    {
+        _handler.Respond(HttpStatusCode.NotFound);
+
+        Assert.Null(await CreateService().LookupNipAsync("1234567890"));
+        Assert.Equal("https://ksef.example.com/api/nip-lookup/1234567890", Assert.Single(_handler.Requests).Uri);
+    }
+
+    [Fact]
+    public async Task CreateIssuedInvoice_PostsDraftContract()
+    {
+        var tenantId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.Created, IssuedInvoiceContractTests.InvoiceResponseJson);
+        var draft = JsonSerializer.Deserialize<IssuedInvoiceDraftRequest>(IssuedInvoiceContractTests.DraftRequestJson, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        var invoice = await CreateService().CreateIssuedInvoiceAsync(tenantId, draft);
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Equal("POST", request.Method);
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices", request.Uri);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse(IssuedInvoiceContractTests.DraftRequestJson), JsonNode.Parse(request.Body!)), request.Body);
+        Assert.Equal(123.00m, invoice.TotalGross);
+    }
+
+    [Fact]
+    public async Task GetIssuedInvoices_AddsStatusFilter()
+    {
+        var tenantId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.OK, $$"""{"items":[{{IssuedInvoiceContractTests.ListItemJson}}],"page":1,"pageSize":20,"totalCount":1}""");
+
+        var result = await CreateService().GetIssuedInvoicesAsync(tenantId, status: "Accepted");
+
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices?page=1&pageSize=20&status=Accepted", Assert.Single(_handler.Requests).Uri);
+        Assert.Equal("FV/1/11/2026", Assert.Single(result.Items).Number);
+    }
+
+    [Fact]
+    public async Task IssueInvoice_Unprocessable_ExposesValidationEnvelope()
+    {
+        var tenantId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.UnprocessableEntity, IssuedInvoiceContractTests.ValidationEnvelopeJson);
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().IssueInvoiceAsync(tenantId, invoiceId));
+
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue", Assert.Single(_handler.Requests).Uri);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, ex.StatusCode);
+        var error = Assert.Single(ex.Validation!.Errors);
+        Assert.Equal(("INV-VAL-020", "buyer.nip"), (error.Code, error.Field));
+    }
+
+    [Fact]
+    public async Task BadRequest_WithProblemDetails_HasNoValidationEnvelope()
+    {
+        _handler.RespondJson(HttpStatusCode.BadRequest, """{"title":"One or more validation errors occurred.","errors":{"Nip":["Invalid"]}}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetTenantsAsync());
+
+        Assert.Null(ex.Validation);
+    }
+
+    [Fact]
+    public async Task GetIssuedInvoiceXml_ReturnsStoredBytes()
+    {
+        var bytes = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Faktura/>"u8.ToArray();
+        _handler.Enqueue(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) });
+
+        Assert.Equal(bytes, await CreateService().GetIssuedInvoiceXmlAsync(Guid.NewGuid(), Guid.NewGuid()));
+    }
+
     private sealed record SentRequest(string Method, string Uri, string? Authorization, string? Body);
 
     private sealed class FakeHandler : HttpMessageHandler
@@ -139,6 +236,8 @@ public class ApiServiceTests
             _responses.Enqueue(() => new HttpResponseMessage(status) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") });
 
         public void Throw(Exception ex) => _responses.Enqueue(() => throw ex);
+
+        public void Enqueue(Func<HttpResponseMessage> response) => _responses.Enqueue(response);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {

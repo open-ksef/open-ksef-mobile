@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using OpenKSeF.Mobile.Models;
 
 namespace OpenKSeF.Mobile.Services;
@@ -89,6 +90,89 @@ public class ApiService : IApiService
         await SendNoContentAsync(HttpMethod.Delete, $"/api/devices/{deviceId}");
     }
 
+    public async Task<SellerProfileDto?> GetSellerProfileAsync(Guid tenantId)
+    {
+        try
+        {
+            return await SendAsync<SellerProfileDto>(HttpMethod.Get, $"/api/tenants/{tenantId}/seller-profile");
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    public async Task<SellerProfileDto> UpdateSellerProfileAsync(Guid tenantId, SellerProfileRequest request)
+    {
+        return await SendAsync<SellerProfileDto>(HttpMethod.Put, $"/api/tenants/{tenantId}/seller-profile", request);
+    }
+
+    public async Task<NipLookupDto?> LookupNipAsync(string nip)
+    {
+        try
+        {
+            return await SendAsync<NipLookupDto>(HttpMethod.Get, $"/api/nip-lookup/{Uri.EscapeDataString(nip)}");
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    public async Task<PagedResult<IssuedInvoiceListItemDto>> GetIssuedInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20, string? status = null)
+    {
+        var statusQuery = status is null ? string.Empty : $"&status={Uri.EscapeDataString(status)}";
+        return await SendAsync<PagedResult<IssuedInvoiceListItemDto>>(
+            HttpMethod.Get,
+            $"/api/tenants/{tenantId}/issued-invoices?page={page}&pageSize={pageSize}{statusQuery}");
+    }
+
+    public async Task<IssuedInvoiceDto> GetIssuedInvoiceAsync(Guid tenantId, Guid invoiceId)
+    {
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Get, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}");
+    }
+
+    public async Task<IssuedInvoiceDto> CreateIssuedInvoiceAsync(Guid tenantId, IssuedInvoiceDraftRequest request)
+    {
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices", request);
+    }
+
+    public async Task<IssuedInvoiceDto> UpdateIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, IssuedInvoiceDraftRequest request)
+    {
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Put, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}", request);
+    }
+
+    public async Task DeleteIssuedInvoiceAsync(Guid tenantId, Guid invoiceId)
+    {
+        await SendNoContentAsync(HttpMethod.Delete, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}");
+    }
+
+    public async Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId)
+    {
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue");
+    }
+
+    public async Task<IssuedInvoiceDto> CopyIssuedInvoiceAsync(Guid tenantId, Guid invoiceId)
+    {
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/copy");
+    }
+
+    public async Task<byte[]> GetIssuedInvoiceXmlAsync(Guid tenantId, Guid invoiceId)
+    {
+        return await SendBytesAsync($"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/xml");
+    }
+
+    public async Task<byte[]> GetIssuedInvoiceUpoAsync(Guid tenantId, Guid invoiceId)
+    {
+        return await SendBytesAsync($"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/upo");
+    }
+
+    private async Task<byte[]> SendBytesAsync(string path)
+    {
+        using var response = await ExecuteAsync(HttpMethod.Get, path);
+        return await response.Content.ReadAsByteArrayAsync();
+    }
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null)
     {
         using var response = await ExecuteAsync(method, path, body);
@@ -121,10 +205,23 @@ public class ApiService : IApiService
         if (!response.IsSuccessStatusCode)
         {
             var responseBody = await response.Content.ReadAsStringAsync();
-            throw new ApiException(response.StatusCode, $"Blad serwera ({(int)response.StatusCode}): {responseBody}");
+            throw new ApiException(response.StatusCode, $"Blad serwera ({(int)response.StatusCode}): {responseBody}",
+                response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity ? ParseValidation(responseBody) : null);
         }
 
         return response;
+    }
+
+    private static ValidationEnvelope? ParseValidation(string body)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<ValidationEnvelope>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private async Task<HttpResponseMessage> TryRefreshAndRetryAsync(
