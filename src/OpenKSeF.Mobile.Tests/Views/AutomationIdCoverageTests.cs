@@ -64,6 +64,16 @@ public class AutomationIdCoverageTests
             "QrCodePageButtonShare",
             "QrCodePageButtonRetry",
             "QrCodePageLabelError");
+
+        AssertFileContainsAll(
+            "SellerProfilePage.xaml",
+            "SellerProfilePageAlertUnsupported",
+            "SellerProfilePageAlertIncomplete",
+            "SellerProfilePageButtonLookup",
+            "SellerProfilePageLabelLookupStatus",
+            "SellerProfilePageEntryLegalName",
+            "SellerProfilePageEntryBankAccount",
+            "SellerProfilePageButtonSave");
     }
 
     private static void AssertFileContainsAll(string fileName, params string[] automationIds)

@@ -56,6 +56,10 @@
                                                BackgroundColor="{StaticResource Primary}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=EditTenantCommand}"
                                                CommandParameter="{Binding .}" />
+                                    <SwipeItem Text="Dane do faktur"
+                                               BackgroundColor="{StaticResource PrimaryHover}"
+                                               Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=OpenSellerProfileCommand}"
+                                               CommandParameter="{Binding .}" />
                                     <SwipeItem Text="Usuń"
                                                BackgroundColor="{StaticResource Error}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=DeleteTenantCommand}"
