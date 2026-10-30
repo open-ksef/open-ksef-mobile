@@ -1,103 +1,81 @@
+using System.Globalization;
+using NSubstitute;
+using OpenKSeF.Mobile.Models;
+using OpenKSeF.Mobile.Services;
+using OpenKSeF.Mobile.ViewModels;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.ViewModels;
 
-// Minimal DTO duplicate for testing without MAUI project reference
-public class InvoiceDto
-{
-    public string VendorName { get; set; } = string.Empty;
-    public string VendorNip { get; set; } = string.Empty;
-    public decimal AmountGross { get; set; }
-    public string Currency { get; set; } = "PLN";
-    public string? InvoiceNumber { get; set; }
-    public string KSeFInvoiceNumber { get; set; } = string.Empty;
-}
-
+[Collection("Shell")]
 public class InvoiceDetailsViewModelTests
 {
-    // Duplicated from InvoiceDetailsViewModel for testing
-    private static string BuildTransferDetails(InvoiceDto invoice)
-    {
-        return $"Odbiorca: {invoice.VendorName}\n" +
-               $"NIP: {invoice.VendorNip}\n" +
-               $"Kwota: {invoice.AmountGross:N2} {invoice.Currency}\n" +
-               $"Tytul: {invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber}";
-    }
-
-    [Fact]
-    public void BuildTransferDetails_FormatsCorrectly()
-    {
-        var invoice = new InvoiceDto
+    private static InvoiceDto Invoice(decimal amount = 1230.50m, string currency = "PLN", string? invoiceNumber = null, string vendorNip = "5261040828") =>
+        new()
         {
             VendorName = "Test Sp. z o.o.",
-            VendorNip = "5261040828",
-            AmountGross = 1230.50m,
-            Currency = "PLN",
-            KSeFInvoiceNumber = "FV/2026/001"
+            VendorNip = vendorNip,
+            AmountGross = amount,
+            Currency = currency,
+            InvoiceNumber = invoiceNumber,
+            KSeFInvoiceNumber = "KSEF-001"
         };
 
-        var result = BuildTransferDetails(invoice);
+    [Theory]
+    [InlineData("pl-PL")]
+    [InlineData("en-US")]
+    [InlineData("")]
+    public void BuildTransferDetails_FormatsAmountInPolish_RegardlessOfDeviceCulture(string deviceCulture)
+    {
+        var original = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(deviceCulture);
+        try
+        {
+            var result = InvoiceDetailsViewModel.BuildTransferDetails(Invoice(1234567.89m, invoiceNumber: "FV/2026/001"));
 
-        Assert.Contains("Odbiorca: Test Sp. z o.o.", result);
-        Assert.Contains("NIP: 5261040828", result);
-        Assert.Contains("1,230.50 PLN", result); // or 1 230,50 depending on culture
-        Assert.Contains("Tytul: FV/2026/001", result);
+            Assert.Equal(
+                "Odbiorca: Test Sp. z o.o.\nNIP: 5261040828\nKwota: 1 234 567,89 PLN\nTytul: FV/2026/001",
+                result);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 
-    [Fact]
-    public void BuildTransferDetails_IncludesAllRequiredFields()
+    [Theory]
+    [InlineData("500", "500,00")]
+    [InlineData("99.99", "99,99")]
+    [InlineData("1230.5", "1 230,50")]
+    public void BuildTransferDetails_AmountHasTwoDecimals(string amount, string expected)
     {
-        var invoice = new InvoiceDto
-        {
-            VendorName = "Vendor",
-            VendorNip = "1234567890",
-            AmountGross = 100m,
-            Currency = "EUR",
-            KSeFInvoiceNumber = "INV-001"
-        };
+        var result = InvoiceDetailsViewModel.BuildTransferDetails(Invoice(decimal.Parse(amount, CultureInfo.InvariantCulture), "EUR"));
 
-        var result = BuildTransferDetails(invoice);
-
-        Assert.Contains("Odbiorca:", result);
-        Assert.Contains("NIP:", result);
-        Assert.Contains("Kwota:", result);
-        Assert.Contains("Tytul:", result);
-        Assert.Contains("EUR", result);
+        Assert.Contains($"Kwota: {expected} EUR", result);
     }
 
     [Fact]
     public void BuildTransferDetails_PrefersSellerInvoiceNumber()
     {
-        var invoice = new InvoiceDto
-        {
-            VendorName = "Vendor",
-            VendorNip = "1234567890",
-            AmountGross = 100m,
-            Currency = "PLN",
-            InvoiceNumber = "15445/04/2026",
-            KSeFInvoiceNumber = "KSEF-001"
-        };
-
-        var result = BuildTransferDetails(invoice);
-
-        Assert.Contains("Tytul: 15445/04/2026", result);
+        Assert.EndsWith("Tytul: 15445/04/2026", InvoiceDetailsViewModel.BuildTransferDetails(Invoice(invoiceNumber: "15445/04/2026")));
     }
 
     [Fact]
     public void BuildTransferDetails_UsesKsefNumberWhenSellerInvoiceNumberMissing()
     {
-        var invoice = new InvoiceDto
-        {
-            VendorName = "Vendor",
-            VendorNip = "1234567890",
-            AmountGross = 100m,
-            Currency = "PLN",
-            InvoiceNumber = null,
-            KSeFInvoiceNumber = "KSEF-001"
-        };
+        Assert.EndsWith("Tytul: KSEF-001", InvoiceDetailsViewModel.BuildTransferDetails(Invoice()));
+    }
 
-        var result = BuildTransferDetails(invoice);
+    [Fact]
+    public async Task CopyTransferDetails_PutsTransferTextOnClipboard()
+    {
+        Shell.Current.Reset();
+        var vm = new InvoiceDetailsViewModel(Substitute.For<IApiService>()) { Invoice = Invoice() };
 
-        Assert.Contains("Tytul: KSEF-001", result);
+        await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
+
+        Assert.Equal(InvoiceDetailsViewModel.BuildTransferDetails(vm.Invoice!), Clipboard.Default.Text);
+        Assert.Equal("Dane przelewu skopiowane do schowka.", Shell.Current.LastAlertMessage);
+        Assert.Null(vm.ErrorMessage);
     }
 }

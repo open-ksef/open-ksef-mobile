@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenKSeF.Mobile.Models;
@@ -110,7 +111,7 @@ public partial class InvoiceDetailsViewModel : ObservableObject
     {
         return $"Odbiorca: {invoice.VendorName}\n" +
                $"NIP: {invoice.VendorNip}\n" +
-               $"Kwota: {invoice.AmountGross:N2} {invoice.Currency}\n" +
+               $"Kwota: {invoice.AmountGross.ToString("N2", CultureInfo.GetCultureInfo("pl-PL"))} {invoice.Currency}\n" +
                $"Tytul: {invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber}";
     }
 }
