@@ -51,6 +51,53 @@ public class TenantFormViewModelTests
         Assert.Equal("faktury@example.com", sent.NotificationEmail);
     }
 
+    [Theory]
+    [InlineData("5261040828")]
+    [InlineData("1234563218")]
+    [InlineData("1111111111")]
+    public async Task Save_ValidNip_CreatesTenant(string nip)
+    {
+        var api = Substitute.For<IApiService>();
+        var vm = new TenantFormViewModel(api) { Nip = nip };
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.NipError);
+        await api.Received(1).CreateTenantAsync(Arg.Is<CreateTenantRequest>(r => r.Nip == nip));
+    }
+
+    [Theory]
+    [InlineData("1234567890")]
+    [InlineData("5261040821")]
+    [InlineData("5261040829")]
+    public async Task Save_InvalidNipChecksum_RejectsWithoutApiCall(string nip)
+    {
+        var api = Substitute.For<IApiService>();
+        var vm = new TenantFormViewModel(api) { Nip = nip };
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Nieprawidlowa suma kontrolna NIP.", vm.NipError);
+        await api.DidNotReceiveWithAnyArgs().CreateTenantAsync(default!);
+    }
+
+    [Theory]
+    [InlineData("", "NIP jest wymagany.")]
+    [InlineData("123456789", "NIP musi składać się z 10 cyfr.")]
+    [InlineData("12345678901", "NIP musi składać się z 10 cyfr.")]
+    [InlineData("abcdefghij", "NIP musi składać się z 10 cyfr.")]
+    [InlineData("526-104-08-28", "NIP musi składać się z 10 cyfr.")]
+    public async Task Save_InvalidNipFormat_RejectsWithoutApiCall(string nip, string expectedError)
+    {
+        var api = Substitute.For<IApiService>();
+        var vm = new TenantFormViewModel(api) { Nip = nip };
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(expectedError, vm.NipError);
+        await api.DidNotReceiveWithAnyArgs().CreateTenantAsync(default!);
+    }
+
     [Fact]
     public void UpdateTenantRequest_SerializesNotificationEmailInBackendCasing()
     {

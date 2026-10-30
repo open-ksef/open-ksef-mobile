@@ -1,5 +1,5 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using OpenKSeF.Mobile.Models;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Services;
@@ -9,7 +9,7 @@ public class QrSetupPayloadTests
     [Fact]
     public void IsValid_ReturnsTrueForValidPayload()
     {
-        var payload = new TestQrSetupPayload
+        var payload = new QrSetupPayload
         {
             Type = "openksef-setup",
             Version = 1,
@@ -22,7 +22,7 @@ public class QrSetupPayloadTests
     [Fact]
     public void IsValid_ReturnsTrueForHigherVersion()
     {
-        var payload = new TestQrSetupPayload
+        var payload = new QrSetupPayload
         {
             Type = "openksef-setup",
             Version = 5,
@@ -41,7 +41,7 @@ public class QrSetupPayloadTests
     [InlineData("openksef-setup", 1, "   ")]
     public void IsValid_ReturnsFalseForInvalidPayload(string type, int version, string serverUrl)
     {
-        var payload = new TestQrSetupPayload
+        var payload = new QrSetupPayload
         {
             Type = type,
             Version = version,
@@ -55,7 +55,7 @@ public class QrSetupPayloadTests
     public void JsonDeserialization_WithSetupToken()
     {
         var json = """{"type":"openksef-setup","version":1,"serverUrl":"https://test.com","setupToken":"abc123"}""";
-        var payload = JsonSerializer.Deserialize<TestQrSetupPayload>(json);
+        var payload = JsonSerializer.Deserialize<QrSetupPayload>(json);
 
         Assert.NotNull(payload);
         Assert.Equal("openksef-setup", payload.Type);
@@ -69,7 +69,7 @@ public class QrSetupPayloadTests
     public void JsonDeserialization_WithoutSetupToken()
     {
         var json = """{"type":"openksef-setup","version":1,"serverUrl":"https://test.com"}""";
-        var payload = JsonSerializer.Deserialize<TestQrSetupPayload>(json);
+        var payload = JsonSerializer.Deserialize<QrSetupPayload>(json);
 
         Assert.NotNull(payload);
         Assert.Null(payload.SetupToken);
@@ -80,37 +80,16 @@ public class QrSetupPayloadTests
     public void JsonDeserialization_InvalidJson_ReturnsNull()
     {
         var json = "not-json";
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<TestQrSetupPayload>(json));
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<QrSetupPayload>(json));
     }
 
     [Fact]
     public void JsonDeserialization_EmptyObject_IsInvalid()
     {
         var json = "{}";
-        var payload = JsonSerializer.Deserialize<TestQrSetupPayload>(json);
+        var payload = JsonSerializer.Deserialize<QrSetupPayload>(json);
 
         Assert.NotNull(payload);
         Assert.False(payload.IsValid);
     }
-}
-
-/// <summary>
-/// Mirror of OpenKSeF.Mobile.Models.QrSetupPayload for testing without MAUI dependency.
-/// </summary>
-internal class TestQrSetupPayload
-{
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "";
-
-    [JsonPropertyName("version")]
-    public int Version { get; set; }
-
-    [JsonPropertyName("serverUrl")]
-    public string ServerUrl { get; set; } = "";
-
-    [JsonPropertyName("setupToken")]
-    public string? SetupToken { get; set; }
-
-    public bool IsValid =>
-        Type == "openksef-setup" && Version >= 1 && !string.IsNullOrWhiteSpace(ServerUrl);
 }

@@ -1,258 +1,195 @@
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using OpenKSeF.Mobile.Models;
+using OpenKSeF.Mobile.Services;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Services;
 
-public interface ITestApiServiceForDevices
-{
-    Task RegisterDeviceTokenAsync(TestRegisterDeviceTokenRequest request);
-    Task<List<TestDeviceTokenDto>> GetDevicesAsync();
-}
-
-public class TestRegisterDeviceTokenRequest
-{
-    public string Token { get; set; } = string.Empty;
-    public int Platform { get; set; }
-    public Guid? TenantId { get; set; }
-}
-
-public class TestDeviceTokenDto
-{
-    public Guid Id { get; set; }
-    public string Token { get; set; } = string.Empty;
-    public int Platform { get; set; }
-    public Guid? TenantId { get; set; }
-}
-
-/// <summary>
-/// Tests device registration orchestration logic without MAUI dependencies.
-/// Mirrors the core decision logic of DeviceTokenService.
-/// </summary>
+[Collection("Shell")]
 public class DeviceTokenServiceTests
 {
-    private readonly ITestApiServiceForDevices _apiService;
+    private const string TokenKey = "device_push_token";
+    private const string RegisteredKey = "device_registered";
+    private const string DeviceIdKey = "device_stable_id";
+
+    private readonly IApiService _api = Substitute.For<IApiService>();
+    private readonly DeviceTokenService _service;
 
     public DeviceTokenServiceTests()
     {
-        _apiService = Substitute.For<ITestApiServiceForDevices>();
+        Preferences.Default.Clear();
+        Permissions.Reset();
+        DeviceInfo.Platform = DevicePlatform.Android;
+        _api.GetDevicesAsync().Returns(new List<DeviceTokenDto>());
+        _service = new DeviceTokenService(_api);
     }
 
-    [Fact]
-    public async Task IsDeviceRegistered_ReturnsTrue_WhenMatchingTokenExists()
-    {
-        var storedToken = "fcm-token-123";
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>
-        {
-            new() { Id = Guid.NewGuid(), Token = storedToken, Platform = 0 }
-        });
-
-        var devices = await _apiService.GetDevicesAsync();
-        var found = devices.Any(d => d.Token == storedToken);
-
-        Assert.True(found);
-    }
+    private void ServerHas(params string[] tokens) =>
+        _api.GetDevicesAsync().Returns(tokens.Select(t => new DeviceTokenDto { Id = Guid.NewGuid(), Token = t }).ToList());
 
     [Fact]
-    public async Task IsDeviceRegistered_ReturnsFalse_WhenNoMatchingDevice()
+    public async Task IsDeviceRegistered_True_WhenServerHasStoredToken()
     {
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>
-        {
-            new() { Id = Guid.NewGuid(), Token = "other-token", Platform = 0 }
-        });
+        Preferences.Default.Set(TokenKey, "fcm-token-123");
+        ServerHas("other", "fcm-token-123");
 
-        var devices = await _apiService.GetDevicesAsync();
-        var storedToken = "my-token";
-        var found = devices.Any(d => d.Token == storedToken);
-
-        Assert.False(found);
+        Assert.True(await _service.IsDeviceRegisteredAsync());
+        Assert.True(Preferences.Default.Get(RegisteredKey, false));
     }
 
     [Fact]
     public async Task IsDeviceRegistered_IgnoresCachedFlag_WhenServerTokenMissing()
     {
-        var cachedRegistered = true;
-        var storedToken = "missing-token";
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>());
+        Preferences.Default.Set(TokenKey, "missing-token");
+        Preferences.Default.Set(RegisteredKey, true);
+        ServerHas("other");
 
-        var devices = await _apiService.GetDevicesAsync();
-        var found = devices.Any(d => d.Token == storedToken);
-        cachedRegistered = found;
-
-        Assert.False(cachedRegistered);
+        Assert.False(await _service.IsDeviceRegisteredAsync());
+        Assert.False(Preferences.Default.Get(RegisteredKey, true));
     }
 
     [Fact]
-    public async Task RegisterToken_VerifiesServer_WhenStoredTokenMatches()
+    public async Task IsDeviceRegistered_MatchesStableDeviceId()
     {
-        var storedToken = "fcm-token-abc";
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>());
+        Preferences.Default.Set(DeviceIdKey, "device-abc");
+        ServerHas("device-abc");
 
-        var serverHasStoredToken = (await _apiService.GetDevicesAsync())
-            .Any(d => d.Token == storedToken);
-
-        if (!serverHasStoredToken)
-        {
-            await _apiService.RegisterDeviceTokenAsync(new TestRegisterDeviceTokenRequest
-            {
-                Token = storedToken,
-                Platform = 0
-            });
-        }
-
-        await _apiService.Received(1).GetDevicesAsync();
-        await _apiService.Received(1).RegisterDeviceTokenAsync(
-            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.Token == storedToken));
+        Assert.True(await _service.IsDeviceRegisteredAsync());
+        Assert.Equal("device-abc", Preferences.Default.Get(TokenKey, ""));
     }
 
     [Fact]
-    public async Task IsDeviceRegistered_MatchesByPlatform_WhenNoStoredToken()
+    public async Task IsDeviceRegistered_ApiFailure_ReturnsFalse()
     {
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>
-        {
-            new() { Id = Guid.NewGuid(), Token = "device-abc", Platform = 0 }
-        });
+        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
 
-        var devices = await _apiService.GetDevicesAsync();
-        var currentPlatform = 0; // Android
-        var storedToken = string.Empty;
+        Assert.False(await _service.IsDeviceRegisteredAsync());
+    }
 
-        bool found;
-        if (!string.IsNullOrEmpty(storedToken))
-            found = devices.Any(d => d.Token == storedToken);
-        else
-            found = devices.Any(d => d.Platform == currentPlatform);
+    [Fact]
+    public async Task RegisterToken_SkipsApi_WhenStoredTokenOnServer()
+    {
+        Preferences.Default.Set(TokenKey, "fcm-abc");
+        ServerHas("fcm-abc");
 
-        Assert.True(found);
+        await _service.RegisterTokenAsync("fcm-abc", "Android");
+
+        await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!);
+    }
+
+    [Fact]
+    public async Task RegisterToken_ReRegisters_WhenStoredTokenMissingOnServer()
+    {
+        Preferences.Default.Set(TokenKey, "fcm-abc");
+
+        await _service.RegisterTokenAsync("fcm-abc", "iOS");
+
+        await _api.Received(1).RegisterDeviceTokenAsync(Arg.Is<RegisterDeviceTokenRequest>(r => r.Token == "fcm-abc" && r.Platform == 1 && r.TenantId == null));
+    }
+
+    [Fact]
+    public async Task RegisterToken_RefreshedToken_RegistersAndStores()
+    {
+        Preferences.Default.Set(TokenKey, "fcm-old");
+
+        await _service.RegisterTokenAsync("fcm-new", "Android");
+
+        await _api.Received(1).RegisterDeviceTokenAsync(Arg.Is<RegisterDeviceTokenRequest>(r => r.Token == "fcm-new" && r.Platform == 0));
+        Assert.Equal("fcm-new", Preferences.Default.Get(TokenKey, ""));
+    }
+
+    [Fact]
+    public async Task RegisterToken_ApiFailure_KeepsOldTokenForRetry()
+    {
+        Preferences.Default.Set(TokenKey, "fcm-old");
+        _api.RegisterDeviceTokenAsync(default!).ThrowsAsyncForAnyArgs(new HttpRequestException());
+
+        await _service.RegisterTokenAsync("fcm-new", "Android");
+
+        Assert.Equal("fcm-old", Preferences.Default.Get(TokenKey, ""));
     }
 
     [Fact]
     public async Task EnsureDeviceRegistered_SkipsRegistration_WhenAlreadyRegistered()
     {
-        var deviceId = "device-abc123";
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>
-        {
-            new() { Id = Guid.NewGuid(), Token = deviceId, Platform = 0 }
-        });
+        Preferences.Default.Set(DeviceIdKey, "device-abc");
+        ServerHas("device-abc");
 
-        var devices = await _apiService.GetDevicesAsync();
-        var isRegistered = devices.Any(d => d.Token == deviceId);
+        await _service.EnsureDeviceRegisteredAsync();
 
-        Assert.True(isRegistered);
-        await _apiService.DidNotReceive().RegisterDeviceTokenAsync(Arg.Any<TestRegisterDeviceTokenRequest>());
+        await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!);
     }
 
     [Fact]
-    public async Task EnsureDeviceRegistered_RegistersSilently_WhenNotRegistered()
+    public async Task EnsureDeviceRegistered_RegistersStableDeviceIdForAllCompanies()
     {
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>());
+        DeviceInfo.Platform = DevicePlatform.iOS;
 
-        var devices = await _apiService.GetDevicesAsync();
-        var isRegistered = devices.Any(d => d.Token == "my-device");
+        await _service.EnsureDeviceRegisteredAsync();
 
-        Assert.False(isRegistered);
-
-        var request = new TestRegisterDeviceTokenRequest
-        {
-            Token = "device-new-id",
-            Platform = 0,
-            TenantId = Guid.NewGuid()
-        };
-        await _apiService.RegisterDeviceTokenAsync(request);
-
-        await _apiService.Received(1).RegisterDeviceTokenAsync(Arg.Any<TestRegisterDeviceTokenRequest>());
+        var deviceId = Preferences.Default.Get(DeviceIdKey, "");
+        Assert.StartsWith("device-", deviceId);
+        Assert.Equal(deviceId, Preferences.Default.Get(TokenKey, ""));
+        await _api.Received(1).RegisterDeviceTokenAsync(Arg.Is<RegisterDeviceTokenRequest>(r => r.Token == deviceId && r.Platform == 1 && r.TenantId == null));
     }
 
     [Fact]
-    public async Task EnsureDeviceRegistered_RegistersForAllCompanies()
+    public async Task EnableNotifications_PermissionDenied_ReturnsFalseWithoutRegistering()
     {
-        _apiService.GetDevicesAsync().Returns(new List<TestDeviceTokenDto>());
+        Permissions.Status = PermissionStatus.Denied;
+        Permissions.RequestResult = PermissionStatus.Denied;
 
-        var request = new TestRegisterDeviceTokenRequest
-        {
-            Token = "device-id",
-            Platform = 0,
-            TenantId = null
-        };
+        Assert.False(await _service.EnableNotificationsAsync());
 
-        await _apiService.RegisterDeviceTokenAsync(request);
-
-        await _apiService.Received(1).RegisterDeviceTokenAsync(
-            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.TenantId == null));
+        Assert.Equal(1, Permissions.RequestCount);
+        await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!);
     }
 
     [Fact]
-    public async Task EnableNotifications_RegistersWithStoredToken_WhenPermissionGranted()
+    public async Task EnableNotifications_RegistersStoredToken_WhenGranted()
     {
-        var storedToken = "fcm-token-abc";
+        Preferences.Default.Set(TokenKey, "fcm-abc");
 
-        var request = new TestRegisterDeviceTokenRequest
-        {
-            Token = storedToken,
-            Platform = 0,
-            TenantId = null
-        };
+        Assert.True(await _service.EnableNotificationsAsync());
 
-        await _apiService.RegisterDeviceTokenAsync(request);
-
-        await _apiService.Received(1).RegisterDeviceTokenAsync(
-            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.Token == storedToken && r.TenantId == null));
+        Assert.Equal(0, Permissions.RequestCount);
+        await _api.Received(1).RegisterDeviceTokenAsync(Arg.Is<RegisterDeviceTokenRequest>(r => r.Token == "fcm-abc" && r.TenantId == null));
     }
 
     [Fact]
-    public async Task EnableNotifications_RegistersWithDeviceId_WhenNoStoredPushToken()
+    public async Task EnableNotifications_NoStoredToken_RegistersAndPersistsDeviceId()
     {
-        var storedPushToken = string.Empty;
-        var deviceId = "device-fallback-id";
+        Assert.True(await _service.EnableNotificationsAsync());
 
-        var token = !string.IsNullOrEmpty(storedPushToken) ? storedPushToken : deviceId;
-
-        await _apiService.RegisterDeviceTokenAsync(new TestRegisterDeviceTokenRequest
-        {
-            Token = token,
-            Platform = 0
-        });
-
-        await _apiService.Received(1).RegisterDeviceTokenAsync(
-            Arg.Is<TestRegisterDeviceTokenRequest>(r => r.Token == deviceId));
+        var deviceId = Preferences.Default.Get(DeviceIdKey, "");
+        Assert.Equal(deviceId, Preferences.Default.Get(TokenKey, ""));
+        await _api.Received(1).RegisterDeviceTokenAsync(Arg.Is<RegisterDeviceTokenRequest>(r => r.Token == deviceId));
     }
 
     [Fact]
-    public async Task EnableNotifications_PersistsRegisteredFallbackToken_ForLaterVerification()
+    public async Task EnableNotifications_ApiFailure_ReturnsFalse()
     {
-        var storedPushToken = string.Empty;
-        var deviceId = "device-fallback-id";
-        var storedTokenAfterRegistration = string.Empty;
+        _api.RegisterDeviceTokenAsync(default!).ThrowsAsyncForAnyArgs(new HttpRequestException());
 
-        var token = !string.IsNullOrEmpty(storedPushToken) ? storedPushToken : deviceId;
-
-        await _apiService.RegisterDeviceTokenAsync(new TestRegisterDeviceTokenRequest
-        {
-            Token = token,
-            Platform = 0
-        });
-
-        storedTokenAfterRegistration = token;
-
-        Assert.Equal(deviceId, storedTokenAfterRegistration);
+        Assert.False(await _service.EnableNotificationsAsync());
     }
 
     [Fact]
-    public async Task GetDevices_ApiFailure_DoesNotThrow()
+    public async Task UnregisterCurrentDevice_DeletesMatchingServerDevicesAndClearsToken()
     {
-        _apiService.GetDevicesAsync().Returns<List<TestDeviceTokenDto>>(
-            _ => throw new Exception("Network error"));
+        Preferences.Default.Set(TokenKey, "fcm-abc");
+        Preferences.Default.Set(DeviceIdKey, "device-abc");
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
+        var mineById = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "device-abc" };
+        var other = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "someone-else" };
+        _api.GetDevicesAsync().Returns([mine, mineById, other]);
 
-        bool isRegistered;
-        try
-        {
-            var devices = await _apiService.GetDevicesAsync();
-            isRegistered = devices.Any();
-        }
-        catch
-        {
-            isRegistered = false;
-        }
+        await _service.UnregisterCurrentDeviceAsync();
 
-        Assert.False(isRegistered);
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+        await _api.Received(1).UnregisterDeviceAsync(mineById.Id);
+        await _api.DidNotReceive().UnregisterDeviceAsync(other.Id);
+        Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
     }
 }

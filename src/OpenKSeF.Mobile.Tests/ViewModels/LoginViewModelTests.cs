@@ -1,230 +1,224 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using OpenKSeF.Mobile.Models;
+using OpenKSeF.Mobile.Services;
+using OpenKSeF.Mobile.ViewModels;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.ViewModels;
 
+[Collection("Shell")]
 public class LoginViewModelTests
 {
-    [Fact]
-    public void RefreshServerSettings_UpdatesServerUrlFromService()
+    private readonly IAuthService _auth = Substitute.For<IAuthService>();
+    private readonly IPostLoginNavigationService _postLoginNav = Substitute.For<IPostLoginNavigationService>();
+
+    public LoginViewModelTests()
     {
-        var serverSettings = CreateServerSettings("https://old.com", isConfigured: true);
-        var vm = CreateViewModel(serverSettings: serverSettings);
-
-        Assert.Equal("https://old.com", vm.ServerUrl);
-
-        serverSettings.ServerUrl.Returns("https://new.com");
-        vm.RefreshServerSettings();
-
-        Assert.Equal("https://new.com", vm.ServerUrl);
+        Shell.Current.Reset();
+        Preferences.Default.Clear();
     }
 
-    [Fact]
-    public void RefreshServerSettings_ShowsServerSection_WhenNotConfigured()
+    private static IServerSettingsService CreateServerSettings(string url, bool isConfigured)
     {
-        var serverSettings = CreateServerSettings("", isConfigured: false);
-        var vm = CreateViewModel(serverSettings: serverSettings);
-
-        Assert.True(vm.IsServerVisible);
+        var settings = Substitute.For<IServerSettingsService>();
+        settings.ServerUrl.Returns(url);
+        settings.IsConfigured.Returns(isConfigured);
+        settings.TryUpdateServerUrl(Arg.Any<string>(), out Arg.Any<string>(), out Arg.Any<string?>())
+            .Returns(x =>
+            {
+                x[1] = url;
+                x[2] = (string?)null;
+                return true;
+            });
+        return settings;
     }
 
-    [Fact]
-    public void RefreshServerSettings_HidesServerSection_WhenConfigured()
-    {
-        var serverSettings = CreateServerSettings("https://configured.com", isConfigured: true);
-        var vm = CreateViewModel(serverSettings: serverSettings);
-
-        Assert.False(vm.IsServerVisible);
-
-        serverSettings.IsConfigured.Returns(false);
-        vm.RefreshServerSettings();
-
-        Assert.True(vm.IsServerVisible);
-    }
+    private LoginViewModel CreateViewModel(IServerSettingsService? serverSettings = null) =>
+        new(_auth, serverSettings ?? CreateServerSettings("https://default.com", isConfigured: true), _postLoginNav);
 
     [Fact]
-    public void Constructor_InitializesServerUrlFromService()
+    public void Constructor_InitializesFromServerSettings()
     {
-        var serverSettings = CreateServerSettings("https://initial.com", isConfigured: true);
-        var vm = CreateViewModel(serverSettings: serverSettings);
+        var vm = CreateViewModel(CreateServerSettings("https://initial.com", isConfigured: true));
 
         Assert.Equal("https://initial.com", vm.ServerUrl);
+        Assert.Equal("initial.com", vm.ActiveServerHost);
         Assert.False(vm.IsServerVisible);
     }
 
     [Fact]
     public void Constructor_ShowsServerSection_WhenNotConfigured()
     {
-        var serverSettings = CreateServerSettings("", isConfigured: false);
-        var vm = CreateViewModel(serverSettings: serverSettings);
+        Assert.True(CreateViewModel(CreateServerSettings("", isConfigured: false)).IsServerVisible);
+    }
 
+    [Fact]
+    public void RefreshServerSettings_PicksUpChangedServer()
+    {
+        var serverSettings = CreateServerSettings("https://old.com", isConfigured: true);
+        var vm = CreateViewModel(serverSettings);
+
+        serverSettings.ServerUrl.Returns("https://new.com");
+        serverSettings.IsConfigured.Returns(false);
+        vm.RefreshServerSettings();
+
+        Assert.Equal("https://new.com", vm.ServerUrl);
         Assert.True(vm.IsServerVisible);
     }
 
     [Fact]
-    public async Task PostLoginNavigation_CallsEnsureDeviceRegistered_WhenOnboardingComplete()
+    public async Task LoginWithCredentials_Success_NavigatesPostLogin()
     {
-        var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
-        var notificationHub = Substitute.For<ITestNotificationHub>();
-        var nav = new TestPostLoginNavigation(
-            onboardingComplete: true,
-            deviceTokenService: deviceTokenService,
-            notificationHub: notificationHub);
+        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(true);
+        var vm = CreateViewModel();
+        vm.Email = " user@example.com ";
+        vm.Password = "secret";
 
-        await nav.NavigateAsync();
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
 
-        await deviceTokenService.Received(1).EnsureDeviceRegisteredAsync();
-        Assert.Equal("//main/invoices", nav.NavigatedRoute);
+        await _postLoginNav.Received(1).NavigateAsync();
+        Assert.Null(vm.ErrorMessage);
     }
 
     [Fact]
-    public async Task PostLoginNavigation_SkipsDeviceRegistration_WhenOnboardingNeeded()
+    public async Task LoginWithCredentials_WrongPassword_ShowsErrorWithoutNavigation()
     {
-        var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
-        var notificationHub = Substitute.For<ITestNotificationHub>();
-        var nav = new TestPostLoginNavigation(
-            onboardingComplete: false,
-            deviceTokenService: deviceTokenService,
-            notificationHub: notificationHub);
+        var vm = CreateViewModel();
+        vm.Email = "user@example.com";
+        vm.Password = "wrong";
 
-        await nav.NavigateAsync();
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
 
-        await deviceTokenService.DidNotReceive().EnsureDeviceRegisteredAsync();
-        Assert.Equal("//onboarding", nav.NavigatedRoute);
+        Assert.Equal("Nieprawidłowy email lub hasło.", vm.ErrorMessage);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
+        Assert.False(vm.IsBusy);
     }
 
     [Fact]
-    public async Task PostLoginNavigation_StillNavigates_WhenDeviceRegistrationFails()
+    public async Task LoginWithCredentials_EmptyFields_DoesNotCallAuth()
     {
-        var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
-        deviceTokenService.EnsureDeviceRegisteredAsync()
-            .Returns<Task>(_ => throw new Exception("Network error"));
-        var notificationHub = Substitute.For<ITestNotificationHub>();
+        var vm = CreateViewModel();
 
-        var nav = new TestPostLoginNavigation(
-            onboardingComplete: true,
-            deviceTokenService: deviceTokenService,
-            notificationHub: notificationHub);
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
 
-        await nav.NavigateAsync();
+        Assert.Equal("Podaj email i hasło.", vm.ErrorMessage);
+        await _auth.DidNotReceiveWithAnyArgs().LoginWithCredentialsAsync(default!, default!);
+    }
 
-        Assert.Equal("//main/invoices", nav.NavigatedRoute);
+    [Theory]
+    [InlineData("short", "short", "Hasło musi mieć co najmniej 8 znaków.")]
+    [InlineData("password1", "password2", "Hasła nie są identyczne.")]
+    public async Task Register_InvalidPassword_DoesNotCallAuth(string password, string confirm, string expectedError)
+    {
+        var vm = CreateViewModel();
+        vm.RegEmail = "new@example.com";
+        vm.RegPassword = password;
+        vm.RegConfirmPassword = confirm;
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal(expectedError, vm.ErrorMessage);
+        await _auth.DidNotReceiveWithAnyArgs().RegisterAsync(default!, default!, default, default);
+    }
+}
+
+[Collection("Shell")]
+public class PostLoginNavigationServiceTests
+{
+    private readonly IApiService _api = Substitute.For<IApiService>();
+    private readonly IAuthService _auth = Substitute.For<IAuthService>();
+    private readonly IDeviceTokenService _deviceTokenService = Substitute.For<IDeviceTokenService>();
+    private readonly INotificationHubService _notificationHub = Substitute.For<INotificationHubService>();
+    private readonly LocalDbService _localDb = new();
+    private readonly PostLoginNavigationService _nav;
+
+    public PostLoginNavigationServiceTests()
+    {
+        Shell.Current.Reset();
+        Preferences.Default.Clear();
+        var serverSettings = Substitute.For<IServerSettingsService>();
+        serverSettings.ServerUrl.Returns("https://ksef.example.com");
+        _api.GetMeAsync().Returns(new UserInfo { UserId = "u1" });
+        _nav = new PostLoginNavigationService(_api, _auth, _deviceTokenService, _notificationHub, serverSettings, _localDb);
+    }
+
+    private void OnboardingComplete(bool complete) =>
+        _api.GetOnboardingStatusAsync().Returns(new OnboardingStatusDto { IsComplete = complete });
+
+    [Fact]
+    public async Task Navigate_OnboardingComplete_RegistersDeviceStartsHubAndOpensInvoices()
+    {
+        OnboardingComplete(true);
+
+        await _nav.NavigateAsync();
+
+        await _deviceTokenService.Received(1).EnsureDeviceRegisteredAsync();
+        await _notificationHub.Received(1).StartAsync();
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
     }
 
     [Fact]
-    public async Task PostLoginNavigation_StartsNotificationHub_WhenOnboardingComplete()
+    public async Task Navigate_OnboardingNeeded_SkipsDeviceRegistration()
     {
-        var deviceTokenService = Substitute.For<ITestDeviceTokenService>();
-        var notificationHub = Substitute.For<ITestNotificationHub>();
-        var nav = new TestPostLoginNavigation(
-            onboardingComplete: true,
-            deviceTokenService: deviceTokenService,
-            notificationHub: notificationHub);
+        OnboardingComplete(false);
 
-        await nav.NavigateAsync();
+        await _nav.NavigateAsync();
 
-        await notificationHub.Received(1).StartAsync();
+        await _deviceTokenService.DidNotReceive().EnsureDeviceRegisteredAsync();
+        await _notificationHub.DidNotReceive().StartAsync();
+        Assert.Equal("//onboarding", Shell.Current.LastRoute);
     }
 
-    private static ITestServerSettings CreateServerSettings(string url, bool isConfigured)
+    [Fact]
+    public async Task Navigate_DeviceRegistrationFails_StillNavigates()
     {
-        var settings = Substitute.For<ITestServerSettings>();
-        settings.ServerUrl.Returns(url);
-        settings.IsConfigured.Returns(isConfigured);
-        return settings;
+        OnboardingComplete(true);
+        _deviceTokenService.EnsureDeviceRegisteredAsync().ThrowsAsync(new Exception("Network error"));
+
+        await _nav.NavigateAsync();
+
+        await _notificationHub.Received(1).StartAsync();
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
     }
 
-    private static TestLoginViewModel CreateViewModel(ITestServerSettings? serverSettings = null)
+    [Fact]
+    public async Task Navigate_DifferentUser_ClearsCachedInvoicesOfPreviousUser()
     {
-        serverSettings ??= CreateServerSettings("https://default.com", isConfigured: true);
-        return new TestLoginViewModel(serverSettings);
-    }
-}
+        OnboardingComplete(true);
+        var tenantId = Guid.NewGuid();
+        await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|previous-user");
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
 
-/// <summary>
-/// Mirrors IServerSettingsService for testing without MAUI dependency.
-/// </summary>
-public interface ITestServerSettings
-{
-    string ServerUrl { get; }
-    bool IsConfigured { get; }
-}
+        await _nav.NavigateAsync();
 
-/// <summary>
-/// Mirrors the relevant parts of LoginViewModel for testing RefreshServerSettings
-/// without MAUI Shell dependency.
-/// </summary>
-public partial class TestLoginViewModel : ObservableObject
-{
-    private readonly ITestServerSettings _serverSettings;
-
-    [ObservableProperty]
-    private string _serverUrl;
-
-    [ObservableProperty]
-    private bool _isServerVisible;
-
-    public TestLoginViewModel(ITestServerSettings serverSettings)
-    {
-        _serverSettings = serverSettings;
-        _serverUrl = serverSettings.ServerUrl;
-        _isServerVisible = !serverSettings.IsConfigured;
+        Assert.Empty(await _localDb.GetInvoicesAsync(tenantId));
     }
 
-    public void RefreshServerSettings()
+    [Fact]
+    public async Task Navigate_SameUser_KeepsOfflineCache()
     {
-        ServerUrl = _serverSettings.ServerUrl;
-        IsServerVisible = !_serverSettings.IsConfigured;
-    }
-}
+        OnboardingComplete(true);
+        var tenantId = Guid.NewGuid();
+        await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
 
-public interface ITestDeviceTokenService
-{
-    Task EnsureDeviceRegisteredAsync();
-    Task<bool> EnableNotificationsAsync();
-    Task<bool> AreNotificationsEnabledAsync();
-}
+        await _nav.NavigateAsync();
 
-public interface ITestNotificationHub
-{
-    Task StartAsync();
-    bool IsConnected { get; }
-}
-
-/// <summary>
-/// Mirrors PostLoginNavigationService logic without Shell dependency.
-/// Keep in sync with src/OpenKSeF.Mobile/Services/PostLoginNavigationService.cs.
-/// </summary>
-public class TestPostLoginNavigation
-{
-    private readonly bool _onboardingComplete;
-    private readonly ITestDeviceTokenService _deviceTokenService;
-    private readonly ITestNotificationHub _notificationHub;
-
-    public string? NavigatedRoute { get; private set; }
-
-    public TestPostLoginNavigation(
-        bool onboardingComplete,
-        ITestDeviceTokenService deviceTokenService,
-        ITestNotificationHub notificationHub)
-    {
-        _onboardingComplete = onboardingComplete;
-        _deviceTokenService = deviceTokenService;
-        _notificationHub = notificationHub;
+        Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
     }
 
-    public async Task NavigateAsync()
+    [Fact]
+    public async Task SignOut_UnregistersDeviceStopsHubAndLogsOut()
     {
-        var needsOnboarding = !_onboardingComplete;
+        await _nav.SignOutAsync();
 
-        if (!needsOnboarding)
+        Received.InOrder(() =>
         {
-            try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
-            try { await _notificationHub.StartAsync(); } catch { }
-        }
-
-        NavigatedRoute = needsOnboarding ? "//onboarding" : "//main/invoices";
+            _notificationHub.StopAsync();
+            _deviceTokenService.UnregisterCurrentDeviceAsync();
+            _auth.LogoutAsync();
+        });
     }
 }

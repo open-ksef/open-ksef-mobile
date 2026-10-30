@@ -15,15 +15,27 @@
     <PackageReference Include="NSubstitute" Version="5.3.0" />
     <PackageReference Include="IdentityModel.OidcClient" Version="6.0.0" />
     <PackageReference Include="QRCoder" Version="1.6.0" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Exclude="..\OpenKSeF.Mobile\Models\CachedInvoice.cs" Link="Linked\Models\%(Filename)%(Extension)" />
+    <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Link="Linked\Models\%(Filename)%(Extension)" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\ApiService.cs" Link="Linked\Services\ApiService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\AuthOptions.cs" Link="Linked\Services\AuthOptions.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\DeviceTokenService.cs" Link="Linked\Services\DeviceTokenService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IApiService.cs" Link="Linked\Services\IApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IAuthService.cs" Link="Linked\Services\IAuthService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\IDeviceTokenService.cs" Link="Linked\Services\IDeviceTokenService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\INotificationHubService.cs" Link="Linked\Services\INotificationHubService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IPostLoginNavigationService.cs" Link="Linked\Services\IPostLoginNavigationService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IServerSettingsService.cs" Link="Linked\Services\IServerSettingsService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\LocalDbService.cs" Link="Linked\Services\LocalDbService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\PostLoginNavigationService.cs" Link="Linked\Services\PostLoginNavigationService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\QrCodeGenerator.cs" Link="Linked\Services\QrCodeGenerator.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ServerUrlRules.cs" Link="Linked\Services\ServerUrlRules.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\AccountViewModel.cs" Link="Linked\ViewModels\AccountViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\InvoiceDetailsViewModel.cs" Link="Linked\ViewModels\InvoiceDetailsViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\LoginViewModel.cs" Link="Linked\ViewModels\LoginViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\ScanSetupQrViewModel.cs" Link="Linked\ViewModels\ScanSetupQrViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\TenantFormViewModel.cs" Link="Linked\ViewModels\TenantFormViewModel.cs" />
   </ItemGroup>
