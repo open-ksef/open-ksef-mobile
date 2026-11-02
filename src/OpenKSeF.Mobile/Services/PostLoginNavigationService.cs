@@ -35,7 +35,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
                 await NavigateAsync(sameUserAsCache: true);
                 break;
             case SessionRestoreResult.Unverified:
-                _ = _notificationHub.StartAsync();
+                _ = StartHubAsync();
                 try { await Shell.Current.GoToAsync("//main/invoices"); } catch { }
                 break;
         }
@@ -66,7 +66,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         if (!needsOnboarding)
         {
             try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
-            try { await _notificationHub.StartAsync(); } catch { }
+            _ = StartHubAsync();
         }
 
         try
@@ -77,6 +77,11 @@ public class PostLoginNavigationService : IPostLoginNavigationService
                 await Shell.Current.GoToAsync("//main/invoices");
         }
         catch { }
+    }
+
+    private async Task StartHubAsync()
+    {
+        try { await _notificationHub.StartAsync(); } catch { }
     }
 
     public async Task SignOutAsync()

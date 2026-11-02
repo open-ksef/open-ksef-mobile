@@ -171,6 +171,28 @@ public class PostLoginNavigationServiceTests
     }
 
     [Fact]
+    public async Task Navigate_HubThatNeverConnects_DoesNotBlockNavigation()
+    {
+        OnboardingComplete(true);
+        _notificationHub.StartAsync().Returns(new TaskCompletionSource().Task);
+
+        await _nav.NavigateAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Navigate_HubThatFails_DoesNotBlockNavigation()
+    {
+        OnboardingComplete(true);
+        _notificationHub.StartAsync().ThrowsAsync(new Exception("hub"));
+
+        await _nav.NavigateAsync();
+
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+    }
+
+    [Fact]
     public async Task Navigate_OnboardingNeeded_SkipsDeviceRegistration()
     {
         OnboardingComplete(false);
