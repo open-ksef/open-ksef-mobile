@@ -72,11 +72,19 @@ public static class IssuingFormat
         var input = NormalizeDecimal(text);
         return DecimalInput.IsMatch(input)
             && !ThousandsLike.IsMatch(input)
+            && !TooManyDigits(input)
             && decimal.TryParse(
                 input.Replace(" ", string.Empty).Replace(',', '.'),
                 NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
                 CultureInfo.InvariantCulture,
                 out value);
+    }
+
+    /// <summary>Beyond these limits decimal silently rounds the input, and 1000 lines of quantity x price could overflow the totals.</summary>
+    private static bool TooManyDigits(string input)
+    {
+        var parts = input.Replace(" ", string.Empty).TrimStart('-').Split('.', ',');
+        return parts[0].Length > 12 || parts.Length > 1 && parts[^1].Length > 6;
     }
 
     public static string? AmbiguousDecimalError(string? text)
@@ -93,9 +101,11 @@ public static class IssuingFormat
     public static string? DecimalInputError(string? text)
     {
         var input = NormalizeDecimal(text);
-        return input.All(c => char.IsAsciiDigit(c) || c is '.' or ',' or '-' or ' ')
-            ? AmbiguousDecimalError(input)
-            : "Ilość i cena mogą zawierać tylko cyfry, przecinek lub kropkę, spację i minus. Popraw wartość.";
+        if (!input.All(c => char.IsAsciiDigit(c) || c is '.' or ',' or '-' or ' '))
+            return "Ilość i cena mogą zawierać tylko cyfry, przecinek lub kropkę, spację i minus. Popraw wartość.";
+        return TooManyDigits(input)
+            ? "Za dużo cyfr: najwyżej 12 przed przecinkiem i 6 po nim."
+            : AmbiguousDecimalError(input);
     }
 
     private static string NormalizeDecimal(string? text) => (text ?? string.Empty).Replace(' ', ' ').Replace(' ', ' ').Trim();

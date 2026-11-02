@@ -1,3 +1,5 @@
+using System.Globalization;
+using OpenKSeF.Mobile.Services;
 using OpenKSeF.Mobile.ViewModels;
 using Xunit;
 
@@ -72,6 +74,54 @@ public class IssuingFormatTests
     {
         Assert.True(IssuingFormat.TryParseDecimal(text, out var value));
         Assert.Equal(expected, value);
+    }
+
+    [Theory]
+    [InlineData("99999999999999999")]
+    [InlineData("1 000 000 000 000")]
+    [InlineData("-1000000000000")]
+    [InlineData("0,99999999999999999999999999999999")]
+    [InlineData("1,00000000000000000000000000000001")]
+    [InlineData("1,1234567")]
+    public void TryParseDecimal_TooManyDigits_IsRefusedWithError(string text)
+    {
+        Assert.False(IssuingFormat.TryParseDecimal(text, out _));
+        Assert.Contains("Za dużo cyfr", IssuingFormat.DecimalInputError(text));
+    }
+
+    [Theory]
+    [InlineData("999999999999", "999999999999")]
+    [InlineData("999 999 999 999,999999", "999999999999.999999")]
+    [InlineData("-999999999999.999999", "-999999999999.999999")]
+    [InlineData("0,000001", "0.000001")]
+    [InlineData("1,123456", "1.123456")]
+    public void TryParseDecimal_AtTheLimit_KeepsEveryDigit(string text, string exact)
+    {
+        Assert.True(IssuingFormat.TryParseDecimal(text, out var value));
+        Assert.Equal(exact, value.ToString(CultureInfo.InvariantCulture));
+        Assert.Null(IssuingFormat.DecimalInputError(text));
+    }
+
+    [Fact]
+    public void Totals_LargestAcceptedLinesTimes1000_DoNotThrow()
+    {
+        var line = new DraftLineViewModel { Quantity = "999999999999,999999", UnitNetPrice = "999999999999,999999" };
+
+        var totals = IssuedInvoiceTotals.Compute(Enumerable.Repeat(line.ToRequest(), 1000));
+
+        Assert.True(totals.TotalGross > 1e27m);
+        Assert.NotEqual("0,00 PLN", line.Gross);
+    }
+
+    [Fact]
+    public void Line_OverflowingInput_DoesNotThrowFromSetter()
+    {
+        var line = new DraftLineViewModel { Quantity = "99999999999999999" };
+
+        line.UnitNetPrice = "99999999999999";
+
+        Assert.Equal("0,00 PLN", line.Gross);
+        Assert.Contains("Za dużo cyfr", line.Error);
     }
 
     [Theory]
