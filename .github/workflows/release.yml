@@ -3,12 +3,15 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]*.[0-9]*.[0-9]*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 # Allow only one release at a time for the same tag
 concurrency:
   group: release-${{ github.ref_name }}
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -46,7 +49,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
       - name: Create draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: true
           generate_release_notes: true
@@ -71,6 +74,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@v4
         with:
@@ -165,8 +170,11 @@ jobs:
           echo "aab=$AAB_DEST" >> $GITHUB_OUTPUT
           echo "apk=$APK_DEST" >> $GITHUB_OUTPUT
 
+      - name: Remove keystore
+        run: rm -f src/OpenKSeF.Mobile/openksef.keystore
+
       - name: Upload artifacts to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: true
           files: |
@@ -285,7 +293,7 @@ jobs:
 
       - name: Upload IPA to release
         if: steps.signing.outputs.enabled == 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: true
           files: ${{ steps.ipa.outputs.path }}
@@ -302,6 +310,6 @@ jobs:
       contents: write
     steps:
       - name: Publish draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           draft: false
