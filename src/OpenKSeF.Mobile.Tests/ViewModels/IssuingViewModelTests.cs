@@ -340,7 +340,38 @@ public class IssuingViewModelTests : IDisposable
 
         Assert.StartsWith("Kod KSeF 450: Błąd weryfikacji semantyki dokumentu", vm.RejectionText);
         await vm.EditCommand.ExecuteAsync(null);
-        Assert.Equal($"invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+        Assert.Equal($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Details_RejectedWithStatusDetails_ShowsThem()
+    {
+        var rejected = Invoice("Rejected");
+        rejected.Ksef = new KsefSubmissionDto { Environment = "test", StatusCode = 450, StatusMessage = "Błąd", StatusDetails = "Nieprawidłowy NIP nabywcy" };
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(rejected);
+        var vm = Details([]);
+
+        await vm.RunAsync(CancellationToken.None);
+
+        Assert.StartsWith("Kod KSeF 450: Błąd\nNieprawidłowy NIP nabywcy\nNumer", vm.RejectionText);
+    }
+
+    [Fact]
+    public async Task Details_IssueSchemaError_AlertsThenOpensForm()
+    {
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new ApiException(HttpStatusCode.UnprocessableEntity, "422", new ValidationEnvelope
+        {
+            Errors = [new() { Code = "INV-XSD", Field = null, Message = "Faktura nie spełnia schematu FA(3)" }]
+        }));
+        var vm = Details([]);
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Faktura nie spełnia schematu FA(3)", Shell.Current.LastAlertMessage);
+        Assert.Equal($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
     }
 
     [Fact]

@@ -70,6 +70,31 @@ namespace OpenKSeF.Mobile
 
 namespace Microsoft.Maui.ApplicationModel.DataTransfer
 {
+    public class ShareFile(string fullPath, string contentType)
+    {
+        public string FullPath { get; } = fullPath;
+        public string ContentType { get; } = contentType;
+    }
+
+    public class ShareFileRequest
+    {
+        public string? Title { get; set; }
+        public ShareFile? File { get; set; }
+    }
+
+    public class Share
+    {
+        public static Share Default { get; } = new();
+
+        public List<ShareFileRequest> Requests { get; } = [];
+
+        public Task RequestAsync(ShareFileRequest request)
+        {
+            Requests.Add(request);
+            return Task.CompletedTask;
+        }
+    }
+
     public class Clipboard
     {
         public static Clipboard Default { get; } = new();
@@ -128,7 +153,13 @@ namespace Microsoft.Maui.ApplicationModel
     {
         public static Browser Default { get; } = new();
 
-        public Task<bool> OpenAsync(string uri, BrowserLaunchMode mode) => Task.FromResult(true);
+        public string? LastUri { get; set; }
+
+        public Task<bool> OpenAsync(string uri, BrowserLaunchMode mode)
+        {
+            LastUri = uri;
+            return Task.FromResult(true);
+        }
     }
 }
 
@@ -166,6 +197,7 @@ namespace Microsoft.Maui.Storage
     public static class FileSystem
     {
         public static string AppDataDirectory { get; } = Directory.CreateTempSubdirectory("openksef-tests-").FullName;
+        public static string CacheDirectory { get; } = Directory.CreateTempSubdirectory("openksef-tests-cache-").FullName;
     }
 
     public class FileResult

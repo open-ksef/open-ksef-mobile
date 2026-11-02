@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
 
@@ -66,6 +67,8 @@ public static class IssuingFormat
             out value);
 
     public static string Number(decimal value) => value.ToString("0.######", Pl);
+
+    public static string FileStem(string name) => Regex.Replace(name, @"[^\w.-]+", "_");
 
     public static string Digits(string? text) => new((text ?? string.Empty).Where(char.IsDigit).ToArray());
 

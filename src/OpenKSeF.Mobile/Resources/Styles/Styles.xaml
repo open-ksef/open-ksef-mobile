@@ -163,6 +163,9 @@
     <!-- ─── Design system v1 (issuing pages) ─────────────────── -->
     <Style x:Key="UiPage" TargetType="ContentPage">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiBg}, Dark={StaticResource UiBgDark}}" />
+        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
+        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
     </Style>
 
     <Style x:Key="UiCard" TargetType="Border">

@@ -19,7 +19,7 @@
                      Command="{Binding CopyAsNewCommand}" />
     </ContentPage.ToolbarItems>
 
-    <Grid>
+    <Grid x:Name="PageRoot">
         <ScrollView>
             <VerticalStackLayout Padding="16" Spacing="16"
                                  IsVisible="{Binding Invoice, Converter={StaticResource IsNotNullConverter}}">
@@ -67,6 +67,26 @@
                                         Command="{Binding CopyKsefNumberCommand}" AutomationId="IssuedInvoiceDetailsPageButtonCopyKsef" />
                             </Grid>
                             <Label Text="{Binding AcceptedText}" Style="{StaticResource UiMutedText}" />
+                            <Button Text="Udostępnij PDF" Style="{StaticResource UiButtonPrimary}"
+                                    Command="{Binding SharePdfCommand}" AutomationId="IssuedInvoiceDetailsPageButtonSharePdf" />
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Text="Udostępnij XML" Style="{StaticResource UiButtonOutline}"
+                                        Command="{Binding ShareXmlCommand}" AutomationId="IssuedInvoiceDetailsPageButtonShareXml" />
+                                <Button Grid.Column="1" Text="Udostępnij UPO" Style="{StaticResource UiButtonOutline}"
+                                        IsVisible="{Binding HasUpo}"
+                                        Command="{Binding ShareUpoCommand}" AutomationId="IssuedInvoiceDetailsPageButtonShareUpo" />
+                            </Grid>
+                            <Border Style="{StaticResource UiAlert}" IsVisible="{Binding IsPdfFallback}"
+                                    AutomationId="IssuedInvoiceDetailsPagePdfFallback"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="Nie udało się utworzyć PDF na tym urządzeniu. Pobierz PDF w portalu."
+                                           TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
+                                    <Button Text="Otwórz weryfikację (KOD I)" Style="{StaticResource UiButtonGhost}" HeightRequest="40"
+                                            IsVisible="{Binding HasVerificationLink}"
+                                            Command="{Binding OpenVerificationCommand}" AutomationId="IssuedInvoiceDetailsPageButtonOpenVerification" />
+                                </VerticalStackLayout>
+                            </Border>
                         </VerticalStackLayout>
 
                         <VerticalStackLayout Spacing="8" IsVisible="{Binding IsRejected}">
