@@ -93,12 +93,13 @@ public static class MauiProgram
 
 #if ANDROID
         // Keyboard.Numeric installs a locale key listener that deletes the other decimal separator, so 2,5 became 25 on en-US.
+        // DigitsKeyListener is an InputFilter and strips pasted text, so 1e5 became 15. TextKeyListener filters nothing; the form refuses what it cannot parse.
         Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("DecimalEntryInput", (handler, entry) =>
         {
             if (entry is not Views.Controls.DecimalEntry)
                 return;
 
-            handler.PlatformView.KeyListener = Android.Text.Method.DigitsKeyListener.GetInstance("0123456789.,- ");
+            handler.PlatformView.KeyListener = Android.Text.Method.TextKeyListener.GetInstance();
             handler.PlatformView.SetRawInputType(Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal);
         });
 #endif

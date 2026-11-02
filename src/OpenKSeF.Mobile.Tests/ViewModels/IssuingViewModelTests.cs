@@ -277,11 +277,24 @@ public class IssuingViewModelTests : IDisposable
     public void Draft_InvalidLineNumber_BlocksSave()
     {
         var vm = Draft(Profile());
-        vm.Lines[0].Quantity = "abc";
+        vm.Lines[0].Quantity = "1,5,5";
 
         vm.SaveDraftCommand.Execute(null);
 
         Assert.Equal("Podaj ilość, np. 1 lub 0,5", vm.Lines[0].Error);
+        _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
+    }
+
+    [Fact]
+    public void Draft_PastedDisallowedCharacter_BlocksSave()
+    {
+        var vm = Draft(Profile());
+        vm.Lines[0].Quantity = "1e5";
+
+        vm.SaveDraftCommand.Execute(null);
+
+        Assert.Equal("1e5", vm.Lines[0].Quantity);
+        Assert.Contains("tylko cyfry", vm.Lines[0].Error);
         _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
     }
 
@@ -385,6 +398,64 @@ public class IssuingViewModelTests : IDisposable
         Assert.StartsWith("Kod KSeF 450: Błąd weryfikacji semantyki dokumentu", vm.RejectionText);
         await vm.EditCommand.ExecuteAsync(null);
         Assert.Equal($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Theory]
+    [InlineData("1e5")]
+    [InlineData("5/2")]
+    [InlineData("2x3")]
+    [InlineData("2,5\n3")]
+    [InlineData("\u22122,5")]
+    [InlineData("\u0662")]
+    public void Line_PastedDisallowedCharacter_KeepsRawTextAndShowsError(string pasted)
+    {
+        var quantity = new DraftLineViewModel { UnitNetPrice = "10" };
+        quantity.Quantity = pasted;
+        var price = new DraftLineViewModel();
+        price.UnitNetPrice = pasted;
+
+        Assert.Equal(pasted, quantity.Quantity);
+        Assert.Equal(pasted, price.UnitNetPrice);
+        Assert.Contains("tylko cyfry", quantity.Error);
+        Assert.Contains("tylko cyfry", price.Error);
+        Assert.False(quantity.Validate());
+        Assert.False(price.Validate());
+        Assert.Equal(0m, quantity.ToRequest().Quantity);
+        Assert.Equal(0m, price.ToRequest().UnitNetPrice);
+    }
+
+    [Theory]
+    [InlineData("1000,50", 1000.5)]
+    [InlineData("1000.50", 1000.5)]
+    [InlineData("1 000,50", 1000.5)]
+    [InlineData("1\u00A0000,50", 1000.5)]
+    [InlineData("1\u202F000.50", 1000.5)]
+    [InlineData("2,5\n", 2.5)]
+    public void Line_PastedPlainNumber_Works(string pasted, double expected)
+    {
+        var line = new DraftLineViewModel { UnitNetPrice = "10" };
+
+        line.Quantity = pasted;
+
+        Assert.Null(line.Error);
+        Assert.True(line.Validate());
+        Assert.Equal((decimal)expected, line.ToRequest().Quantity);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("-")]
+    [InlineData(",")]
+    [InlineData("-2")]
+    [InlineData("5,")]
+    [InlineData("1 ")]
+    public void Line_HalfTypedNumber_ShowsNoLiveError(string typed)
+    {
+        var line = new DraftLineViewModel();
+
+        line.Quantity = typed;
+
+        Assert.Null(line.Error);
     }
 
     [Fact]

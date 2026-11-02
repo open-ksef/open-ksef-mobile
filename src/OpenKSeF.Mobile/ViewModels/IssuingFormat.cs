@@ -89,6 +89,15 @@ public static class IssuingFormat
         return $"Nie wiadomo, czy „{input}” to {parts[0]}{parts[1]} czy {parts[0]},{parts[1]}. Wpisz {parts[0]}{parts[1]} albo {parts[0]},{parts[1]}0.";
     }
 
+    /// <summary>Live check for one field: never flags a half-typed number, so a keystroke like "-" or "5," stays quiet.</summary>
+    public static string? DecimalInputError(string? text)
+    {
+        var input = NormalizeDecimal(text);
+        return input.All(c => char.IsAsciiDigit(c) || c is '.' or ',' or '-' or ' ')
+            ? AmbiguousDecimalError(input)
+            : "Ilość i cena mogą zawierać tylko cyfry, przecinek lub kropkę, spację i minus. Popraw wartość.";
+    }
+
     private static string NormalizeDecimal(string? text) => (text ?? string.Empty).Replace(' ', ' ').Replace(' ', ' ').Trim();
 
     public static string Number(decimal value) => value.ToString("0.######", Pl);
