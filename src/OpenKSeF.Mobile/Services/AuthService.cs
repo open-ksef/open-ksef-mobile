@@ -244,6 +244,13 @@ public class AuthService : IAuthService
         return null;
     }
 
+    public async Task<string?> RefreshAccessTokenAsync()
+    {
+        EnsureConfiguration();
+
+        return await RefreshOnceAsync() == SessionRestoreResult.Restored ? _accessToken : null;
+    }
+
     public async Task<bool> RedeemSetupTokenAsync(string serverUrl, string setupToken)
     {
         try

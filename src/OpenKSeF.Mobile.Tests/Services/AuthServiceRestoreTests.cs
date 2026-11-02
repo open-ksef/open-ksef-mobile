@@ -307,6 +307,101 @@ public class AuthServiceRestoreTests
     }
 
     [Fact]
+    public async Task ServerRevokedAccessToken_LocallyValid_ApiCallRefreshesSilently()
+    {
+        await LoginAsync();
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = request => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/token")
+            ? Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""")
+            : request.Headers.Authorization?.Parameter == "a2"
+                ? Json(HttpStatusCode.OK, "[]")
+                : Json(HttpStatusCode.Unauthorized, string.Empty));
+        var settings = Substitute.For<IServerSettingsService>();
+        settings.ServerUrl.Returns("https://ksef.example.com");
+
+        Assert.Empty(await new ApiService(new HttpClient(_handler), _auth, settings).GetTenantsAsync());
+
+        Assert.Equal(["/api/tenants", "/auth/realms/openksef/protocol/openid-connect/token", "/api/tenants"], _handler.Requests.Select(r => r.RequestUri!.AbsolutePath));
+        Assert.Contains("grant_type=refresh_token", _handler.Bodies[1]);
+        Assert.Contains("refresh_token=new-refresh", _handler.Bodies[1]);
+        Assert.Equal("a2", await _auth.GetAccessTokenAsync());
+        Assert.Equal(0, ended);
+    }
+
+    [Fact]
+    public async Task ForcedRefresh_InvalidGrant_ReturnsNull_RaisesSessionEnded_ClearsTokens()
+    {
+        await LoginAsync();
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}"""));
+
+        Assert.Null(await _auth.RefreshAccessTokenAsync());
+
+        Assert.Equal(1, ended);
+        Assert.Equal(0, SecureStorage.Default.Count);
+    }
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task ForcedRefresh_ServerProblem_ReturnsNull_DoesNotEndSession_KeepsTokens(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        await LoginAsync();
+        var stored = SecureStorage.Default.Count;
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = problem;
+
+        Assert.Null(await _auth.RefreshAccessTokenAsync());
+
+        Assert.Equal(0, ended);
+        Assert.Equal(stored, SecureStorage.Default.Count);
+    }
+
+    [Fact]
+    public async Task ForcedRefresh_NoSession_NoRequest()
+    {
+        Assert.Null(await _auth.RefreshAccessTokenAsync());
+        Assert.Empty(_handler.Requests);
+    }
+
+    [Fact]
+    public async Task ConcurrentForcedRefreshes_RotatingRealm_OnePost_LateCallerSendsRotatedToken()
+    {
+        await LoginAsync();
+        var current = "new-refresh";
+        var generation = 1;
+        var rejected = 0;
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            var used = (await request.Content!.ReadAsStringAsync()).Contains($"refresh_token={current}");
+            await release.Task;
+            if (!used)
+            {
+                Interlocked.Increment(ref rejected);
+                return Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
+            }
+
+            current = $"r{++generation}";
+            return Json(HttpStatusCode.OK, $$"""{"access_token":"a{{generation}}","refresh_token":"{{current}}","expires_in":300}""");
+        };
+
+        var callers = Enumerable.Range(0, 20).Select(_ => Task.Run(_auth.RefreshAccessTokenAsync)).ToArray();
+        await Task.Delay(100);
+        release.SetResult();
+        var tokens = await Task.WhenAll(callers).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.All(tokens, token => Assert.Equal("a2", token));
+        Assert.Single(_handler.Requests);
+
+        Assert.Equal("a3", await _auth.RefreshAccessTokenAsync());
+        Assert.Equal(2, _handler.Requests.Count);
+        Assert.Equal(0, rejected);
+    }
+
+    [Fact]
     public async Task RestoreInvalidGrant_DoesNotRaiseSessionEnded()
     {
         await LoginAsync();

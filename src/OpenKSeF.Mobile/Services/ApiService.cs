@@ -247,7 +247,7 @@ public class ApiService : IApiService
     private async Task<HttpResponseMessage> TryRefreshAndRetryAsync(
         HttpResponseMessage originalResponse, HttpMethod method, string path, object? body)
     {
-        var token = await _auth.GetAccessTokenAsync();
+        var token = await _auth.RefreshAccessTokenAsync();
         if (token is null)
             return originalResponse;
 

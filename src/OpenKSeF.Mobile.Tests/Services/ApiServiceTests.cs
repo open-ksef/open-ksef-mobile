@@ -56,20 +56,22 @@ public class ApiServiceTests
     }
 
     [Fact]
-    public async Task Unauthorized_RetriesOnceWithFreshToken()
+    public async Task Unauthorized_ForcesRefreshOnce_RetriesWithNewToken()
     {
-        _auth.GetAccessTokenAsync().Returns("expired-token", "refreshed-token");
+        _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
         _handler.Respond(HttpStatusCode.Unauthorized);
         _handler.Respond(HttpStatusCode.OK, new List<TenantDto>());
 
         await CreateService().GetTenantsAsync();
 
-        Assert.Equal(["Bearer expired-token", "Bearer refreshed-token"], _handler.Requests.Select(r => r.Authorization));
+        Assert.Equal(["Bearer test-access-token", "Bearer refreshed-token"], _handler.Requests.Select(r => r.Authorization));
+        await _auth.Received(1).RefreshAccessTokenAsync();
     }
 
     [Fact]
     public async Task Unauthorized_AfterRetry_ThrowsSessionExpired()
     {
+        _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
         _handler.Respond(HttpStatusCode.Unauthorized);
         _handler.Respond(HttpStatusCode.Unauthorized);
 
@@ -77,16 +79,19 @@ public class ApiServiceTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
         Assert.Equal(2, _handler.Requests.Count);
+        await _auth.Received(1).RefreshAccessTokenAsync();
     }
 
     [Fact]
-    public async Task Unauthorized_NoToken_DoesNotRetry()
+    public async Task Unauthorized_RefreshFails_ThrowsSessionExpired_WithoutRetry()
     {
-        _auth.GetAccessTokenAsync().Returns((string?)null);
+        _auth.RefreshAccessTokenAsync().Returns((string?)null);
         _handler.Respond(HttpStatusCode.Unauthorized);
 
-        await Assert.ThrowsAsync<ApiException>(() => CreateService().GetMeAsync());
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetMeAsync());
 
+        Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
         Assert.Single(_handler.Requests);
     }
 
