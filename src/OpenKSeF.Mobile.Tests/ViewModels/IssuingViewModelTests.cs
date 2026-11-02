@@ -43,8 +43,11 @@ public class IssuingViewModelTests : IDisposable
     private InvoiceDraftViewModel Draft(SellerProfileDto profile)
     {
         _api.GetSellerProfileAsync(TenantId).Returns(profile);
-        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Invoice());
-        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Invoice());
+        var saved = Invoice();
+        saved.Ksef.Environment = profile.KsefEnvironment!;
+        saved.IssueDate = DateOnly.FromDateTime(DateTime.Today);
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(saved);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(saved);
         _api.IssueInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Sending"));
         var vm = new InvoiceDraftViewModel(_api) { TenantId = TenantId.ToString() };
         vm.BuyerNip = "5261040828";
@@ -202,9 +205,96 @@ public class IssuingViewModelTests : IDisposable
 
         await vm.IssueCommand.ExecuteAsync(null);
 
-        Assert.Contains("Numer: FV/12/11/2026", Shell.Current.LastAlertMessage);
+        Assert.Contains("Numer (przewidywany): FV/12/11/2026", Shell.Current.LastAlertMessage);
         await _api.Received(1).CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>());
         await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+    }
+
+    [Fact]
+    public async Task Draft_ProfileGetFailed_SavedProductionInvoice_StillConfirms()
+    {
+        var vm = Draft(Profile("production"));
+        _api.GetSellerProfileAsync(TenantId).ThrowsAsync(new HttpRequestException("no route"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.AlertAnswer = false;
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("Faktura trafi do KSeF", Shell.Current.LastAlertMessage);
+        Assert.Contains("Numer: nadamy przy wysłaniu", Shell.Current.LastAlertMessage);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+    }
+
+    [Fact]
+    public async Task Draft_StaleTestProfile_SavedProductionInvoice_Confirms()
+    {
+        var vm = Draft(Profile("production"));
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile("test"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.AlertAnswer = false;
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.NotNull(Shell.Current.LastAlertMessage);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("production")]
+    [InlineData("PRODUCTION")]
+    [InlineData("staging")]
+    public async Task Confirm_ShownUnlessTestOrDemo(string? environment)
+    {
+        var invoice = Invoice();
+        invoice.Ksef.Environment = environment!;
+        Shell.Current.AlertAnswer = false;
+
+        Assert.False(await InvoiceDraftViewModel.ConfirmIssueAsync(null, invoice));
+
+        Assert.NotNull(Shell.Current.LastAlertMessage);
+    }
+
+    [Theory]
+    [InlineData("test")]
+    [InlineData("demo")]
+    [InlineData("TEST")]
+    public async Task Confirm_SkippedOnTestAndDemo(string environment)
+    {
+        var invoice = Invoice();
+        invoice.Ksef.Environment = environment;
+        Shell.Current.AlertAnswer = false;
+
+        Assert.True(await InvoiceDraftViewModel.ConfirmIssueAsync(null, invoice));
+
+        Assert.Null(Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public async Task Confirm_RejectedResend_ShowsItsOwnNumber()
+    {
+        var invoice = Invoice("Rejected");
+        invoice.Number = "FV/3/10/2026";
+        invoice.Ksef.Environment = "production";
+
+        await InvoiceDraftViewModel.ConfirmIssueAsync("FV/12/11/2026", invoice);
+
+        Assert.Contains("Numer: FV/3/10/2026", Shell.Current.LastAlertMessage);
+        Assert.DoesNotContain("FV/12/11/2026", Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public async Task Confirm_DraftInAnotherPeriod_DoesNotNameThePreview()
+    {
+        var invoice = Invoice();
+        invoice.IssueDate = DateOnly.FromDateTime(DateTime.Today).AddMonths(-1);
+        invoice.Ksef.Environment = "production";
+
+        await InvoiceDraftViewModel.ConfirmIssueAsync("FV/12/11/2026", invoice);
+
+        Assert.DoesNotContain("FV/12/11/2026", Shell.Current.LastAlertMessage);
+        Assert.Contains("zależy od daty wystawienia", Shell.Current.LastAlertMessage);
     }
 
     [Fact]
@@ -492,8 +582,10 @@ public class IssuingViewModelTests : IDisposable
     [Fact]
     public async Task Details_DraftInProduction_ConfirmsBeforeIssue()
     {
-        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
-        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
+        var draft = Invoice();
+        draft.Ksef.Environment = "production";
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(draft);
+        _api.GetSellerProfileAsync(TenantId).Returns((SellerProfileDto?)null);
         var vm = Details([]);
         await vm.RunAsync(CancellationToken.None);
         Shell.Current.AlertAnswer = false;

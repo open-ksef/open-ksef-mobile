@@ -393,7 +393,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            if (!await ConfirmIssueAsync(Environment, _profile?.NextNumberPreview, saved))
+            if (!await ConfirmIssueAsync(_profile?.NextNumberPreview, saved))
                 return;
 
             var issued = await _apiService.IssueInvoiceAsync(tenantId, saved.Id);
@@ -432,20 +432,34 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
     }
 
-    internal static Task<bool> ConfirmIssueAsync(string? environment, string? numberPreview, IssuedInvoiceDto invoice)
+    /// <summary>Only a known test or demo environment skips the dialog: an irreversible send must not depend on a value that failed to load.</summary>
+    internal static Task<bool> ConfirmIssueAsync(string? numberPreview, IssuedInvoiceDto invoice)
     {
-        if (!IssuingFormat.IsProduction(environment))
+        var environment = invoice.Ksef.Environment;
+        if (string.Equals(environment, "test", StringComparison.OrdinalIgnoreCase) || string.Equals(environment, "demo", StringComparison.OrdinalIgnoreCase))
             return Task.FromResult(true);
 
         var buyer = invoice.Buyer.Nip is { Length: > 0 } nip ? $"{invoice.Buyer.Name}, NIP {nip}" : invoice.Buyer.Name;
         var message =
             "Faktura trafi do KSeF jako dokument księgowy. Po przyjęciu nie można jej usunąć ani zmienić.\n\n" +
-            $"Numer: {numberPreview ?? invoice.Number ?? "—"}\n" +
+            $"{NumberLine(numberPreview, invoice)}\n" +
             $"Nabywca: {buyer}\n" +
             $"Data wystawienia: {IssuingFormat.Date(invoice.IssueDate)}\n" +
             $"Do zapłaty: {IssuingFormat.Money(invoice.TotalGross, invoice.Currency)}\n\n" +
             "Korekt nie wystawisz jeszcze w OpenKSeF — użyj Aplikacji Podatnika KSeF.";
-        return Shell.Current.DisplayAlertAsync("PRODUKCJA · Wystawić fakturę i wysłać do KSeF?", message, "Wystaw i wyślij", "Wróć do edycji");
+        var title = IssuingFormat.IsProduction(environment) ? "PRODUKCJA · Wystawić fakturę i wysłać do KSeF?" : "Wystawić fakturę i wysłać do KSeF?";
+        return Shell.Current.DisplayAlertAsync(title, message, "Wystaw i wyślij", "Wróć do edycji");
+    }
+
+    private static string NumberLine(string? numberPreview, IssuedInvoiceDto invoice)
+    {
+        if (invoice.Number is { Length: > 0 } number)
+            return $"Numer: {number}";
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        return numberPreview is { Length: > 0 } && invoice.IssueDate.Year == today.Year && invoice.IssueDate.Month == today.Month
+            ? $"Numer (przewidywany): {numberPreview}"
+            : "Numer: nadamy przy wysłaniu, zależy od daty wystawienia";
     }
 
     private async Task<IssuedInvoiceDto?> SaveAsync()

@@ -184,7 +184,8 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         try
         {
             var profile = await _apiService.GetSellerProfileAsync(tenantId);
-            if (!await InvoiceDraftViewModel.ConfirmIssueAsync(profile?.KsefEnvironment ?? Environment, profile?.NextNumberPreview, Invoice))
+            Invoice = await _apiService.GetIssuedInvoiceAsync(tenantId, Invoice.Id);
+            if (!await InvoiceDraftViewModel.ConfirmIssueAsync(profile?.NextNumberPreview, Invoice))
                 return;
 
             Invoice = await _apiService.IssueInvoiceAsync(tenantId, Invoice.Id);
