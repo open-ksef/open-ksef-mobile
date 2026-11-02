@@ -14,6 +14,7 @@ public interface IAuthService
     Task<bool> RegisterAsync(string email, string password, string? firstName, string? lastName);
     Task LogoutAsync();
     Task<string?> GetAccessTokenAsync();
+    Task<string?> RefreshAccessTokenAsync();
     Task<SessionRestoreResult> RestoreSessionAsync();
     Task<bool> RedeemSetupTokenAsync(string serverUrl, string setupToken);
     bool IsAuthenticated { get; }

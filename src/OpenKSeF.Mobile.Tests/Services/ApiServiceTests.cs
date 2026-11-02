@@ -56,20 +56,38 @@ public class ApiServiceTests
     }
 
     [Fact]
-    public async Task Unauthorized_RetriesOnceWithFreshToken()
+    public async Task Unauthorized_ForcesRefreshOnce_RetriesWithNewToken()
     {
-        _auth.GetAccessTokenAsync().Returns("expired-token", "refreshed-token");
+        _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
         _handler.Respond(HttpStatusCode.Unauthorized);
         _handler.Respond(HttpStatusCode.OK, new List<TenantDto>());
 
         await CreateService().GetTenantsAsync();
 
-        Assert.Equal(["Bearer expired-token", "Bearer refreshed-token"], _handler.Requests.Select(r => r.Authorization));
+        Assert.Equal(["Bearer test-access-token", "Bearer refreshed-token"], _handler.Requests.Select(r => r.Authorization));
+        await _auth.Received(1).RefreshAccessTokenAsync();
+    }
+
+    [Fact]
+    public async Task Unauthorized_OnPost_RetryResendsBodyWithNewToken()
+    {
+        _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
+        _handler.Respond(HttpStatusCode.Unauthorized);
+        _handler.Respond(HttpStatusCode.OK, new TenantDto());
+
+        await CreateService().CreateTenantAsync(new CreateTenantRequest { Nip = "1111111111" });
+
+        Assert.Equal(2, _handler.Requests.Count);
+        Assert.All(_handler.Requests, r => Assert.Equal("POST", r.Method));
+        Assert.Contains("1111111111", _handler.Requests[0].Body);
+        Assert.Equal(_handler.Requests[0].Body, _handler.Requests[1].Body);
+        Assert.Equal("Bearer refreshed-token", _handler.Requests[1].Authorization);
     }
 
     [Fact]
     public async Task Unauthorized_AfterRetry_ThrowsSessionExpired()
     {
+        _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
         _handler.Respond(HttpStatusCode.Unauthorized);
         _handler.Respond(HttpStatusCode.Unauthorized);
 
@@ -77,16 +95,19 @@ public class ApiServiceTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
         Assert.Equal(2, _handler.Requests.Count);
+        await _auth.Received(1).RefreshAccessTokenAsync();
     }
 
     [Fact]
-    public async Task Unauthorized_NoToken_DoesNotRetry()
+    public async Task Unauthorized_RefreshFails_ThrowsSessionExpired_WithoutRetry()
     {
-        _auth.GetAccessTokenAsync().Returns((string?)null);
+        _auth.RefreshAccessTokenAsync().Returns((string?)null);
         _handler.Respond(HttpStatusCode.Unauthorized);
 
-        await Assert.ThrowsAsync<ApiException>(() => CreateService().GetMeAsync());
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetMeAsync());
 
+        Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
         Assert.Single(_handler.Requests);
     }
 
