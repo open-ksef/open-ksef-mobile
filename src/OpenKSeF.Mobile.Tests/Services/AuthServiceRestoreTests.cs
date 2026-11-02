@@ -43,6 +43,20 @@ public class AuthServiceRestoreTests
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
     [Fact]
+    public async Task PasswordLogin_RequestsOfflineAccess()
+    {
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
+
+        Assert.True(await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+
+        Assert.Contains("scope=openid+profile+email+offline_access", _handler.Bodies.Single());
+    }
+
+    [Fact]
+    public void GoogleLogin_RequestsOfflineAccess() =>
+        Assert.Equal("openid profile email offline_access", _auth.GoogleLoginScope);
+
+    [Fact]
     public async Task NoStoredTokens_NoRequest()
     {
         Assert.Equal(SessionRestoreResult.None, await _auth.RestoreSessionAsync());

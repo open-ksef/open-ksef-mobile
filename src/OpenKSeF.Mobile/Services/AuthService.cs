@@ -11,6 +11,8 @@ namespace OpenKSeF.Mobile.Services;
 
 public class AuthService : IAuthService
 {
+    private const string Scope = "openid profile email offline_access";
+
     internal static TimeSpan RestoreTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     private readonly AuthOptions _options;
@@ -28,6 +30,8 @@ public class AuthService : IAuthService
     private bool _restorePending;
 
     public event Action? SessionEnded;
+
+    internal string GoogleLoginScope => _oidcClient.Options.Scope;
 
     public bool IsAuthenticated => _accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow;
 
@@ -56,7 +60,7 @@ public class AuthService : IAuthService
                 ["client_id"] = _options.ClientId,
                 ["username"] = email,
                 ["password"] = password,
-                ["scope"] = "openid profile email"
+                ["scope"] = Scope
             };
 
             using var response = await _httpClient.PostAsync(tokenEndpoint, new FormUrlEncodedContent(formData));
@@ -382,7 +386,7 @@ public class AuthService : IAuthService
         {
             Authority = authority,
             ClientId = _options.ClientId,
-            Scope = "openid profile email",
+            Scope = Scope,
             RedirectUri = _options.RedirectUri,
             PostLogoutRedirectUri = _options.PostLogoutRedirectUri,
             Browser = _browser,
