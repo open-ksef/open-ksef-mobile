@@ -510,6 +510,25 @@ public class IssuingViewModelTests : IDisposable
         Assert.Null((await DetailsOf(accepted)).SendingProblemText);
     }
 
+    [Theory]
+    [InlineData("Draft", true)]
+    [InlineData("Accepted", true)]
+    [InlineData("Rejected", true)]
+    [InlineData("Sending", false)]
+    [InlineData("Approved", false)]
+    public async Task Details_CopyIsOfferedExceptWhileSending(string status, bool offered) =>
+        Assert.Equal(offered, (await DetailsOf(Invoice(status))).CanCopyAsNew);
+
+    [Fact]
+    public async Task Details_CopyWhileSending_DoesNotCallApi()
+    {
+        var vm = await DetailsOf(Invoice("Sending"));
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        await _api.DidNotReceiveWithAnyArgs().CopyIssuedInvoiceAsync(default, default);
+    }
+
     [Fact]
     public async Task Details_CopyAsNew_OpensNewDraft()
     {

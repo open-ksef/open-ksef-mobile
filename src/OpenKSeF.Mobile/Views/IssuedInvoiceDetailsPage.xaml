@@ -14,7 +14,7 @@
     </ContentPage.Resources>
 
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Kopiuj jako nową" Order="Secondary"
+        <ToolbarItem x:Name="CopyToolbarItem" Text="Kopiuj jako nową" Order="Secondary"
                      AutomationId="IssuedInvoiceDetailsPageToolbarCopy"
                      Command="{Binding CopyAsNewCommand}" />
     </ContentPage.ToolbarItems>

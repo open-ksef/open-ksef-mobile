@@ -33,7 +33,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Status), nameof(Title), nameof(IsDraft), nameof(IsSending), nameof(IsAccepted), nameof(IsRejected),
         nameof(GrossText), nameof(BuyerText), nameof(Lines), nameof(KsefNumber), nameof(AcceptedText), nameof(RejectionText),
-        nameof(SendingProblemText), nameof(IsDuplicateNumberRejection), nameof(CanFixRejection), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink))]
+        nameof(SendingProblemText), nameof(CanCopyAsNew), nameof(IsDuplicateNumberRejection), nameof(CanFixRejection), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink))]
     private IssuedInvoiceDto? _invoice;
 
     [ObservableProperty]
@@ -59,6 +59,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public bool IsSending => IssuingFormat.IsSending(Status);
     public bool IsAccepted => Status == "Accepted";
     public bool IsRejected => Status == "Rejected";
+    public bool CanCopyAsNew => Invoice is not null && !IsSending;
     public bool IsDuplicateNumberRejection => IsRejected && Invoice!.Ksef.StatusCode == 440;
     public bool CanFixRejection => IsRejected && !IsDuplicateNumberRejection;
     public bool HasUpo => IsAccepted && Invoice!.Ksef.HasUpo;
@@ -199,12 +200,12 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [RelayCommand]
     private async Task CopyAsNewAsync()
     {
-        if (Invoice is null || !Guid.TryParse(TenantId, out var tenantId))
+        if (!CanCopyAsNew || !Guid.TryParse(TenantId, out var tenantId))
             return;
 
         try
         {
-            var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, Invoice.Id);
+            var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, Invoice!.Id);
             try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); } catch { }
         }
         catch (Exception ex)

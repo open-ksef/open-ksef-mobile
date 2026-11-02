@@ -14,6 +14,21 @@ public partial class IssuedInvoiceDetailsPage : ContentPage
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
         _viewModel.RenderPdf = RenderPdfAsync;
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IssuedInvoiceDetailsViewModel.CanCopyAsNew))
+                SyncCopyToolbarItem();
+        };
+        SyncCopyToolbarItem();
+    }
+
+    // ToolbarItem has no IsVisible in MAUI 10.0.20, so hiding means removing it.
+    private void SyncCopyToolbarItem()
+    {
+        if (!_viewModel.CanCopyAsNew)
+            ToolbarItems.Remove(CopyToolbarItem);
+        else if (!ToolbarItems.Contains(CopyToolbarItem))
+            ToolbarItems.Add(CopyToolbarItem);
     }
 
     protected override void OnAppearing()
