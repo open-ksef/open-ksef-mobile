@@ -98,7 +98,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         _authService.LogoutUnderway = true;
         try
         {
-            try { await _notificationHub.StopAsync(); } catch { }
+            try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
             try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
             try { await _localDb.ClearUserDataAsync(); } catch { }
             ClearCacheDirectory();

@@ -206,6 +206,17 @@ public class PostLoginNavigationServiceTests
     }
 
     [Fact]
+    public async Task SignOut_HubStopHangs_StillLogsOutAndClearsLogoutUnderway()
+    {
+        _notificationHub.StopAsync().Returns(new TaskCompletionSource().Task);
+
+        await _nav.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(30));
+
+        await _auth.Received(1).LogoutAsync();
+        Assert.False(_auth.LogoutUnderway);
+    }
+
+    [Fact]
     public async Task SessionEnded_RemovesInvoiceFilesFromCache()
     {
         var file = Path.Combine(FileSystem.CacheDirectory, "FV_2_11_2026.pdf");
