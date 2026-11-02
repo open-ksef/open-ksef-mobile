@@ -223,5 +223,14 @@ public class IssuedInvoiceShareTests
         Assert.Equal(
             "551b4ba283db648620c2d03cac9c2f2dd50375b47173c79d6e264c88dad152e4",
             Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(pdf, "ksef-fe-invoice-converter.js")))).ToLowerInvariant());
+
+        var notices = File.ReadAllText(Path.Combine(pdf, "THIRD-PARTY-NOTICES.txt"));
+        Assert.All(new[] { "ksef-pdf-generator 1.1.46", "pdfmake 0.3.11", "i18next", "xml-js", "core-js", "js-md5", "buffer" }, name => Assert.Contains(name, notices));
+        Assert.Contains("License: SIL Open Font License 1.1", notices);
+
+        var project = File.ReadAllText(Path.Combine(dir.FullName, "OpenKSeF.Mobile", "OpenKSeF.Mobile.csproj"));
+        var excluded = System.Text.RegularExpressions.Regex.Match(project, "<MauiAsset Include=\"Resources.Raw.[*][*]\" Exclude=\"([^\"]*)\"").Groups[1].Value;
+        Assert.DoesNotContain("THIRD-PARTY", excluded);
+        Assert.Contains("README.md", excluded);
     }
 }

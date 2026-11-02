@@ -133,6 +133,18 @@ public partial class AccountViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task OpenThirdPartyNoticesAsync()
+    {
+        try
+        {
+            await Browser.Default.OpenAsync(
+                "https://github.com/open-ksef/open-ksef-mobile/blob/main/src/OpenKSeF.Mobile/Resources/Raw/pdf/THIRD-PARTY-NOTICES.txt",
+                BrowserLaunchMode.SystemPreferred);
+        }
+        catch { }
+    }
+
+    [RelayCommand]
     private async Task OpenPrivacyPolicyAsync()
     {
         try
