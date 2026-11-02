@@ -83,7 +83,11 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public string AcceptedText => Invoice?.Ksef.AcceptedAt is { } at ? $"Przyjęta {at.ToLocalTime():dd.MM.yyyy, HH:mm}" : string.Empty;
 
     public string RejectionText => Invoice is null ? string.Empty
-        : $"Kod KSeF {Invoice.Ksef.StatusCode}: {Invoice.Ksef.StatusMessage}{(Invoice.Ksef.StatusDetails is { Length: > 0 } details ? $"\n{details}" : string.Empty)}\n{RejectionAdvice}";
+        : $"Kod KSeF {Invoice.Ksef.StatusCode}: {Invoice.Ksef.StatusMessage}{(RejectionDetails is { } details ? $"\n{details}" : string.Empty)}\n{RejectionAdvice}";
+
+    private string? RejectionDetails => IsDuplicateNumberRejection && Invoice!.Ksef.DuplicateKsefNumber is { Length: > 0 }
+        ? null
+        : IssuingFormat.CleanKsefDetails(Invoice!.Ksef.StatusDetails);
 
     private string RejectionAdvice => !IsDuplicateNumberRejection
         ? $"Numer {Invoice!.Number} zostaje — po poprawce wyślemy fakturę z tym samym numerem."

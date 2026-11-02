@@ -530,6 +530,64 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Details_Real403_ShowsSentenceWithoutJsonOrTraceId()
+    {
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = 403;
+        rejected.Ksef.StatusMessage = "Token KSeF nie ma uprawnienia do wystawiania faktur.";
+        rejected.Ksef.StatusDetails = """missing-permissions: Brak wymaganych uprawnień do wykonania operacji w bieżącym kontekście. (security: {"requiredAnyOfPermissions":["InvoiceWrite","PefInvoiceWrite","EnforcementOperations"],"presentPermissions":["InvoiceRead"]}) (traceId: 00-2470e4b7abb5463217e63e4fa6d7b628-3b762c4cf0014420-00)""";
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.Contains("\nBrak wymaganych uprawnień do wykonania operacji w bieżącym kontekście.\n", vm.RejectionText);
+        Assert.DoesNotContain("traceId", vm.RejectionText);
+        Assert.DoesNotContain("{", vm.RejectionText);
+        Assert.DoesNotContain("missing-permissions", vm.RejectionText);
+        Assert.Contains("z tym samym numerem", vm.RejectionText);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("Nieprawidłowy NIP nabywcy", "Nieprawidłowy NIP nabywcy")]
+    [InlineData("Zły NIP (pole P_1); Zła data", "Zły NIP (pole P_1); Zła data")]
+    [InlineData("""(traceId: 00-aa)""", null)]
+    [InlineData("""{"a":1}""", null)]
+    [InlineData("""Błąd {"a":1} dalej""", null)]
+    [InlineData("""bad-code: Pierwszy (x: ["a"]); other-code: Drugi""", "Pierwszy; Drugi")]
+    public void CleanKsefDetails(string? details, string? expected) =>
+        Assert.Equal(expected, IssuingFormat.CleanKsefDetails(details));
+
+    [Fact]
+    public async Task Details_Real440_ShowsKsefNumberOnce()
+    {
+        const string number = "1234567890-20261102-AAAAAAAAAAAA-00";
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = 440;
+        rejected.Ksef.StatusMessage = "Ten numer faktury jest już użyty w KSeF przez inny dokument.";
+        rejected.Ksef.StatusDetails = $"Duplikat faktury. Faktura o numerze KSeF: {number} została już prawidłowo przesłana do systemu w sesji: 20261102-SO-AAAAAAAAAA-AAAAAAAAAA-AA";
+        rejected.Ksef.DuplicateKsefNumber = number;
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(vm.RejectionText, number));
+        Assert.DoesNotContain("20261102-SO", vm.RejectionText);
+    }
+
+    [Fact]
+    public async Task Details_440OlderApiWithoutDuplicateField_ShowsNumberOnceFromDetails()
+    {
+        const string number = "1234567890-20261102-AAAAAAAAAAAA-00";
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = 440;
+        rejected.Ksef.StatusDetails = $"Duplikat faktury. Faktura o numerze KSeF: {number}";
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(vm.RejectionText, number));
+    }
+
+    [Fact]
     public async Task Details_Rejected440WithoutKnownNumber_StillOffersCopy()
     {
         var rejected = Invoice("Rejected");

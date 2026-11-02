@@ -126,6 +126,15 @@ public static class IssuingFormat
         ? $"Czynny podatnik VAT · biała lista {at:dd.MM.yyyy, HH:mm}"
         : $"{result.VatStatus} · biała lista {at:dd.MM.yyyy, HH:mm}";
 
+    private static readonly Regex KsefDetailsNoise = new(@"\s*\(traceId:[^)]*\)|\s*\([^()]*:\s*[{\[].*?[}\]]\)|(?<=^|;\s)[a-z]+(?:-[a-z]+)+:\s*");
+
+    /// <summary>KSeF details mix a readable sentence with a machine code, JSON and a traceId. Text that still looks raw after cleaning is dropped.</summary>
+    public static string? CleanKsefDetails(string? details)
+    {
+        var clean = KsefDetailsNoise.Replace(details ?? string.Empty, string.Empty).Trim();
+        return clean.Length == 0 || clean.Contains("{\"") || clean.Contains("traceId", StringComparison.OrdinalIgnoreCase) ? null : clean;
+    }
+
     public const string LookupNotFound = "Nie ma na białej liście — wpisz dane ręcznie";
     public const string LookupDown = "Biała lista nie odpowiada, wpisz dane ręcznie";
 }
