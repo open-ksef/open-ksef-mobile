@@ -33,6 +33,8 @@ public class AuthService : IAuthService
 
     internal string GoogleLoginScope => _oidcClient.Options.Scope;
 
+    public bool LogoutUnderway { get; set; }
+
     public bool IsAuthenticated => _accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow;
 
     public AuthService(AuthOptions options, OidcBrowser browser, IServerSettingsService serverSettings, HttpClient httpClient)
@@ -290,7 +292,7 @@ public class AuthService : IAuthService
             if (result == SessionRestoreResult.None)
             {
                 ClearTokens();
-                if (!_restorePending)
+                if (!_restorePending && !LogoutUnderway)
                     SessionEnded?.Invoke();
             }
 

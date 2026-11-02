@@ -17,7 +17,8 @@ public interface IAuthService
     Task<SessionRestoreResult> RestoreSessionAsync();
     Task<bool> RedeemSetupTokenAsync(string serverUrl, string setupToken);
     bool IsAuthenticated { get; }
+    bool LogoutUnderway { get; set; }
 
-    /// <summary>The server refused the refresh token during use. Never raised for a network or server failure, nor while RestoreSessionAsync is waiting.</summary>
+    /// <summary>The server refused the refresh token during use. Never raised for a network or server failure, nor while RestoreSessionAsync is waiting or LogoutUnderway is set.</summary>
     event Action? SessionEnded;
 }

@@ -95,11 +95,19 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
     public async Task SignOutAsync()
     {
-        try { await _notificationHub.StopAsync(); } catch { }
-        try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
-        try { await _localDb.ClearUserDataAsync(); } catch { }
-        ClearCacheDirectory();
-        await _authService.LogoutAsync();
+        _authService.LogoutUnderway = true;
+        try
+        {
+            try { await _notificationHub.StopAsync(); } catch { }
+            try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+            try { await _localDb.ClearUserDataAsync(); } catch { }
+            ClearCacheDirectory();
+            await _authService.LogoutAsync();
+        }
+        finally
+        {
+            _authService.LogoutUnderway = false;
+        }
     }
 
     /// <summary>The whole directory, not named files: shared PDF, XML and UPO hold private buyers' data, and the share sheet may keep its own copies here.</summary>

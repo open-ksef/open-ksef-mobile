@@ -189,6 +189,23 @@ public class PostLoginNavigationServiceTests
     }
 
     [Fact]
+    public async Task SignOut_LogoutUnderwayFromHubStop_ClearedWhenLogoutThrows()
+    {
+        var duringHubStop = false;
+        _notificationHub.StopAsync().Returns(_ =>
+        {
+            duringHubStop = _auth.LogoutUnderway;
+            return Task.CompletedTask;
+        });
+        _auth.LogoutAsync().Returns(Task.FromException(new InvalidOperationException()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(_nav.SignOutAsync);
+
+        Assert.True(duringHubStop);
+        Assert.False(_auth.LogoutUnderway);
+    }
+
+    [Fact]
     public async Task SessionEnded_RemovesInvoiceFilesFromCache()
     {
         var file = Path.Combine(FileSystem.CacheDirectory, "FV_2_11_2026.pdf");

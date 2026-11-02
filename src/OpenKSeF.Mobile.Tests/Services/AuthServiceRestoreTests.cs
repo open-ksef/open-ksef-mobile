@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using NSubstitute;
 using OpenKSeF.Mobile.Services;
+using OpenKSeF.Mobile.ViewModels;
 using Xunit;
 using OidcBrowser = IdentityModel.OidcClient.Browser.IBrowser;
 
@@ -415,10 +416,10 @@ public class AuthServiceRestoreTests
         Assert.Contains("refresh_token=r1", _handler.Bodies.Last());
     }
 
-    private PostLoginNavigationService Navigation() => new(
+    private PostLoginNavigationService Navigation(IDeviceTokenService? device = null) => new(
         Substitute.For<IApiService>(),
         _auth,
-        Substitute.For<IDeviceTokenService>(),
+        device ?? Substitute.For<IDeviceTokenService>(),
         Substitute.For<INotificationHubService>(),
         Substitute.For<IServerSettingsService>(),
         new LocalDbService());
@@ -462,6 +463,85 @@ public class AuthServiceRestoreTests
         await Navigation().HandleSessionEndedAsync();
 
         Assert.IsType<AppShell>(window.Page);
+        Assert.Equal(0, SecureStorage.Default.Count);
+    }
+
+    private IDeviceTokenService DeviceRefreshingOnUnregister()
+    {
+        var device = Substitute.For<IDeviceTokenService>();
+        device.UnregisterCurrentDeviceAsync().Returns(async _ => await _auth.GetAccessTokenAsync());
+        return device;
+    }
+
+    private void RespondToRefresh(HttpStatusCode status, string body) =>
+        _handler.Respond = request => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/logout")
+            ? Json(HttpStatusCode.NoContent, string.Empty)
+            : Json(status, body));
+
+    [Fact]
+    public async Task SignOut_InvalidGrantDuringUnregister_RaisesNoSessionEnded_NoAlert()
+    {
+        Shell.Current.Reset();
+        await LoginExpiringAsync();
+        var nav = Navigation(DeviceRefreshingOnUnregister());
+        var ended = 0;
+        _auth.SessionEnded += () =>
+        {
+            ended++;
+            _ = nav.HandleSessionEndedAsync();
+        };
+        RespondToRefresh(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
+
+        await nav.SignOutAsync();
+
+        Assert.Equal(0, ended);
+        Assert.Null(Shell.Current.LastAlertMessage);
+        Assert.Equal(0, SecureStorage.Default.Count);
+        Assert.False(_auth.IsAuthenticated);
+    }
+
+    [Fact]
+    public async Task Logout_InvalidGrantDuringUnregister_OpensLogin_WithoutSessionAlert()
+    {
+        Shell.Current.Reset();
+        await LoginExpiringAsync();
+        var nav = Navigation(DeviceRefreshingOnUnregister());
+        _auth.SessionEnded += () => _ = nav.HandleSessionEndedAsync();
+        RespondToRefresh(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
+        var settings = Substitute.For<IServerSettingsService>();
+        settings.ServerUrl.Returns("https://ksef.example.com");
+        var vm = new AccountViewModel(settings, Substitute.For<IDeviceTokenService>(), Substitute.For<INotificationHubService>(), nav);
+        var window = Application.Current!.Windows[0];
+        window.Page = null;
+
+        await vm.LogoutCommand.ExecuteAsync(null);
+
+        Assert.Equal("Czy na pewno chcesz się wylogować?", Shell.Current.LastAlertMessage);
+        Assert.IsType<AppShell>(window.Page);
+    }
+
+    [Fact]
+    public async Task SignOut_LiveSession_SendsCurrentRefreshTokenToLogout()
+    {
+        await LoginExpiringAsync();
+        RespondToRefresh(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""");
+
+        await Navigation(DeviceRefreshingOnUnregister()).SignOutAsync();
+
+        Assert.EndsWith("/protocol/openid-connect/logout", _handler.Requests.Last().RequestUri!.AbsolutePath);
+        Assert.Contains("refresh_token=r2", _handler.Bodies.Last());
+        Assert.Equal(0, SecureStorage.Default.Count);
+    }
+
+    [Fact]
+    public async Task SignOut_NextSessionDying_StillRaisesSessionEnded()
+    {
+        await LoginExpiringAsync();
+        RespondToRefresh(HttpStatusCode.NoContent, string.Empty);
+        await Navigation().SignOutAsync();
+
+        await EndSessionAsync();
+
         Assert.Equal(0, SecureStorage.Default.Count);
     }
 
