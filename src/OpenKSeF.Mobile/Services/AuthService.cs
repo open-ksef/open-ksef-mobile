@@ -25,6 +25,9 @@ public class AuthService : IAuthService
     private DateTimeOffset _tokenExpiry;
     private readonly object _refreshGate = new();
     private Task<SessionRestoreResult>? _refreshInFlight;
+    private bool _restorePending;
+
+    public event Action? SessionEnded;
 
     public bool IsAuthenticated => _accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow;
 
@@ -190,17 +193,19 @@ public class AuthService : IAuthService
         if (_refreshToken is null)
             return SessionRestoreResult.None;
 
+        _restorePending = true;
         try
         {
             // The timeout only stops waiting: an abandoned POST may still rotate the token on the server, so later callers must join it.
-            var result = await RefreshOnceAsync().WaitAsync(RestoreTimeout);
-            if (result == SessionRestoreResult.None)
-                ClearTokens();
-            return result;
+            return await RefreshOnceAsync().WaitAsync(RestoreTimeout);
         }
         catch (TimeoutException)
         {
             return SessionRestoreResult.Unverified;
+        }
+        finally
+        {
+            _restorePending = false;
         }
     }
 
@@ -275,7 +280,15 @@ public class AuthService : IAuthService
         await Task.Yield();
         try
         {
-            return await RefreshAsync();
+            var result = await RefreshAsync();
+            if (result == SessionRestoreResult.None)
+            {
+                ClearTokens();
+                if (!_restorePending)
+                    SessionEnded?.Invoke();
+            }
+
+            return result;
         }
         finally
         {

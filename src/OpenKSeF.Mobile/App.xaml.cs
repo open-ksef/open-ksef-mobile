@@ -1,13 +1,17 @@
 using System.Diagnostics;
+using OpenKSeF.Mobile.Services;
 
 namespace OpenKSeF.Mobile;
 
 public partial class App : Application
 {
-    public App()
+    public App(IAuthService authService, IServiceProvider services)
     {
         InitializeComponent();
         UserAppTheme = AppTheme.Light;
+
+        authService.SessionEnded += () => MainThread.BeginInvokeOnMainThread(async () =>
+            await services.GetRequiredService<IPostLoginNavigationService>().HandleSessionEndedAsync());
 
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;

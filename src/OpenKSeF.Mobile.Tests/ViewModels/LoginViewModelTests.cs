@@ -159,6 +159,19 @@ public class PostLoginNavigationServiceTests
         _api.GetOnboardingStatusAsync().Returns(new OnboardingStatusDto { IsComplete = complete });
 
     [Fact]
+    public async Task SessionEnded_StopsHub_TellsUser_AndOpensLogin_KeepingLocalCache()
+    {
+        Application.Current!.Windows[0].Page = null;
+
+        await _nav.HandleSessionEndedAsync();
+
+        await _notificationHub.Received(1).StopAsync();
+        Assert.Equal("Zaloguj się ponownie.", Shell.Current.LastAlertMessage);
+        Assert.IsType<OpenKSeF.Mobile.AppShell>(Application.Current.Windows[0].Page);
+        await _auth.DidNotReceive().LogoutAsync();
+    }
+
+    [Fact]
     public async Task Navigate_OnboardingComplete_RegistersDeviceStartsHubAndOpensInvoices()
     {
         OnboardingComplete(true);

@@ -255,6 +255,76 @@ public class AuthServiceRestoreTests
     }
 
     [Fact]
+    public async Task InvalidGrantDuringUse_RaisesSessionEndedOnce_ClearsTokens_AndStopsPosting()
+    {
+        await LoginExpiringAsync();
+        var ended = 0;
+        _auth.SessionEnded += () => Interlocked.Increment(ref ended);
+        var release = new TaskCompletionSource();
+        _handler.Respond = async _ =>
+        {
+            await release.Task;
+            return Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
+        };
+
+        await ParallelCallersAsync(release);
+        Assert.Null(await _auth.GetAccessTokenAsync());
+
+        Assert.Equal(1, ended);
+        Assert.Equal(0, SecureStorage.Default.Count);
+        Assert.Single(_handler.Requests);
+    }
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task ServerProblemDuringUse_DoesNotEndSession_KeepsTokens(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        await LoginExpiringAsync();
+        var stored = SecureStorage.Default.Count;
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = problem;
+
+        Assert.Null(await _auth.GetAccessTokenAsync());
+
+        Assert.Equal(0, ended);
+        Assert.Equal(stored, SecureStorage.Default.Count);
+    }
+
+    [Fact]
+    public async Task RestoreInvalidGrant_DoesNotRaiseSessionEnded()
+    {
+        await LoginAsync();
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}"""));
+
+        Assert.Equal(SessionRestoreResult.None, await _auth.RestoreSessionAsync());
+
+        Assert.Equal(0, ended);
+    }
+
+    [Fact]
+    public async Task RestoreTimedOut_LateInvalidGrant_RaisesSessionEnded()
+    {
+        await LoginAsync();
+        AuthService.RestoreTimeout = TimeSpan.FromMilliseconds(50);
+        var ended = new TaskCompletionSource();
+        _auth.SessionEnded += ended.SetResult;
+        var release = new TaskCompletionSource();
+        _handler.Respond = async _ =>
+        {
+            await release.Task;
+            return Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
+        };
+
+        Assert.Equal(SessionRestoreResult.Unverified, await _auth.RestoreSessionAsync());
+        release.SetResult();
+
+        await ended.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
     public async Task LogoutDuringRefresh_LateResponseDoesNotRestoreTheSession()
     {
         await LoginExpiringAsync();
