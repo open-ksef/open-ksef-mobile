@@ -100,6 +100,12 @@
                             <DatePicker Grid.Row="1" Grid.Column="1" Date="{Binding SaleDate}" Style="{StaticResource UiDatePicker}"
                                         AutomationId="InvoiceDraftPageDateSale" />
                         </Grid>
+                        <Label Text="{Binding IssueDateError}" Style="{StaticResource UiFieldError}"
+                               AutomationId="InvoiceDraftPageLabelIssueDateError"
+                               IsVisible="{Binding IssueDateError, Converter={StaticResource IsNotNullConverter}}" />
+                        <Button Text="Kopiuj jako nową" Style="{StaticResource UiButtonOutline}"
+                                IsVisible="{Binding ShowCopyAsNew}"
+                                Command="{Binding CopyAsNewCommand}" AutomationId="InvoiceDraftPageButtonCopyAsNew" />
                         <Label Text="Data sprzedaży różni się od daty wystawienia — trafi na fakturę osobno."
                                Style="{StaticResource UiMutedText}" FontSize="12" IsVisible="{Binding DatesDiffer}" />
                     </VerticalStackLayout>
@@ -196,6 +202,7 @@
                         <DatePicker Date="{Binding DueDate}" Style="{StaticResource UiDatePicker}"
                                     AutomationId="InvoiceDraftPageDateDue" />
                         <Label Text="{Binding DueDateError}" Style="{StaticResource UiFieldError}"
+                               AutomationId="InvoiceDraftPageLabelDueDateError"
                                IsVisible="{Binding DueDateError, Converter={StaticResource IsNotNullConverter}}" />
 
                         <VerticalStackLayout Spacing="4" IsVisible="{Binding IsTransfer}">

@@ -529,6 +529,48 @@ public class IssuingViewModelTests : IDisposable
         await _api.DidNotReceiveWithAnyArgs().CopyIssuedInvoiceAsync(default, default);
     }
 
+    private static ValidationEnvelope Invalid(string code, string field) =>
+        new() { Errors = [new ValidationIssue { Code = code, Field = field, Message = code }] };
+
+    [Theory]
+    [InlineData("INV-VAL-020", false)]
+    [InlineData("INV-VAL-022", true)]
+    public void Draft_IssueDateErrors_ShowAtIssueDate(string code, bool copyOffered)
+    {
+        var vm = new InvoiceDraftViewModel(_api);
+
+        vm.ApplyValidation(Invalid(code, "issueDate"));
+
+        Assert.Equal(code, vm.IssueDateError);
+        Assert.Null(vm.DueDateError);
+        Assert.Equal(copyOffered, vm.ShowCopyAsNew);
+    }
+
+    [Fact]
+    public void Draft_DueDateError_StaysAtDueDate()
+    {
+        var vm = new InvoiceDraftViewModel(_api);
+
+        vm.ApplyValidation(Invalid("INV-VAL-0xx", "dueDate"));
+
+        Assert.Equal("INV-VAL-0xx", vm.DueDateError);
+        Assert.Null(vm.IssueDateError);
+    }
+
+    [Fact]
+    public async Task Draft_CopyAfterInvVal022_OpensNewDraft()
+    {
+        var copy = Invoice("Draft");
+        copy.Id = Guid.NewGuid();
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).Returns(copy);
+        var vm = new InvoiceDraftViewModel(_api) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
+        vm.ApplyValidation(Invalid("INV-VAL-022", "issueDate"));
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../invoiceDraft?tenantId={TenantId}&invoiceId={copy.Id}", Shell.Current.LastRoute);
+    }
+
     [Fact]
     public async Task Details_CopyAsNew_OpensNewDraft()
     {

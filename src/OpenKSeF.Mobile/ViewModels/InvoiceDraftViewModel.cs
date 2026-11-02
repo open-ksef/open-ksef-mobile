@@ -175,6 +175,12 @@ public partial class InvoiceDraftViewModel : ObservableObject
     private string? _buyerAddressError;
 
     [ObservableProperty]
+    private string? _issueDateError;
+
+    [ObservableProperty]
+    private bool _showCopyAsNew;
+
+    [ObservableProperty]
     private string? _dueDateError;
 
     [ObservableProperty]
@@ -407,6 +413,23 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private async Task CopyAsNewAsync()
+    {
+        if (!Guid.TryParse(TenantId, out var tenantId) || !Guid.TryParse(InvoiceId, out var invoiceId))
+            return;
+
+        try
+        {
+            var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, invoiceId);
+            try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); } catch { }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
     internal static Task<bool> ConfirmIssueAsync(string? environment, string? numberPreview, IssuedInvoiceDto invoice)
     {
         if (!IssuingFormat.IsProduction(environment))
@@ -483,13 +506,15 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private void ClearErrors()
     {
-        BuyerNipError = BuyerNameError = BuyerAddressError = DueDateError = PaymentError = ExemptionError = LinesError = ErrorMessage = null;
+        ShowCopyAsNew = false;
+        BuyerNipError = BuyerNameError = BuyerAddressError = IssueDateError = DueDateError = PaymentError = ExemptionError = LinesError = ErrorMessage = null;
         foreach (var line in Lines)
             line.Error = null;
     }
 
     internal void ApplyValidation(ValidationEnvelope validation)
     {
+        ShowCopyAsNew = validation.Errors.Any(e => e.Code == "INV-VAL-022");
         var unplaced = new List<string>();
         foreach (var issue in validation.Errors)
         {
@@ -499,7 +524,8 @@ public partial class InvoiceDraftViewModel : ObservableObject
                 case "buyer.nip": BuyerNipError = issue.Message; break;
                 case "buyer.name": BuyerNameError = issue.Message; break;
                 case "buyer.addressLine1" or "buyer.addressLine2": BuyerAddressError = issue.Message; break;
-                case "dueDate" or "issueDate" or "saleDate": DueDateError = issue.Message; break;
+                case "issueDate" or "saleDate": IssueDateError = issue.Message; break;
+                case "dueDate": DueDateError = issue.Message; break;
                 case "paymentMethod" or "splitPayment": PaymentError = issue.Message; break;
                 case "exemptionBasis" or "exemptionBasis.kind": ExemptionError = issue.Message; break;
                 case "lines": LinesError = issue.Message; break;
