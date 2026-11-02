@@ -23,6 +23,8 @@ public class AuthService : IAuthService
     private string? _accessToken;
     private string? _refreshToken;
     private DateTimeOffset _tokenExpiry;
+    private readonly object _refreshGate = new();
+    private Task<SessionRestoreResult>? _refreshInFlight;
 
     public bool IsAuthenticated => _accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow;
 
@@ -188,11 +190,18 @@ public class AuthService : IAuthService
         if (_refreshToken is null)
             return SessionRestoreResult.None;
 
-        using var cts = new CancellationTokenSource(RestoreTimeout);
-        var result = await RefreshAsync(cts.Token);
-        if (result == SessionRestoreResult.None)
-            ClearTokens();
-        return result;
+        try
+        {
+            // The timeout only stops waiting: an abandoned POST may still rotate the token on the server, so later callers must join it.
+            var result = await RefreshOnceAsync().WaitAsync(RestoreTimeout);
+            if (result == SessionRestoreResult.None)
+                ClearTokens();
+            return result;
+        }
+        catch (TimeoutException)
+        {
+            return SessionRestoreResult.Unverified;
+        }
     }
 
     private void ClearTokens()
@@ -216,7 +225,7 @@ public class AuthService : IAuthService
         if (_accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow.AddMinutes(1))
             return _accessToken;
 
-        if (_refreshToken is not null && await RefreshAsync() == SessionRestoreResult.Restored)
+        if (_refreshToken is not null && await RefreshOnceAsync() == SessionRestoreResult.Restored)
             return _accessToken;
 
         return null;
@@ -253,8 +262,34 @@ public class AuthService : IAuthService
         }
     }
 
-    private async Task<SessionRestoreResult> RefreshAsync(CancellationToken ct = default)
+    /// <summary>A realm with refresh token rotation ends the session when one token is used twice, so all callers share one POST and its result.</summary>
+    private Task<SessionRestoreResult> RefreshOnceAsync()
     {
+        lock (_refreshGate)
+            return _refreshInFlight ??= RunRefreshAsync();
+    }
+
+    private async Task<SessionRestoreResult> RunRefreshAsync()
+    {
+        // Without the yield a synchronous completion clears the field before ??= assigns it, and the finished task is shared forever.
+        await Task.Yield();
+        try
+        {
+            return await RefreshAsync();
+        }
+        finally
+        {
+            lock (_refreshGate)
+                _refreshInFlight = null;
+        }
+    }
+
+    private async Task<SessionRestoreResult> RefreshAsync()
+    {
+        var sent = _refreshToken;
+        if (sent is null)
+            return SessionRestoreResult.Unverified;
+
         try
         {
             using var response = await _httpClient.PostAsync(
@@ -263,21 +298,20 @@ public class AuthService : IAuthService
                 {
                     ["grant_type"] = "refresh_token",
                     ["client_id"] = _options.ClientId,
-                    ["refresh_token"] = _refreshToken!
-                }),
-                ct);
+                    ["refresh_token"] = sent
+                }));
 
             if (response.StatusCode == HttpStatusCode.BadRequest)
             {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(ct);
-                return error?.Error == "invalid_grant" ? SessionRestoreResult.None : SessionRestoreResult.Unverified;
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                return error?.Error == "invalid_grant" && _refreshToken == sent ? SessionRestoreResult.None : SessionRestoreResult.Unverified;
             }
 
             if (!response.IsSuccessStatusCode)
                 return SessionRestoreResult.Unverified;
 
-            var tokens = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(ct);
-            if (tokens?.AccessToken is null)
+            var tokens = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>();
+            if (tokens?.AccessToken is null || _refreshToken != sent)
                 return SessionRestoreResult.Unverified;
 
             _accessToken = tokens.AccessToken;
