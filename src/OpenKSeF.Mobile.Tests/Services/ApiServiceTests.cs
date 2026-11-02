@@ -226,6 +226,27 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task Conflict_WithMessageBody_UsesMessageWithoutValidation()
+    {
+        _handler.RespondJson(HttpStatusCode.Conflict, """{"message":"Numer FV/12/11/2026 jest już użyty."}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().IssueInvoiceAsync(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.Equal("Numer FV/12/11/2026 jest już użyty.", ex.Message);
+        Assert.Empty(ex.Validation?.Errors ?? []);
+    }
+
+    [Fact]
+    public async Task Conflict_WithEnvelope_ExposesValidation()
+    {
+        _handler.RespondJson(HttpStatusCode.Conflict, """{"errors":[{"code":"SP-VAL-006","field":"nextNumber","message":"Numer 3 jest już użyty."}],"warnings":[]}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().UpdateSellerProfileAsync(Guid.NewGuid(), new SellerProfileRequest()));
+
+        Assert.Equal(("SP-VAL-006", "nextNumber"), (Assert.Single(ex.Validation!.Errors).Code, ex.Validation.Errors[0].Field));
+    }
+
+    [Fact]
     public async Task GetIssuedInvoiceXml_ReturnsStoredBytes()
     {
         var bytes = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Faktura/>"u8.ToArray();

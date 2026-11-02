@@ -7,6 +7,7 @@ public class KsefSubmissionDto
     public DateTime? AcceptedAt { get; set; }
     public int? StatusCode { get; set; }
     public string? StatusMessage { get; set; }
+    public string? StatusDetails { get; set; }
     public string? LastError { get; set; }
     public string? VerificationUrl { get; set; }
     public bool HasUpo { get; set; }

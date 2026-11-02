@@ -494,7 +494,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
                 case "buyer.addressLine1" or "buyer.addressLine2": BuyerAddressError = issue.Message; break;
                 case "dueDate" or "issueDate" or "saleDate": DueDateError = issue.Message; break;
                 case "paymentMethod" or "splitPayment": PaymentError = issue.Message; break;
-                case "exemptionBasis": ExemptionError = issue.Message; break;
+                case "exemptionBasis" or "exemptionBasis.kind": ExemptionError = issue.Message; break;
                 case "lines": LinesError = issue.Message; break;
                 default:
                     if (LineIndex(field) is { } i && i < Lines.Count)

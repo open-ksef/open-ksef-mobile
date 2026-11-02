@@ -208,12 +208,29 @@ public class ApiService : IApiService
         if (!response.IsSuccessStatusCode)
         {
             var responseBody = await response.Content.ReadAsStringAsync();
-            throw new ApiException(response.StatusCode, $"Blad serwera ({(int)response.StatusCode}): {responseBody}",
-                response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity ? ParseValidation(responseBody) : null);
+            throw new ApiException(
+                response.StatusCode,
+                (response.StatusCode == HttpStatusCode.Conflict ? ParseConflictMessage(responseBody) : null)
+                    ?? $"Blad serwera ({(int)response.StatusCode}): {responseBody}",
+                response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict ? ParseValidation(responseBody) : null);
         }
 
         return response;
     }
+
+    private static string? ParseConflictMessage(string body)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<ConflictBody>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web))?.Message;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private sealed record ConflictBody(string? Message);
 
     private static ValidationEnvelope? ParseValidation(string body)
     {
