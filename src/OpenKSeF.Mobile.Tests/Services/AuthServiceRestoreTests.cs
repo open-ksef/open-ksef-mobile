@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using NSubstitute;
+using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
 using OpenKSeF.Mobile.ViewModels;
 using Xunit;
@@ -399,6 +400,81 @@ public class AuthServiceRestoreTests
         Assert.Equal("a3", await _auth.RefreshAccessTokenAsync());
         Assert.Equal(2, _handler.Requests.Count);
         Assert.Equal(0, rejected);
+    }
+
+    private ApiService CreateApi()
+    {
+        var settings = Substitute.For<IServerSettingsService>();
+        settings.ServerUrl.Returns("https://ksef.example.com");
+        return new ApiService(new HttpClient(_handler), _auth, settings);
+    }
+
+    private static bool IsTokenRequest(HttpRequestMessage request) => request.RequestUri!.AbsolutePath.EndsWith("/token");
+
+    [Fact]
+    public async Task Api401_RefreshInvalidGrant_EndsSessionOnce_ThrowsSessionExpired_WithoutRetry()
+    {
+        await LoginAsync();
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = request => Task.FromResult(IsTokenRequest(request)
+            ? Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""")
+            : Json(HttpStatusCode.Unauthorized, string.Empty));
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateApi().GetTenantsAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Equal(2, _handler.Requests.Count);
+        Assert.True(IsTokenRequest(_handler.Requests[1]));
+        Assert.Equal(1, ended);
+        Assert.Equal(0, SecureStorage.Default.Count);
+
+        _handler.Requests.Clear();
+        await Assert.ThrowsAsync<ApiException>(() => CreateApi().GetTenantsAsync());
+        Assert.DoesNotContain(_handler.Requests, IsTokenRequest);
+        Assert.Equal(1, ended);
+    }
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task Api401_RefreshServerProblem_KeepsSession_ThrowsSessionExpired_WithoutRetry(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        await LoginAsync();
+        var stored = SecureStorage.Default.Count;
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = request => IsTokenRequest(request)
+            ? problem(request)
+            : Task.FromResult(Json(HttpStatusCode.Unauthorized, string.Empty));
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateApi().GetTenantsAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Equal(2, _handler.Requests.Count);
+        Assert.Equal(0, ended);
+        Assert.Equal(stored, SecureStorage.Default.Count);
+    }
+
+    [Fact]
+    public async Task Api401_AfterSuccessfulRefresh_OnePostPerCall_NoLoop_KeepsSession()
+    {
+        await LoginAsync();
+        var stored = SecureStorage.Default.Count;
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = request => Task.FromResult(IsTokenRequest(request)
+            ? Json(HttpStatusCode.OK, TokenJson)
+            : Json(HttpStatusCode.Unauthorized, string.Empty));
+        var api = CreateApi();
+
+        for (var call = 0; call < 3; call++)
+            await Assert.ThrowsAsync<ApiException>(() => api.GetTenantsAsync());
+
+        Assert.Equal(9, _handler.Requests.Count);
+        Assert.Equal(3, _handler.Requests.Count(IsTokenRequest));
+        Assert.Equal(0, ended);
+        Assert.Equal(stored, SecureStorage.Default.Count);
     }
 
     [Fact]

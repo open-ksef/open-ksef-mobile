@@ -69,6 +69,22 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task Unauthorized_OnPost_RetryResendsBodyWithNewToken()
+    {
+        _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
+        _handler.Respond(HttpStatusCode.Unauthorized);
+        _handler.Respond(HttpStatusCode.OK, new TenantDto());
+
+        await CreateService().CreateTenantAsync(new CreateTenantRequest { Nip = "1111111111" });
+
+        Assert.Equal(2, _handler.Requests.Count);
+        Assert.All(_handler.Requests, r => Assert.Equal("POST", r.Method));
+        Assert.Contains("1111111111", _handler.Requests[0].Body);
+        Assert.Equal(_handler.Requests[0].Body, _handler.Requests[1].Body);
+        Assert.Equal("Bearer refreshed-token", _handler.Requests[1].Authorization);
+    }
+
+    [Fact]
     public async Task Unauthorized_AfterRetry_ThrowsSessionExpired()
     {
         _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
