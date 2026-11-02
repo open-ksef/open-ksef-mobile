@@ -29,6 +29,31 @@ public class IssuingFormatTests
     public void TryParseDecimal_RejectsGarbage(string text) => Assert.False(IssuingFormat.TryParseDecimal(text, out _));
 
     [Theory]
+    [InlineData("5,", 5)]
+    [InlineData("5.", 5)]
+    [InlineData(".5", 0.5)]
+    [InlineData("00,5", 0.5)]
+    [InlineData(" 2,5 ", 2.5)]
+    [InlineData("1 000,50", 1000.5)]
+    [InlineData("1 000,50", 1000.5)]
+    public void TryParseDecimal_AcceptsDeviceInputForms(string text, decimal expected)
+    {
+        Assert.True(IssuingFormat.TryParseDecimal(text, out var value));
+        Assert.Equal(expected, value);
+    }
+
+    [Theory]
+    [InlineData("٢,٥")]
+    [InlineData("١٢٫٥")]
+    [InlineData("२")]
+    [InlineData("５")]
+    [InlineData("−2,5")]
+    [InlineData("1,5,5")]
+    [InlineData("1e5")]
+    public void TryParseDecimal_RefusesNonAsciiDigitsAndOddForms(string text) =>
+        Assert.False(IssuingFormat.TryParseDecimal(text, out _));
+
+    [Theory]
     [InlineData("2,5", 2.5)]
     [InlineData("2.5", 2.5)]
     [InlineData("100,50", 100.5)]

@@ -97,6 +97,25 @@ public class IssuedInvoiceRealApiContractTests
     }
 
     [Fact]
+    public void Rejected440_RealKsefBlock_RoundTrips()
+    {
+        var node = JsonNode.Parse(AcceptedCompanyJson)!;
+        node["status"] = "Rejected";
+        node["ksef"] = JsonNode.Parse("""
+            {"environment":"test","ksefNumber":null,"acceptedAt":null,"statusCode":440,
+             "statusMessage":"Ten numer faktury jest już użyty w KSeF przez inny dokument. Poprawka nie pomoże: wystaw fakturę pod nowym numerem.",
+             "statusDetails":"Duplikat faktury. Faktura o numerze KSeF: 1234567890-20261102-AAAAAAAAAAAA-00 została już prawidłowo przesłana do systemu w sesji: 20261102-SO-AAAAAAAAAA-AAAAAAAAAA-AA",
+             "lastError":null,"verificationUrl":null,"hasUpo":false,"duplicateKsefNumber":"1234567890-20261102-AAAAAAAAAAAA-00"}
+            """);
+
+        var ksef = JsonSerializer.Deserialize<IssuedInvoiceDto>(node.ToJsonString(), Web)!.Ksef;
+
+        Assert.Equal((440, false, "1234567890-20261102-AAAAAAAAAAAA-00"), (ksef.StatusCode, ksef.HasUpo, ksef.DuplicateKsefNumber));
+        Assert.Null(ksef.KsefNumber);
+        Assert.Contains("Duplikat", ksef.StatusDetails);
+    }
+
+    [Fact]
     public void OlderApiWithoutDuplicateKsefNumber_StillParses()
     {
         var node = JsonNode.Parse(AcceptedCompanyJson)!;
