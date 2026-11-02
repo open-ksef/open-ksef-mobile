@@ -38,6 +38,18 @@ public class LoginViewModelTests
         new(_auth, serverSettings ?? CreateServerSettings("https://default.com", isConfigured: true), _postLoginNav);
 
     [Fact]
+    public async Task RestoreSession_ShowsFormAfterwards()
+    {
+        var vm = CreateViewModel();
+        Assert.True(vm.IsRestoringSession);
+
+        await vm.RestoreSessionAsync();
+
+        await _postLoginNav.Received(1).RestoreSessionAsync();
+        Assert.False(vm.IsRestoringSession);
+    }
+
+    [Fact]
     public void Constructor_InitializesFromServerSettings()
     {
         var vm = CreateViewModel(CreateServerSettings("https://initial.com", isConfigured: true));
@@ -207,6 +219,70 @@ public class PostLoginNavigationServiceTests
         await _nav.NavigateAsync();
 
         Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task Restore_ValidSession_OpensInvoicesAndRegistersDevice()
+    {
+        OnboardingComplete(true);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Restored);
+
+        await _nav.RestoreSessionAsync();
+
+        await _deviceTokenService.Received(1).EnsureDeviceRegisteredAsync();
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Restore_OnboardingNeeded_OpensOnboarding()
+    {
+        OnboardingComplete(false);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Restored);
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Equal("//onboarding", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Restore_DeadSession_StaysOnLogin()
+    {
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.None);
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Null(Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Restore_Offline_OpensInvoicesAndKeepsCacheWithoutCallingApi()
+    {
+        var tenantId = Guid.NewGuid();
+        await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Unverified);
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+        Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
+        await _api.DidNotReceive().GetMeAsync();
+        await _auth.DidNotReceive().LogoutAsync();
+    }
+
+    [Fact]
+    public async Task Restore_ApiDownAfterRefresh_KeepsCache()
+    {
+        var tenantId = Guid.NewGuid();
+        await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Restored);
+        _api.GetMeAsync().ThrowsAsync(new ApiException(System.Net.HttpStatusCode.ServiceUnavailable, "down"));
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
     }
 
     [Fact]

@@ -22,6 +22,7 @@
     <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Link="Linked\Models\%(Filename)%(Extension)" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ApiService.cs" Link="Linked\Services\ApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\AuthOptions.cs" Link="Linked\Services\AuthOptions.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\AuthService.cs" Link="Linked\Services\AuthService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\DeviceTokenService.cs" Link="Linked\Services\DeviceTokenService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IApiService.cs" Link="Linked\Services\IApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IAuthService.cs" Link="Linked\Services\IAuthService.cs" />

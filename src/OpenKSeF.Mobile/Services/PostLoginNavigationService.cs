@@ -25,7 +25,23 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         _localDb = localDb;
     }
 
-    public async Task NavigateAsync()
+    public Task NavigateAsync() => NavigateAsync(sameUserAsCache: false);
+
+    public async Task RestoreSessionAsync()
+    {
+        switch (await _authService.RestoreSessionAsync())
+        {
+            case SessionRestoreResult.Restored:
+                await NavigateAsync(sameUserAsCache: true);
+                break;
+            case SessionRestoreResult.Unverified:
+                _ = _notificationHub.StartAsync();
+                try { await Shell.Current.GoToAsync("//main/invoices"); } catch { }
+                break;
+        }
+    }
+
+    private async Task NavigateAsync(bool sameUserAsCache)
     {
         bool needsOnboarding = false;
 
@@ -36,7 +52,8 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         }
         catch
         {
-            try { await _localDb.ClearUserDataAsync(); } catch { }
+            if (!sameUserAsCache)
+                try { await _localDb.ClearUserDataAsync(); } catch { }
         }
 
         try

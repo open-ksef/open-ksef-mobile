@@ -1,4 +1,5 @@
 using IdentityModel.OidcClient;
+using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,6 +11,8 @@ namespace OpenKSeF.Mobile.Services;
 
 public class AuthService : IAuthService
 {
+    internal static TimeSpan RestoreTimeout { get; set; } = TimeSpan.FromSeconds(10);
+
     private readonly AuthOptions _options;
     private readonly OidcBrowser _browser;
     private readonly IServerSettingsService _serverSettings;
@@ -165,6 +168,35 @@ public class AuthService : IAuthService
             }
         }
 
+        ClearTokens();
+    }
+
+    /// <summary>Only an explicit invalid_grant ends a stored session; a network or server failure must not log the user out.</summary>
+    public async Task<SessionRestoreResult> RestoreSessionAsync()
+    {
+        EnsureConfiguration();
+
+        try
+        {
+            await TryLoadTokensAsync();
+        }
+        catch
+        {
+            return SessionRestoreResult.None;
+        }
+
+        if (_refreshToken is null)
+            return SessionRestoreResult.None;
+
+        using var cts = new CancellationTokenSource(RestoreTimeout);
+        var result = await RefreshAsync(cts.Token);
+        if (result == SessionRestoreResult.None)
+            ClearTokens();
+        return result;
+    }
+
+    private void ClearTokens()
+    {
         _accessToken = null;
         _refreshToken = null;
         _tokenExpiry = DateTimeOffset.MinValue;
@@ -184,12 +216,8 @@ public class AuthService : IAuthService
         if (_accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow.AddMinutes(1))
             return _accessToken;
 
-        if (_refreshToken is not null)
-        {
-            var refreshed = await TryRefreshTokenAsync();
-            if (refreshed)
-                return _accessToken;
-        }
+        if (_refreshToken is not null && await RefreshAsync() == SessionRestoreResult.Restored)
+            return _accessToken;
 
         return null;
     }
@@ -225,25 +253,43 @@ public class AuthService : IAuthService
         }
     }
 
-    private async Task<bool> TryRefreshTokenAsync()
+    private async Task<SessionRestoreResult> RefreshAsync(CancellationToken ct = default)
     {
         try
         {
-            var result = await _oidcClient.RefreshTokenAsync(_refreshToken!);
+            using var response = await _httpClient.PostAsync(
+                $"{_authority}/protocol/openid-connect/token",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["grant_type"] = "refresh_token",
+                    ["client_id"] = _options.ClientId,
+                    ["refresh_token"] = _refreshToken!
+                }),
+                ct);
 
-            if (result.IsError)
-                return false;
+            if (response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>(ct);
+                return error?.Error == "invalid_grant" ? SessionRestoreResult.None : SessionRestoreResult.Unverified;
+            }
 
-            _accessToken = result.AccessToken;
-            _refreshToken = result.RefreshToken;
-            _tokenExpiry = result.AccessTokenExpiration;
+            if (!response.IsSuccessStatusCode)
+                return SessionRestoreResult.Unverified;
+
+            var tokens = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(ct);
+            if (tokens?.AccessToken is null)
+                return SessionRestoreResult.Unverified;
+
+            _accessToken = tokens.AccessToken;
+            _refreshToken = tokens.RefreshToken ?? _refreshToken;
+            _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(tokens.ExpiresIn);
 
             await StoreTokensAsync();
-            return true;
+            return SessionRestoreResult.Restored;
         }
         catch
         {
-            return false;
+            return SessionRestoreResult.Unverified;
         }
     }
 

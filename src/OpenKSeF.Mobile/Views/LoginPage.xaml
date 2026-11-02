@@ -15,7 +15,12 @@
         </LinearGradientBrush>
     </ContentPage.Background>
 
-    <ScrollView VerticalOptions="Center">
+    <Grid>
+    <ActivityIndicator IsRunning="{Binding IsRestoringSession}" IsVisible="{Binding IsRestoringSession}"
+                       Color="White" VerticalOptions="Center" HorizontalOptions="Center"
+                       AutomationId="LoginPageIndicatorRestoring" />
+    <ScrollView VerticalOptions="Center"
+                IsVisible="{Binding IsRestoringSession, Converter={StaticResource InvertedBoolConverter}}">
         <Frame Style="{StaticResource CardFrame}"
                Padding="28,36"
                Margin="20"
@@ -231,5 +236,6 @@
             </VerticalStackLayout>
         </Frame>
     </ScrollView>
+    </Grid>
 
 </ContentPage>

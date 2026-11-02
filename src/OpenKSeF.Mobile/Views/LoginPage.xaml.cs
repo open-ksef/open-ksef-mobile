@@ -14,6 +14,9 @@ public partial class LoginPage : ContentPage
     {
         base.OnAppearing();
         if (BindingContext is LoginViewModel vm)
+        {
             vm.RefreshServerSettings();
+            _ = vm.RestoreSessionAsync();
+        }
     }
 }

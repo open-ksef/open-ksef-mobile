@@ -194,6 +194,35 @@ namespace Microsoft.Maui.Storage
         public void Clear() => _values.Clear();
     }
 
+    public class SecureStorage
+    {
+        public static SecureStorage Default { get; } = new();
+
+        private readonly Dictionary<string, string> _values = [];
+
+        public bool ThrowOnRead { get; set; }
+
+        public int Count => _values.Count;
+
+        public void Reset()
+        {
+            _values.Clear();
+            ThrowOnRead = false;
+        }
+
+        public Task<string?> GetAsync(string key) => ThrowOnRead
+            ? throw new InvalidOperationException("keystore")
+            : Task.FromResult(_values.GetValueOrDefault(key));
+
+        public Task SetAsync(string key, string value)
+        {
+            _values[key] = value;
+            return Task.CompletedTask;
+        }
+
+        public bool Remove(string key) => _values.Remove(key);
+    }
+
     public static class FileSystem
     {
         public static string AppDataDirectory { get; } = Directory.CreateTempSubdirectory("openksef-tests-").FullName;

@@ -14,6 +14,9 @@ public partial class LoginViewModel : ObservableObject
     private bool _isBusy;
 
     [ObservableProperty]
+    private bool _isRestoringSession = true;
+
+    [ObservableProperty]
     private string? _errorMessage;
 
     [ObservableProperty]
@@ -74,6 +77,19 @@ public partial class LoginViewModel : ObservableObject
         ServerUrl = _serverSettings.ServerUrl;
         IsServerVisible = !_serverSettings.IsConfigured;
         OnPropertyChanged(nameof(ActiveServerHost));
+    }
+
+    public async Task RestoreSessionAsync()
+    {
+        try
+        {
+            if (!IsBusy)
+                await _postLoginNav.RestoreSessionAsync();
+        }
+        finally
+        {
+            IsRestoringSession = false;
+        }
     }
 
     partial void OnIsLoginModeChanged(bool value)
