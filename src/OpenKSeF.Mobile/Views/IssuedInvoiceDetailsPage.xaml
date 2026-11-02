@@ -51,9 +51,9 @@
                             <Label Text="✓ Sprawdzono · ✓ Nadano numer · Pobranie UPO po przyjęciu" Style="{StaticResource UiMutedText}" FontSize="12" />
                             <Label Text="Odświeżamy automatycznie. Możesz zamknąć ekran." Style="{StaticResource UiMutedText}" FontSize="12" />
                             <Border Style="{StaticResource UiAlert}"
-                                    IsVisible="{Binding KsefUnavailableText, Converter={StaticResource IsNotNullConverter}}"
+                                    IsVisible="{Binding SendingProblemText, Converter={StaticResource IsNotNullConverter}}"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}">
-                                <Label Text="{Binding KsefUnavailableText}"
+                                <Label Text="{Binding SendingProblemText}"
                                        TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
                             </Border>
                         </VerticalStackLayout>
@@ -94,7 +94,11 @@
                                    AutomationId="IssuedInvoiceDetailsPageLabelRejection"
                                    TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
                             <Button Text="Popraw i wyślij ponownie" Style="{StaticResource UiButtonPrimary}"
+                                    IsVisible="{Binding CanFixRejection}"
                                     Command="{Binding EditCommand}" AutomationId="IssuedInvoiceDetailsPageButtonFix" />
+                            <Button Text="Kopiuj jako nową" Style="{StaticResource UiButtonPrimary}"
+                                    IsVisible="{Binding IsDuplicateNumberRejection}"
+                                    Command="{Binding CopyAsNewCommand}" AutomationId="IssuedInvoiceDetailsPageButtonCopyRejected" />
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>

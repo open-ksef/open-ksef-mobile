@@ -33,7 +33,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Status), nameof(Title), nameof(IsDraft), nameof(IsSending), nameof(IsAccepted), nameof(IsRejected),
         nameof(GrossText), nameof(BuyerText), nameof(Lines), nameof(KsefNumber), nameof(AcceptedText), nameof(RejectionText),
-        nameof(KsefUnavailableText), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink))]
+        nameof(SendingProblemText), nameof(IsDuplicateNumberRejection), nameof(CanFixRejection), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink))]
     private IssuedInvoiceDto? _invoice;
 
     [ObservableProperty]
@@ -59,6 +59,8 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public bool IsSending => IssuingFormat.IsSending(Status);
     public bool IsAccepted => Status == "Accepted";
     public bool IsRejected => Status == "Rejected";
+    public bool IsDuplicateNumberRejection => IsRejected && Invoice!.Ksef.StatusCode == 440;
+    public bool CanFixRejection => IsRejected && !IsDuplicateNumberRejection;
     public bool HasUpo => IsAccepted && Invoice!.Ksef.HasUpo;
     public bool HasVerificationLink => Uri.TryCreate(Invoice?.Ksef.VerificationUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
     public string? Environment => Invoice?.Ksef.Environment;
@@ -80,10 +82,15 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public string AcceptedText => Invoice?.Ksef.AcceptedAt is { } at ? $"Przyjęta {at.ToLocalTime():dd.MM.yyyy, HH:mm}" : string.Empty;
 
     public string RejectionText => Invoice is null ? string.Empty
-        : $"Kod KSeF {Invoice.Ksef.StatusCode}: {Invoice.Ksef.StatusMessage}{(Invoice.Ksef.StatusDetails is { Length: > 0 } details ? $"\n{details}" : string.Empty)}\nNumer {Invoice.Number} zostaje — po poprawce wyślemy fakturę z tym samym numerem.";
+        : $"Kod KSeF {Invoice.Ksef.StatusCode}: {Invoice.Ksef.StatusMessage}{(Invoice.Ksef.StatusDetails is { Length: > 0 } details ? $"\n{details}" : string.Empty)}\n{RejectionAdvice}";
 
-    public string? KsefUnavailableText => IsSending && Invoice?.Ksef.LastError is not null
-        ? "KSeF nie odpowiada, ponowimy wysyłkę. Nie wysyłaj faktury drugi raz."
+    private string RejectionAdvice => !IsDuplicateNumberRejection
+        ? $"Numer {Invoice!.Number} zostaje — po poprawce wyślemy fakturę z tym samym numerem."
+        : $"Numer {Invoice!.Number} jest już zajęty w KSeF, więc tej faktury nie wyślemy ponownie. Użyj „Kopiuj jako nową”."
+            + (Invoice.Ksef.DuplicateKsefNumber is { Length: > 0 } duplicate ? $"\nNumer KSeF istniejącego dokumentu: {duplicate}" : string.Empty);
+
+    public string? SendingProblemText => IsSending && Invoice?.Ksef.LastError is { Length: > 0 } lastError
+        ? $"{lastError}\nNie wysyłaj faktury drugi raz."
         : null;
 
     partial void OnInvoiceChanged(IssuedInvoiceDto? value)

@@ -11,4 +11,5 @@ public class KsefSubmissionDto
     public string? LastError { get; set; }
     public string? VerificationUrl { get; set; }
     public bool HasUpo { get; set; }
+    public string? DuplicateKsefNumber { get; set; }
 }

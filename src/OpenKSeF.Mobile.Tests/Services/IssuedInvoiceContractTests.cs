@@ -52,14 +52,14 @@ public class IssuedInvoiceContractTests
           "vatSummary": [ { "vatRate": "23", "net": 100.00, "vat": 23.00 } ],
           "totalNet": 100.00, "totalVat": 23.00, "totalGross": 123.00, "currency": "PLN",
           "ksef": { "environment": "test", "ksefNumber": null, "acceptedAt": null, "statusCode": null, "statusMessage": null, "statusDetails": null,
-                    "lastError": null, "verificationUrl": null, "hasUpo": false },
+                    "lastError": null, "verificationUrl": null, "hasUpo": false, "duplicateKsefNumber": null },
           "warnings": [ { "code": "INV-W-MPP", "field": "splitPayment", "message": "Sprawdź, czy faktura wymaga mechanizmu podzielonej płatności (załącznik nr 15)" } ],
           "createdAt": "2026-11-03T10:00:00Z", "updatedAt": "2026-11-03T10:00:00Z", "issuedAt": null }
         """;
 
     public const string AcceptedKsefJson = """
         { "environment": "test", "ksefNumber": "1234567890-20261103-0100A0B0C0D0-E1", "acceptedAt": "2026-11-03T10:05:00Z", "statusCode": 200,
-          "statusMessage": "Sukces", "statusDetails": null, "lastError": null, "verificationUrl": "https://qr-test.ksef.mf.gov.pl/invoice/1234567890/03-11-2026/abc", "hasUpo": true }
+          "statusMessage": "Sukces", "statusDetails": null, "lastError": null, "verificationUrl": "https://qr-test.ksef.mf.gov.pl/invoice/1234567890/03-11-2026/abc", "hasUpo": true, "duplicateKsefNumber": null }
         """;
 
     public const string ListItemJson = """

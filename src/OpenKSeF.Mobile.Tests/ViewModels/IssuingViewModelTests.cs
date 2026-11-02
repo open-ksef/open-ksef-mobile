@@ -433,6 +433,83 @@ public class IssuingViewModelTests : IDisposable
         await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
     }
 
+    private async Task<IssuedInvoiceDetailsViewModel> DetailsOf(IssuedInvoiceDto invoice)
+    {
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(invoice);
+        var vm = new IssuedInvoiceDetailsViewModel(_api) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
+        await vm.LoadCommand.ExecuteAsync(null);
+        return vm;
+    }
+
+    [Fact]
+    public async Task Details_Rejected440_OffersOnlyCopy_AndShowsKsefNumber()
+    {
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = 440;
+        rejected.Ksef.StatusMessage = "Duplikat faktury";
+        rejected.Ksef.DuplicateKsefNumber = "1234567890-20261102-AAAAAAAAAAAA-00";
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.True(vm.IsDuplicateNumberRejection);
+        Assert.False(vm.CanFixRejection);
+        Assert.DoesNotContain("z tym samym numerem", vm.RejectionText);
+        Assert.Contains("Kopiuj jako nową", vm.RejectionText);
+        Assert.Contains("1234567890-20261102-AAAAAAAAAAAA-00", vm.RejectionText);
+    }
+
+    [Fact]
+    public async Task Details_Rejected440WithoutKnownNumber_StillOffersCopy()
+    {
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = 440;
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.True(vm.IsDuplicateNumberRejection);
+        Assert.DoesNotContain("Numer KSeF istniejącego", vm.RejectionText);
+    }
+
+    [Theory]
+    [InlineData(450)]
+    [InlineData(430)]
+    [InlineData(403)]
+    public async Task Details_OtherRejectionCodes_KeepFix(int code)
+    {
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = code;
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.True(vm.CanFixRejection);
+        Assert.False(vm.IsDuplicateNumberRejection);
+        Assert.Contains("z tym samym numerem", vm.RejectionText);
+    }
+
+    [Fact]
+    public async Task Details_SendingWithLastError_ShowsRealErrorAndWarning()
+    {
+        var sending = Invoice("Sending");
+        sending.Ksef.LastError = "Status KSeF 550 po drugim POST";
+
+        var vm = await DetailsOf(sending);
+
+        Assert.Equal("Status KSeF 550 po drugim POST\nNie wysyłaj faktury drugi raz.", vm.SendingProblemText);
+    }
+
+    [Fact]
+    public async Task Details_SendingWithoutLastError_ShowsNoProblem() =>
+        Assert.Null((await DetailsOf(Invoice("Sending"))).SendingProblemText);
+
+    [Fact]
+    public async Task Details_AcceptedWithMissingUpoLastError_IsNotASendingProblem()
+    {
+        var accepted = Invoice("Accepted");
+        accepted.Ksef.LastError = "Brak UPO";
+
+        Assert.Null((await DetailsOf(accepted)).SendingProblemText);
+    }
+
     [Fact]
     public async Task Details_CopyAsNew_OpensNewDraft()
     {

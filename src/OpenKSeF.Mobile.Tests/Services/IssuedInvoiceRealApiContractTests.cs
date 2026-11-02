@@ -15,15 +15,15 @@ public class IssuedInvoiceRealApiContractTests
         """;
 
     private const string AcceptedCompanyJson = """
-        {"id":"e11c388d-b22f-44a5-85c6-49b0d5a8dc5d","status":"Accepted","number":"QA/4/11/2026","seller":{"nip":"1234567890","name":"Sprzedawca Testowy","addressLine1":"ul. Prosta 1","addressLine2":"00-001 Warszawa","bankAccount":"61109010140000071219812874","cashAccounting":false},"buyer":{"kind":"Company","nip":"9876543210","name":"OpenKSeF Test B T222","addressLine1":"ul. Testowa 2","addressLine2":"00-002 Warszawa"},"issueDate":"2026-11-02","saleDate":"2026-11-02","dueDate":"2026-11-16","paymentMethod":"Transfer","splitPayment":false,"exemptionBasis":null,"lines":[{"lineNo":1,"name":"Usluga T222 B2B","unit":"szt.","quantity":2.500000,"unitNetPrice":100.50,"vatRate":"23","netAmount":251.25,"vatAmount":57.79}],"vatSummary":[{"vatRate":"23","net":251.25,"vat":57.79}],"totalNet":251.25,"totalVat":57.79,"totalGross":309.04,"currency":"PLN","ksef":{"environment":"test","ksefNumber":"1234567890-20261102-4350A1C00000-8C","acceptedAt":"2026-11-02T08:34:26.663047Z","statusCode":200,"statusMessage":"Sukces","statusDetails":null,"lastError":null,"verificationUrl":"https://qr-test.ksef.mf.gov.pl/invoice/1234567890/02-11-2026/GwSekLYu4m5xpIBelVvthw6z2cA2gMalzs773dsrE6U","hasUpo":true},"warnings":[],"createdAt":"2026-11-02T08:29:30.429446Z","updatedAt":"2026-11-02T08:34:32.371009Z","issuedAt":"2026-11-02T08:34:19.771759Z"}
+        {"id":"e11c388d-b22f-44a5-85c6-49b0d5a8dc5d","status":"Accepted","number":"QA/4/11/2026","seller":{"nip":"1234567890","name":"Sprzedawca Testowy","addressLine1":"ul. Prosta 1","addressLine2":"00-001 Warszawa","bankAccount":"61109010140000071219812874","cashAccounting":false},"buyer":{"kind":"Company","nip":"9876543210","name":"OpenKSeF Test B T222","addressLine1":"ul. Testowa 2","addressLine2":"00-002 Warszawa"},"issueDate":"2026-11-02","saleDate":"2026-11-02","dueDate":"2026-11-16","paymentMethod":"Transfer","splitPayment":false,"exemptionBasis":null,"lines":[{"lineNo":1,"name":"Usluga T222 B2B","unit":"szt.","quantity":2.500000,"unitNetPrice":100.50,"vatRate":"23","netAmount":251.25,"vatAmount":57.79}],"vatSummary":[{"vatRate":"23","net":251.25,"vat":57.79}],"totalNet":251.25,"totalVat":57.79,"totalGross":309.04,"currency":"PLN","ksef":{"environment":"test","ksefNumber":"1234567890-20261102-4350A1C00000-8C","acceptedAt":"2026-11-02T08:34:26.663047Z","statusCode":200,"statusMessage":"Sukces","statusDetails":null,"lastError":null,"verificationUrl":"https://qr-test.ksef.mf.gov.pl/invoice/1234567890/02-11-2026/GwSekLYu4m5xpIBelVvthw6z2cA2gMalzs773dsrE6U","hasUpo":true,"duplicateKsefNumber":null},"warnings":[],"createdAt":"2026-11-02T08:29:30.429446Z","updatedAt":"2026-11-02T08:34:32.371009Z","issuedAt":"2026-11-02T08:34:19.771759Z"}
         """;
 
     private const string AcceptedPersonJson = """
-        {"id":"5affa8df-0a4c-40fc-b743-7189582effa8","status":"Accepted","number":"QA/5/11/2026","seller":{"nip":"1234567890","name":"Sprzedawca Testowy","addressLine1":"ul. Prosta 1","addressLine2":"00-001 Warszawa","bankAccount":"61109010140000071219812874","cashAccounting":false},"buyer":{"kind":"Person","nip":null,"name":"Jan Testowy T222","addressLine1":"ul. Prywatna 5","addressLine2":"00-002 Warszawa"},"issueDate":"2026-11-02","saleDate":"2026-11-02","dueDate":"2026-11-16","paymentMethod":"Transfer","splitPayment":false,"exemptionBasis":null,"lines":[{"lineNo":1,"name":"Usluga T222 B2B","unit":"szt.","quantity":2.500000,"unitNetPrice":100.50,"vatRate":"23","netAmount":251.25,"vatAmount":57.79}],"vatSummary":[{"vatRate":"23","net":251.25,"vat":57.79}],"totalNet":251.25,"totalVat":57.79,"totalGross":309.04,"currency":"PLN","ksef":{"environment":"test","ksefNumber":"1234567890-20261102-43D40D000000-53","acceptedAt":"2026-11-02T08:38:48.546522Z","statusCode":200,"statusMessage":"Sukces","statusDetails":null,"lastError":null,"verificationUrl":"https://qr-test.ksef.mf.gov.pl/invoice/1234567890/02-11-2026/0GFpsMcREdXYSWEodpHM1q8dCgxqJtDebcwvq_hvAJY","hasUpo":true},"warnings":[],"createdAt":"2026-11-02T08:37:39.76263Z","updatedAt":"2026-11-02T08:38:55.944484Z","issuedAt":"2026-11-02T08:38:43.570356Z"}
+        {"id":"5affa8df-0a4c-40fc-b743-7189582effa8","status":"Accepted","number":"QA/5/11/2026","seller":{"nip":"1234567890","name":"Sprzedawca Testowy","addressLine1":"ul. Prosta 1","addressLine2":"00-001 Warszawa","bankAccount":"61109010140000071219812874","cashAccounting":false},"buyer":{"kind":"Person","nip":null,"name":"Jan Testowy T222","addressLine1":"ul. Prywatna 5","addressLine2":"00-002 Warszawa"},"issueDate":"2026-11-02","saleDate":"2026-11-02","dueDate":"2026-11-16","paymentMethod":"Transfer","splitPayment":false,"exemptionBasis":null,"lines":[{"lineNo":1,"name":"Usluga T222 B2B","unit":"szt.","quantity":2.500000,"unitNetPrice":100.50,"vatRate":"23","netAmount":251.25,"vatAmount":57.79}],"vatSummary":[{"vatRate":"23","net":251.25,"vat":57.79}],"totalNet":251.25,"totalVat":57.79,"totalGross":309.04,"currency":"PLN","ksef":{"environment":"test","ksefNumber":"1234567890-20261102-43D40D000000-53","acceptedAt":"2026-11-02T08:38:48.546522Z","statusCode":200,"statusMessage":"Sukces","statusDetails":null,"lastError":null,"verificationUrl":"https://qr-test.ksef.mf.gov.pl/invoice/1234567890/02-11-2026/0GFpsMcREdXYSWEodpHM1q8dCgxqJtDebcwvq_hvAJY","hasUpo":true,"duplicateKsefNumber":null},"warnings":[],"createdAt":"2026-11-02T08:37:39.76263Z","updatedAt":"2026-11-02T08:38:55.944484Z","issuedAt":"2026-11-02T08:38:43.570356Z"}
         """;
 
     private const string DraftJson = """
-        {"id":"02155123-dae3-4a69-bb7e-88b4b8436830","status":"Draft","number":null,"seller":{"nip":"1234567890","name":"Sprzedawca Testowy","addressLine1":"ul. Prosta 1","addressLine2":"00-001 Warszawa","bankAccount":"61109010140000071219812874","cashAccounting":false},"buyer":{"kind":"Person","nip":null,"name":"Jan Kowalski","addressLine1":"ul. Prosta 1","addressLine2":null},"issueDate":"2026-11-02","saleDate":"2026-11-02","dueDate":"2026-11-16","paymentMethod":"Cash","splitPayment":false,"exemptionBasis":{"kind":"Act","text":"art. 113 ust. 1"},"lines":[{"lineNo":1,"name":"Usluga","unit":"szt.","quantity":2.5,"unitNetPrice":0.33,"vatRate":"zw","netAmount":0.83,"vatAmount":0.00}],"vatSummary":[{"vatRate":"zw","net":0.83,"vat":0.00}],"totalNet":0.83,"totalVat":0.00,"totalGross":0.83,"currency":"PLN","ksef":{"environment":"test","ksefNumber":null,"acceptedAt":null,"statusCode":null,"statusMessage":null,"statusDetails":null,"lastError":null,"verificationUrl":null,"hasUpo":false},"warnings":[],"createdAt":"2026-11-02T08:57:17.1641001Z","updatedAt":"2026-11-02T08:57:17.1641001Z","issuedAt":null}
+        {"id":"02155123-dae3-4a69-bb7e-88b4b8436830","status":"Draft","number":null,"seller":{"nip":"1234567890","name":"Sprzedawca Testowy","addressLine1":"ul. Prosta 1","addressLine2":"00-001 Warszawa","bankAccount":"61109010140000071219812874","cashAccounting":false},"buyer":{"kind":"Person","nip":null,"name":"Jan Kowalski","addressLine1":"ul. Prosta 1","addressLine2":null},"issueDate":"2026-11-02","saleDate":"2026-11-02","dueDate":"2026-11-16","paymentMethod":"Cash","splitPayment":false,"exemptionBasis":{"kind":"Act","text":"art. 113 ust. 1"},"lines":[{"lineNo":1,"name":"Usluga","unit":"szt.","quantity":2.5,"unitNetPrice":0.33,"vatRate":"zw","netAmount":0.83,"vatAmount":0.00}],"vatSummary":[{"vatRate":"zw","net":0.83,"vat":0.00}],"totalNet":0.83,"totalVat":0.00,"totalGross":0.83,"currency":"PLN","ksef":{"environment":"test","ksefNumber":null,"acceptedAt":null,"statusCode":null,"statusMessage":null,"statusDetails":null,"lastError":null,"verificationUrl":null,"hasUpo":false,"duplicateKsefNumber":null},"warnings":[],"createdAt":"2026-11-02T08:57:17.1641001Z","updatedAt":"2026-11-02T08:57:17.1641001Z","issuedAt":null}
         """;
 
     private const string SellerProfileJson = """
@@ -82,10 +82,36 @@ public class IssuedInvoiceRealApiContractTests
     }
 
     [Fact]
+    public void Rejected440_CarriesDuplicateKsefNumber()
+    {
+        var node = JsonNode.Parse(AcceptedCompanyJson)!;
+        node["status"] = "Rejected";
+        node["ksef"]!["ksefNumber"] = null;
+        node["ksef"]!["statusCode"] = 440;
+        node["ksef"]!["duplicateKsefNumber"] = "1234567890-20261102-AAAAAAAAAAAA-00";
+
+        var invoice = JsonSerializer.Deserialize<IssuedInvoiceDto>(node.ToJsonString(), Web)!;
+
+        Assert.Equal(440, invoice.Ksef.StatusCode);
+        Assert.Equal("1234567890-20261102-AAAAAAAAAAAA-00", invoice.Ksef.DuplicateKsefNumber);
+    }
+
+    [Fact]
+    public void OlderApiWithoutDuplicateKsefNumber_StillParses()
+    {
+        var node = JsonNode.Parse(AcceptedCompanyJson)!;
+        node["ksef"]!.AsObject().Remove("duplicateKsefNumber");
+
+        var invoice = JsonSerializer.Deserialize<IssuedInvoiceDto>(node.ToJsonString(), Web)!;
+
+        Assert.Null(invoice.Ksef.DuplicateKsefNumber);
+    }
+
+    [Fact]
     public void UnknownNewField_IsIgnored_ForInstalledClients()
     {
         var node = JsonNode.Parse(AcceptedCompanyJson)!;
-        node["ksef"]!["duplicateKsefNumber"] = "1234567890-20261102-AAAAAAAAAAAA-00";
+        node["ksef"]!["somethingNewInKsef"] = "x";
         node["somethingNew"] = 1;
 
         var invoice = JsonSerializer.Deserialize<IssuedInvoiceDto>(node.ToJsonString(), Web)!;
