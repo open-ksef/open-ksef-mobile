@@ -99,7 +99,7 @@ public static class MauiProgram
             if (entry is not Views.Controls.DecimalEntry)
                 return;
 
-            handler.PlatformView.KeyListener = Android.Text.Method.TextKeyListener.GetInstance();
+            handler.PlatformView.KeyListener = Android.Text.Method.TextKeyListener.GetInstance(false, Android.Text.Method.TextKeyListener.Capitalize.None);
             handler.PlatformView.SetRawInputType(Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal);
         });
 #endif
