@@ -138,11 +138,13 @@ public static class IssuingFormat
 
     private static readonly Regex KsefDetailsNoise = new(@"\s*\(traceId:[^)]*\)|\s*\([^()]*:\s*[{\[].*?[}\]]\)|(?<=^|;\s)[a-z]+(?:-[a-z]+)+:\s*");
 
+    private static readonly Regex KsefRawText = new(@"[{\[]\s*""|traceId|^HTTP \d{3}", RegexOptions.IgnoreCase);
+
     /// <summary>KSeF details mix a readable sentence with a machine code, JSON and a traceId. Text that still looks raw after cleaning is dropped.</summary>
     public static string? CleanKsefDetails(string? details)
     {
         var clean = KsefDetailsNoise.Replace(details ?? string.Empty, string.Empty).Trim();
-        return clean.Length == 0 || clean.Contains("{\"") || clean.Contains("traceId", StringComparison.OrdinalIgnoreCase) ? null : clean;
+        return clean.Length == 0 || KsefRawText.IsMatch(clean) ? null : clean;
     }
 
     public const string LookupNotFound = "Nie ma na białej liście — wpisz dane ręcznie";

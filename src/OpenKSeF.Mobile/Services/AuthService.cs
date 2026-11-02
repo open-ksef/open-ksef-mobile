@@ -158,7 +158,11 @@ public class AuthService : IAuthService
         if (_refreshToken is null)
             await TryLoadTokensAsync();
 
-        if (_refreshToken is not null)
+        // Cleared before the POST: a refresh answered meanwhile must not read as a dead session.
+        var refreshToken = _refreshToken;
+        ClearTokens();
+
+        if (refreshToken is not null)
         {
             try
             {
@@ -168,7 +172,7 @@ public class AuthService : IAuthService
                     new FormUrlEncodedContent(new Dictionary<string, string>
                     {
                         ["client_id"] = _options.ClientId,
-                        ["refresh_token"] = _refreshToken
+                        ["refresh_token"] = refreshToken
                     }),
                     cts.Token);
             }
@@ -176,8 +180,6 @@ public class AuthService : IAuthService
             {
             }
         }
-
-        ClearTokens();
     }
 
     /// <summary>Only an explicit invalid_grant ends a stored session; a network or server failure must not log the user out.</summary>

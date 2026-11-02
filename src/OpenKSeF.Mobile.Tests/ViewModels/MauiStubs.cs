@@ -23,16 +23,20 @@ namespace Microsoft.Maui.Controls
         public bool AlertAnswer { get; set; } = true;
         public string? LastAlertMessage { get; private set; }
         public string? LastRoute { get; private set; }
+        public Exception? GoToFailure { get; set; }
 
         public void Reset()
         {
             AlertAnswer = true;
             LastAlertMessage = null;
             LastRoute = null;
+            GoToFailure = null;
         }
 
         public Task GoToAsync(string state)
         {
+            if (GoToFailure is not null)
+                return Task.FromException(GoToFailure);
             LastRoute = state;
             return Task.CompletedTask;
         }

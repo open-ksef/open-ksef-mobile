@@ -318,6 +318,213 @@ public class IssuingViewModelTests : IDisposable
         Assert.Null(vm.ErrorMessage);
     }
 
+    private const string FormNoConnection = "Brak połączenia z serwerem. Dane w formularzu zostały. Spróbuj ponownie po powrocie sieci, nie twórz nowej faktury.";
+
+    [Theory]
+    [MemberData(nameof(NetworkFailures))]
+    public async Task Draft_IssueNetworkFailure_NavigationFails_ShowsNoConnectionText(Exception failure)
+    {
+        var vm = Draft(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(failure);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.GoToFailure = new InvalidOperationException("no route");
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(FormNoConnection, vm.ErrorMessage);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Theory]
+    [MemberData(nameof(NetworkFailures))]
+    public async Task Draft_IssueSaveNetworkFailure_NoRawText_FormKept_RetryWorks(Exception failure)
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        var saved = Invoice();
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(
+            _ => Task.FromException<IssuedInvoiceDto>(failure),
+            _ => Task.FromResult(saved));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(FormNoConnection, vm.ErrorMessage);
+        Assert.False(vm.IsBusy);
+        Assert.Null(vm.InvoiceId);
+        Assert.Equal("Nabywca sp. z o.o.", vm.BuyerName);
+        Assert.Equal("100,00", Assert.Single(vm.Lines).UnitNetPrice);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Fact]
+    public async Task Draft_SaveDraftNetworkFailure_ShowsNoConnectionText()
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new HttpRequestException("no route to host"));
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Equal(FormNoConnection, vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Draft_SaveServerError_KeepsServerMessage()
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new ApiException(HttpStatusCode.InternalServerError, "Blad serwera (500)"));
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Equal("Blad serwera (500)", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Draft_NumberPreview_FollowsIssueDate()
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.Equal("Numer nadamy przy wystawieniu: FV/12/11/2026", vm.NumberPreview);
+
+        vm.IssueDate = DateTime.Today.AddMonths(-1);
+
+        Assert.Equal(string.Empty, vm.NumberPreview);
+        Assert.Contains(nameof(vm.NumberPreview), changed);
+
+        vm.IssueDate = DateTime.Today;
+
+        Assert.Equal("Numer nadamy przy wystawieniu: FV/12/11/2026", vm.NumberPreview);
+    }
+
+    [Fact]
+    public async Task Draft_NumberPreview_HiddenForInvoiceWithItsOwnNumber()
+    {
+        var vm = Draft(Profile());
+        var rejected = Invoice("Rejected");
+        rejected.IssueDate = DateOnly.FromDateTime(DateTime.Today);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(rejected);
+        vm.InvoiceId = InvoiceId.ToString();
+
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(string.Empty, vm.NumberPreview);
+    }
+
+    [Fact]
+    public async Task Draft_NumberPreview_ShownAfterCopyOfNumberedInvoice()
+    {
+        var vm = Draft(Profile());
+        var rejected = Invoice("Rejected");
+        rejected.IssueDate = DateOnly.FromDateTime(DateTime.Today);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(rejected);
+        var copy = Invoice();
+        copy.IssueDate = rejected.IssueDate;
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).Returns(copy);
+        vm.InvoiceId = InvoiceId.ToString();
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal("Numer nadamy przy wystawieniu: FV/12/11/2026", vm.NumberPreview);
+    }
+
+    public static TheoryData<string, int?> NotIssuableFresh => new()
+    {
+        { "Sending", null },
+        { "Accepted", null },
+        { "Rejected", 440 },
+    };
+
+    [Theory]
+    [MemberData(nameof(NotIssuableFresh))]
+    public async Task Details_StaleDraft_FreshNotIssuable_NoDialogNoPost(string status, int? code)
+    {
+        var fresh = Invoice(status);
+        fresh.Ksef.Environment = "production";
+        fresh.Ksef.StatusCode = code;
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
+        var vm = Details([]);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice(), fresh, Invoice("Accepted"));
+        await vm.RunAsync(CancellationToken.None);
+        Assert.True(vm.IsDraft);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Null(Shell.Current.LastAlertMessage);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+        vm.Stop();
+    }
+
+    [Fact]
+    public async Task Details_StaleDraft_FreshSending_PollsToResult()
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        var vm = Details([]);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice(), Invoice("Sending"), Invoice("Sending"), Invoice("Accepted"));
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsAccepted);
+    }
+
+    [Fact]
+    public async Task Details_FreshFixableRejected_ConfirmsAndIssues()
+    {
+        var fresh = Invoice("Rejected");
+        fresh.Ksef.Environment = "production";
+        fresh.Ksef.StatusCode = 450;
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Accepted"));
+        var vm = Details([]);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice(), fresh, Invoice("Accepted"));
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Contains("Numer: FV/12/11/2026", Shell.Current.LastAlertMessage);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Theory]
+    [InlineData("""{"exception":{"code":21405}}""")]
+    [InlineData("{ \"exception\": { \"code\": 21405 } }")]
+    [InlineData("""[{"code":21405}]""")]
+    [InlineData("HTTP 400: Bad Request, AdditionalInfo: brak")]
+    [InlineData("Błąd serwera, traceId 00-abc")]
+    public async Task Details_RawStatusMessage_NotShown_SentenceRemains(string raw)
+    {
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = 450;
+        rejected.Ksef.StatusMessage = raw;
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.StartsWith("Kod KSeF 450: KSeF odrzucił fakturę.\n", vm.RejectionText);
+        Assert.DoesNotContain(raw, vm.RejectionText);
+    }
+
+    [Fact]
+    public async Task Details_StatusMessageWithTraceSuffix_KeepsSentence()
+    {
+        var rejected = Invoice("Rejected");
+        rejected.Ksef.StatusCode = 450;
+        rejected.Ksef.StatusMessage = "Nieprawidłowy NIP nabywcy (traceId: 00-abc)";
+
+        var vm = await DetailsOf(rejected);
+
+        Assert.StartsWith("Kod KSeF 450: Nieprawidłowy NIP nabywcy\n", vm.RejectionText);
+    }
+
     [Fact]
     public async Task Draft_IssueServerError_StaysOnForm()
     {

@@ -82,8 +82,11 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private static readonly string[] ExemptionKinds = ["Act", "Directive", "Other"];
 
+    private const string NoConnection = "Brak połączenia z serwerem. Dane w formularzu zostały. Spróbuj ponownie po powrocie sieci, nie twórz nowej faktury.";
+
     private readonly IApiService _apiService;
     private SellerProfileDto? _profile;
+    private string? _invoiceNumber;
     private bool _loaded;
 
     [ObservableProperty]
@@ -122,7 +125,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
     private string _lookupTone = "Success";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DatesDiffer))]
+    [NotifyPropertyChangedFor(nameof(DatesDiffer), nameof(NumberPreview))]
     private DateTime _issueDate = DateTime.Today;
 
     [ObservableProperty]
@@ -217,7 +220,9 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     public string BankAccount => IssuingFormat.Nrb(_profile?.BankAccount);
 
-    public string NumberPreview => _profile?.NextNumberPreview is { } preview ? $"Numer nadamy przy wystawieniu: {preview}" : string.Empty;
+    public string NumberPreview => _invoiceNumber is null && IsCurrentMonth(DateOnly.FromDateTime(IssueDate)) && _profile?.NextNumberPreview is { } preview
+        ? $"Numer nadamy przy wystawieniu: {preview}"
+        : string.Empty;
 
     partial void OnIssueDateChanged(DateTime oldValue, DateTime newValue)
     {
@@ -264,6 +269,8 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private void Fill(IssuedInvoiceDto invoice)
     {
+        _invoiceNumber = invoice.Number;
+        OnPropertyChanged(nameof(NumberPreview));
         BuyerKind = invoice.Buyer.Kind;
         BuyerNip = invoice.Buyer.Nip;
         BuyerName = invoice.Buyer.Name;
@@ -405,7 +412,8 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
         {
-            try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); } catch { }
+            try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); }
+            catch { ErrorMessage = NoConnection; }
         }
         catch (Exception ex)
         {
@@ -460,11 +468,12 @@ public partial class InvoiceDraftViewModel : ObservableObject
         if (invoice.Number is { Length: > 0 } number)
             return $"Numer: {number}";
 
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        return numberPreview is { Length: > 0 } && invoice.IssueDate.Year == today.Year && invoice.IssueDate.Month == today.Month
+        return numberPreview is { Length: > 0 } && IsCurrentMonth(invoice.IssueDate)
             ? $"Numer (przewidywany): {numberPreview}"
             : "Numer: nadamy przy wysłaniu, zależy od daty wystawienia";
     }
+
+    private static bool IsCurrentMonth(DateOnly date) => date.Year == DateTime.Today.Year && date.Month == DateTime.Today.Month;
 
     private async Task<IssuedInvoiceDto?> SaveAsync()
     {
@@ -490,6 +499,11 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
         {
             ApplyValidation(validation);
+            return null;
+        }
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
+        {
+            ErrorMessage = NoConnection;
             return null;
         }
         catch (Exception ex)

@@ -89,7 +89,8 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
         ClearCacheDirectory();
         try { await Shell.Current.DisplayAlertAsync("Sesja wygasła", "Zaloguj się ponownie.", "OK"); } catch { }
-        Application.Current!.Windows[0].Page = new AppShell();
+        if (Application.Current?.Windows is { Count: > 0 } windows)
+            windows[0].Page = new AppShell();
     }
 
     public async Task SignOutAsync()

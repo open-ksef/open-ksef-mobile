@@ -371,6 +371,100 @@ public class AuthServiceRestoreTests
         Assert.Equal(SessionRestoreResult.None, await _auth.RestoreSessionAsync());
     }
 
+    [Fact]
+    public async Task Logout_SendsStoredRefreshToken()
+    {
+        await LoginAsync();
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.NoContent, string.Empty));
+
+        await _auth.LogoutAsync();
+
+        Assert.EndsWith("/protocol/openid-connect/logout", _handler.Requests.Single().RequestUri!.AbsolutePath);
+        Assert.Contains("refresh_token=new-refresh", _handler.Bodies.Single());
+    }
+
+    [Fact]
+    public async Task LogoutDuringRefresh_LateInvalidGrant_RaisesNoSessionEnded()
+    {
+        await LoginExpiringAsync();
+        var ended = 0;
+        _auth.SessionEnded += () => Interlocked.Increment(ref ended);
+        var refreshSent = new TaskCompletionSource();
+        var logoutSent = new TaskCompletionSource();
+        Task<string?>? caller = null;
+        _handler.Respond = async request =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/logout"))
+            {
+                logoutSent.SetResult();
+                await caller!.WaitAsync(TimeSpan.FromSeconds(5));
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            }
+
+            refreshSent.SetResult();
+            await logoutSent.Task;
+            return Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
+        };
+
+        caller = Task.Run(_auth.GetAccessTokenAsync);
+        await refreshSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _auth.LogoutAsync();
+
+        Assert.Equal(0, ended);
+        Assert.Equal(0, SecureStorage.Default.Count);
+        Assert.Contains("refresh_token=r1", _handler.Bodies.Last());
+    }
+
+    private PostLoginNavigationService Navigation() => new(
+        Substitute.For<IApiService>(),
+        _auth,
+        Substitute.For<IDeviceTokenService>(),
+        Substitute.For<INotificationHubService>(),
+        Substitute.For<IServerSettingsService>(),
+        new LocalDbService());
+
+    private async Task EndSessionAsync()
+    {
+        await LoginExpiringAsync();
+        var ended = new TaskCompletionSource();
+        _auth.SessionEnded += () => ended.TrySetResult();
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}"""));
+        await _auth.GetAccessTokenAsync();
+        await ended.Task.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task SessionEnded_NoWindow_DoesNotThrow_TokensStayCleared()
+    {
+        await EndSessionAsync();
+        var windows = Application.Current!.Windows;
+        var saved = windows.ToList();
+        windows.Clear();
+        try
+        {
+            await Navigation().HandleSessionEndedAsync();
+
+            Assert.Equal(0, SecureStorage.Default.Count);
+        }
+        finally
+        {
+            windows.AddRange(saved);
+        }
+    }
+
+    [Fact]
+    public async Task SessionEnded_WithWindow_ShowsNewShell()
+    {
+        await EndSessionAsync();
+        var window = Application.Current!.Windows[0];
+        window.Page = null;
+
+        await Navigation().HandleSessionEndedAsync();
+
+        Assert.IsType<AppShell>(window.Page);
+        Assert.Equal(0, SecureStorage.Default.Count);
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         public Func<HttpRequestMessage, Task<HttpResponseMessage>> Respond { get; set; } = _ => throw new InvalidOperationException();

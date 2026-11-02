@@ -86,7 +86,9 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public string AcceptedText => Invoice?.Ksef.AcceptedAt is { } at ? $"Przyjęta {at.ToLocalTime():dd.MM.yyyy, HH:mm}" : string.Empty;
 
     public string RejectionText => Invoice is null ? string.Empty
-        : $"Kod KSeF {Invoice.Ksef.StatusCode}: {Invoice.Ksef.StatusMessage}{(RejectionDetails is { } details ? $"\n{details}" : string.Empty)}\n{RejectionAdvice}";
+        : $"Kod KSeF {Invoice.Ksef.StatusCode}: {RejectionMessage}{(RejectionDetails is { } details ? $"\n{details}" : string.Empty)}\n{RejectionAdvice}";
+
+    private string RejectionMessage => IssuingFormat.CleanKsefDetails(Invoice!.Ksef.StatusMessage) ?? "KSeF odrzucił fakturę.";
 
     private string? RejectionDetails => IsDuplicateNumberRejection && Invoice!.Ksef.DuplicateKsefNumber is { Length: > 0 }
         ? null
@@ -190,6 +192,13 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         {
             var profile = await _apiService.GetSellerProfileAsync(tenantId);
             Invoice = await _apiService.GetIssuedInvoiceAsync(tenantId, Invoice.Id);
+            if (!IsDraft && !CanFixRejection)
+            {
+                if (IsSending)
+                    Start();
+                return;
+            }
+
             if (!await InvoiceDraftViewModel.ConfirmIssueAsync(profile?.NextNumberPreview, Invoice))
                 return;
 
