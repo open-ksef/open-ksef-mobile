@@ -127,10 +127,10 @@
                                                 <Label Text="Ilość" Style="{StaticResource UiCaption}" />
                                                 <Label Grid.Column="1" Text="J.m." Style="{StaticResource UiCaption}" />
                                                 <Label Grid.Column="2" Text="Cena netto" Style="{StaticResource UiCaption}" />
-                                                <Entry Grid.Row="1" Text="{Binding Quantity}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                <controls:DecimalEntry Grid.Row="1" Text="{Binding Quantity}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
                                                        HorizontalTextAlignment="End" AutomationId="InvoiceDraftPageEntryLineQuantity" />
                                                 <Entry Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" Style="{StaticResource UiEntry}" />
-                                                <Entry Grid.Row="1" Grid.Column="2" Text="{Binding UnitNetPrice}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                <controls:DecimalEntry Grid.Row="1" Grid.Column="2" Text="{Binding UnitNetPrice}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
                                                        HorizontalTextAlignment="End" AutomationId="InvoiceDraftPageEntryLinePrice" />
                                             </Grid>
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

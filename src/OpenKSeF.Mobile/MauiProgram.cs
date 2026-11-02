@@ -91,6 +91,18 @@ public static class MauiProgram
         builder.Services.AddTransient<InvoiceDraftPage>();
         builder.Services.AddTransient<IssuedInvoiceDetailsPage>();
 
+#if ANDROID
+        // Keyboard.Numeric installs a locale key listener that deletes the other decimal separator, so 2,5 became 25 on en-US.
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("DecimalEntryInput", (handler, entry) =>
+        {
+            if (entry is not Views.Controls.DecimalEntry)
+                return;
+
+            handler.PlatformView.KeyListener = Android.Text.Method.DigitsKeyListener.GetInstance("0123456789.,- ");
+            handler.PlatformView.SetRawInputType(Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal);
+        });
+#endif
+
 #if DEBUG
         builder.Logging.AddDebug();
 #endif

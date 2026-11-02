@@ -292,6 +292,50 @@ public class IssuingViewModelTests : IDisposable
         Delay = (step, _) => { delays.Add(step); return Task.CompletedTask; }
     };
 
+    [Theory]
+    [InlineData("2,5", "100,50")]
+    [InlineData("2.5", "100.50")]
+    [InlineData("2,5", "100.50")]
+    public void DraftLine_BothSeparators_GiveTheSameAmounts(string quantity, string price)
+    {
+        var line = new DraftLineViewModel { Quantity = quantity, UnitNetPrice = price };
+
+        Assert.True(line.Validate());
+        Assert.Equal((2.5m, 100.50m), (line.ToRequest().Quantity, line.ToRequest().UnitNetPrice));
+        Assert.Equal("309,04 PLN", line.Gross.Replace('\u00A0', ' '));
+    }
+
+    [Theory]
+    [InlineData("1,000", "100")]
+    [InlineData("1", "1.000")]
+    public void DraftLine_ThousandsLookingInput_ShowsFieldErrorAndBlocksSave(string quantity, string price)
+    {
+        var line = new DraftLineViewModel { Quantity = quantity, UnitNetPrice = price };
+
+        Assert.Contains("Nie wiadomo", line.Error);
+        Assert.False(line.Validate());
+        Assert.Contains("Nie wiadomo", line.Error);
+    }
+
+    [Fact]
+    public void DraftLine_FixingAmbiguousInput_ClearsTheError()
+    {
+        var line = new DraftLineViewModel { UnitNetPrice = "1,000" };
+
+        line.UnitNetPrice = "1000";
+
+        Assert.Null(line.Error);
+    }
+
+    [Fact]
+    public void DraftLine_LoadedThreeDecimalQuantity_SavesUnchanged()
+    {
+        var line = DraftLineViewModel.From(new IssuedInvoiceLineRequest { Name = "x", Quantity = 1.125m, UnitNetPrice = 10m, VatRate = "23" });
+
+        Assert.True(line.Validate());
+        Assert.Equal(1.125m, line.ToRequest().Quantity);
+    }
+
     [Fact]
     public async Task Details_Sending_PollsUntilAccepted()
     {

@@ -59,14 +59,41 @@ public static class IssuingFormat
         _ => "Neutral"
     };
 
-    public static bool TryParseDecimal(string? text, out decimal value) =>
-        decimal.TryParse(
-            (text ?? string.Empty).Replace(" ", string.Empty).Replace(" ", string.Empty).Replace(',', '.'),
-            NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
-            CultureInfo.InvariantCulture,
-            out value);
+    private static readonly Regex DecimalInput = new(@"^-?(\d+|\d{1,3}( \d{3})+)?([.,]\d*)?$");
+    private static readonly Regex ThousandsLike = new(@"^-?[1-9]\d{0,2}[.,]\d{3}$");
+
+    /// <summary>
+    /// Either '.' or ',' is the decimal separator, at most one of them; spaces group thousands. "1,000" or "12.345" could
+    /// mean thousands, so they are refused: an accepted invoice cannot be changed. A leading 0 or 4+ digits is not thousands.
+    /// </summary>
+    public static bool TryParseDecimal(string? text, out decimal value)
+    {
+        value = 0;
+        var input = NormalizeDecimal(text);
+        return DecimalInput.IsMatch(input)
+            && !ThousandsLike.IsMatch(input)
+            && decimal.TryParse(
+                input.Replace(" ", string.Empty).Replace(',', '.'),
+                NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture,
+                out value);
+    }
+
+    public static string? AmbiguousDecimalError(string? text)
+    {
+        var input = NormalizeDecimal(text);
+        if (!ThousandsLike.IsMatch(input))
+            return null;
+
+        var parts = input.Split('.', ',');
+        return $"Nie wiadomo, czy „{input}” to {parts[0]}{parts[1]} czy {parts[0]},{parts[1]}. Wpisz {parts[0]}{parts[1]} albo {parts[0]},{parts[1]}0.";
+    }
+
+    private static string NormalizeDecimal(string? text) => (text ?? string.Empty).Replace(' ', ' ').Replace(' ', ' ').Trim();
 
     public static string Number(decimal value) => value.ToString("0.######", Pl);
+
+    public static string EditableNumber(decimal value) => TryParseDecimal(Number(value), out _) ? Number(value) : value.ToString("0.0000##", Pl);
 
     public static string FileStem(string name) => Regex.Replace(name, @"[^\w.-]+", "_");
 

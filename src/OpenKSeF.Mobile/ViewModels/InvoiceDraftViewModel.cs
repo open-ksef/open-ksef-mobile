@@ -40,7 +40,7 @@ public partial class DraftLineViewModel : ObservableObject
     {
         Name = line.Name,
         Unit = line.Unit ?? "szt.",
-        Quantity = IssuingFormat.Number(line.Quantity),
+        Quantity = IssuingFormat.EditableNumber(line.Quantity),
         UnitNetPrice = line.UnitNetPrice.ToString("0.00", IssuingFormat.Pl),
         VatRateLabel = IssuingFormat.VatRateLabel(line.VatRate)
     };
@@ -54,13 +54,20 @@ public partial class DraftLineViewModel : ObservableObject
         VatRate = VatRate
     };
 
+    private string? AmbiguousInputError => IssuingFormat.AmbiguousDecimalError(Quantity) ?? IssuingFormat.AmbiguousDecimalError(UnitNetPrice);
+
     public bool Validate()
     {
-        Error = !IssuingFormat.TryParseDecimal(Quantity, out _) ? "Podaj ilość, np. 1 lub 0,5"
-            : !IssuingFormat.TryParseDecimal(UnitNetPrice, out _) ? "Podaj cenę netto, np. 1 200,00"
-            : null;
+        Error = AmbiguousInputError
+            ?? (!IssuingFormat.TryParseDecimal(Quantity, out _) ? "Podaj ilość, np. 1 lub 0,5"
+                : !IssuingFormat.TryParseDecimal(UnitNetPrice, out _) ? "Podaj cenę netto, np. 1 200,00"
+                : null);
         return Error is null;
     }
+
+    partial void OnQuantityChanged(string value) => Error = AmbiguousInputError;
+
+    partial void OnUnitNetPriceChanged(string value) => Error = AmbiguousInputError;
 }
 
 public sealed record VatSummaryRow(string Rate, string Net, string Vat, string Gross);
