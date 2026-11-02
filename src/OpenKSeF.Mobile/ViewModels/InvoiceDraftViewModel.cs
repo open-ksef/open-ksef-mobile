@@ -403,6 +403,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
         {
             ApplyValidation(validation);
         }
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
+        {
+            try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); } catch { }
+        }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;

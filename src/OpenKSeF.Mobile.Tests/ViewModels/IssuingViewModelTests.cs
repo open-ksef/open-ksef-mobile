@@ -297,6 +297,101 @@ public class IssuingViewModelTests : IDisposable
         Assert.Contains("zależy od daty wystawienia", Shell.Current.LastAlertMessage);
     }
 
+    public static TheoryData<Exception> NetworkFailures => new()
+    {
+        new HttpRequestException("no route to host"),
+        new TaskCanceledException("HttpClient.Timeout of 30 seconds elapsing"),
+        new ApiException(HttpStatusCode.ServiceUnavailable, "Brak polaczenia z serwerem: no route to host"),
+    };
+
+    [Theory]
+    [MemberData(nameof(NetworkFailures))]
+    public async Task Draft_IssueNetworkFailure_OpensDetailsOfSavedInvoice_NoRawError(Exception failure)
+    {
+        var vm = Draft(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(failure);
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Draft_IssueServerError_StaysOnForm()
+    {
+        var vm = Draft(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new ApiException(HttpStatusCode.InternalServerError, "Blad serwera (500)"));
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.Equal("Blad serwera (500)", vm.ErrorMessage);
+    }
+
+    [Theory]
+    [MemberData(nameof(NetworkFailures))]
+    public async Task Details_IssueNetworkFailure_StillDraft_ShowsDraftAndCanIssueAgain(Exception failure)
+    {
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(failure);
+        var vm = Details([]);
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsDraft);
+        Assert.Null(vm.ErrorMessage);
+        Assert.Null(Shell.Current.LastAlertMessage);
+
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Accepted"));
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Accepted"));
+        await vm.IssueCommand.ExecuteAsync(null);
+        Assert.True(vm.IsAccepted);
+    }
+
+    [Fact]
+    public async Task Details_IssueNetworkFailure_ReallySending_ShowsSendingThenResult()
+    {
+        var states = new Queue<IssuedInvoiceDto>([Invoice(), Invoice(), Invoice("Sending"), Invoice("Accepted")]);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(_ => states.Dequeue());
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new HttpRequestException("timeout"));
+        var sawSending = false;
+        var vm = Details([]);
+        vm.PropertyChanged += (_, e) => sawSending |= e.PropertyName == nameof(vm.Invoice) && vm.IsSending;
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.True(sawSending);
+        Assert.True(vm.IsAccepted);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Details_NetworkStillDown_ShowsPlainMessage_AndRetriesUntilBack()
+    {
+        var attempts = 0;
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(_ => ++attempts < 3
+            ? Task.FromException<IssuedInvoiceDto>(new HttpRequestException("no route: 10.0.2.2"))
+            : Task.FromResult(Invoice(attempts == 3 ? "Sending" : "Accepted")));
+        string? shown = null;
+        var vm = Details([]);
+        vm.PropertyChanged += (_, e) => shown = e.PropertyName == nameof(vm.ErrorMessage) && vm.ErrorMessage is { } m ? m : shown;
+
+        await vm.RunAsync(CancellationToken.None);
+
+        Assert.Equal(4, attempts);
+        Assert.True(vm.IsAccepted);
+        Assert.Contains("Brak połączenia", shown);
+        Assert.DoesNotContain("10.0.2.2", shown);
+        Assert.Null(vm.ErrorMessage);
+    }
+
     [Fact]
     public async Task Draft_Production_ConfirmedIssue_OpensDetails()
     {

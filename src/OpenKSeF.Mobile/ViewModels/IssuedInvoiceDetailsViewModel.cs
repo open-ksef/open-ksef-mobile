@@ -17,7 +17,10 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public static readonly TimeSpan FastPollWindow = TimeSpan.FromMinutes(2);
 
     private readonly IApiService _apiService;
+    private const string NoConnection = "Brak połączenia z serwerem. Status faktury pojawi się tu po powrocie sieci. Nie wystawiaj jej drugi raz.";
+
     private CancellationTokenSource? _polling;
+    private bool _loadFailedOnNetwork;
 
     internal Func<TimeSpan, CancellationToken, Task> Delay { get; set; } = Task.Delay;
     internal TimeSpan PdfTimeout { get; set; } = TimeSpan.FromSeconds(60);
@@ -120,7 +123,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     {
         await LoadAsync();
         var waited = TimeSpan.Zero;
-        while (!ct.IsCancellationRequested && IsSending)
+        while (!ct.IsCancellationRequested && (IsSending || _loadFailedOnNetwork))
         {
             var step = waited < FastPollWindow ? FastPoll : SlowPoll;
             try { await Delay(step, ct); } catch (OperationCanceledException) { return; }
@@ -140,11 +143,13 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
             IsBusy = Invoice is null;
             Invoice = await _apiService.GetIssuedInvoiceAsync(tenantId, invoiceId);
             ErrorMessage = null;
+            _loadFailedOnNetwork = false;
         }
         catch (Exception ex)
         {
+            _loadFailedOnNetwork = ApiException.IsNetworkFailure(ex);
             if (Invoice is null)
-                ErrorMessage = $"Nie udało się załadować faktury: {ex.Message}";
+                ErrorMessage = _loadFailedOnNetwork ? NoConnection : $"Nie udało się załadować faktury: {ex.Message}";
         }
         finally
         {
@@ -195,6 +200,11 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         {
             await Shell.Current.DisplayAlertAsync("Popraw fakturę", string.Join("\n", validation.Errors.Select(e => e.Message)), "OK");
             await EditAsync();
+        }
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
+        {
+            ErrorMessage = NoConnection;
+            Start();
         }
         catch (Exception ex)
         {
