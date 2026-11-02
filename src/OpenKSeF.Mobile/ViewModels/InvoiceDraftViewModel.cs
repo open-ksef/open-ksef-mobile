@@ -9,7 +9,7 @@ namespace OpenKSeF.Mobile.ViewModels;
 
 public partial class DraftLineViewModel : ObservableObject
 {
-    public static IReadOnlyList<string> VatRateLabels { get; } = [.. IssuedInvoiceTotals.VatRates.Select(IssuingFormat.VatRateLabel)];
+    public static string[] VatRateLabels { get; } = [.. IssuedInvoiceTotals.VatRates.Select(IssuingFormat.VatRateLabel)];
 
     [ObservableProperty]
     private string _name = string.Empty;
@@ -71,7 +71,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
 {
     public const decimal SplitPaymentThreshold = 15000m;
 
-    public static IReadOnlyList<string> ExemptionKindLabels { get; } = ["Ustawa o VAT", "Dyrektywa", "Inna podstawa"];
+    public static string[] ExemptionKindLabels { get; } = ["Ustawa o VAT", "Dyrektywa", "Inna podstawa"];
 
     private static readonly string[] ExemptionKinds = ["Act", "Directive", "Other"];
 
