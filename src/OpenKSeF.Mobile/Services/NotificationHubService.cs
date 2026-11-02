@@ -10,6 +10,9 @@ namespace OpenKSeF.Mobile.Services;
 /// </summary>
 public class NotificationHubService : INotificationHubService, IAsyncDisposable
 {
+    // A proxy that swallows the WebSocket upgrade leaves StartAsync pending forever, so every attempt needs its own limit.
+    private static readonly TimeSpan ConnectAttemptTimeout = TimeSpan.FromSeconds(30);
+
     private readonly IAuthService _authService;
     private readonly IServerSettingsService _serverSettings;
     private readonly ILogger<NotificationHubService> _logger;
@@ -91,7 +94,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
 
         try
         {
-            await _connection.StartAsync(ct);
+            await StartAttemptAsync(ct);
             _logger.LogInformation("SignalR notification hub connected");
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
@@ -101,6 +104,13 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
                 t => _logger.LogError(t.Exception, "RetryConnectAsync faulted"),
                 TaskContinuationOptions.OnlyOnFaulted);
         }
+    }
+
+    private async Task StartAttemptAsync(CancellationToken ct)
+    {
+        using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        attempt.CancelAfter(ConnectAttemptTimeout);
+        await _connection!.StartAsync(attempt.Token);
     }
 
     private async Task RetryConnectAsync(CancellationToken ct)
@@ -115,12 +125,12 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
                 await Task.Delay(delay, ct);
                 if (_connection?.State == HubConnectionState.Disconnected)
                 {
-                    await _connection.StartAsync(ct);
+                    await StartAttemptAsync(ct);
                     _logger.LogInformation("SignalR reconnected after retry");
                     return;
                 }
             }
-            catch (OperationCanceledException) { return; }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "SignalR retry failed, backing off");

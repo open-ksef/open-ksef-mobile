@@ -77,6 +77,12 @@ public partial class TenantsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task OpenSellerProfileAsync(TenantDto tenant)
+    {
+        try { await Shell.Current.GoToAsync($"sellerProfile?tenantId={tenant.Id}"); } catch { }
+    }
+
+    [RelayCommand]
     private async Task DeleteTenantAsync(TenantDto tenant)
     {
         if (IsBusy) return;

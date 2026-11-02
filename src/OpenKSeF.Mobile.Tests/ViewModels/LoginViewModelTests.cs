@@ -38,6 +38,18 @@ public class LoginViewModelTests
         new(_auth, serverSettings ?? CreateServerSettings("https://default.com", isConfigured: true), _postLoginNav);
 
     [Fact]
+    public async Task RestoreSession_ShowsFormAfterwards()
+    {
+        var vm = CreateViewModel();
+        Assert.True(vm.IsRestoringSession);
+
+        await vm.RestoreSessionAsync();
+
+        await _postLoginNav.Received(1).RestoreSessionAsync();
+        Assert.False(vm.IsRestoringSession);
+    }
+
+    [Fact]
     public void Constructor_InitializesFromServerSettings()
     {
         var vm = CreateViewModel(CreateServerSettings("https://initial.com", isConfigured: true));
@@ -147,6 +159,88 @@ public class PostLoginNavigationServiceTests
         _api.GetOnboardingStatusAsync().Returns(new OnboardingStatusDto { IsComplete = complete });
 
     [Fact]
+    public async Task SignOut_RemovesInvoiceFilesAndShareCopiesFromCache()
+    {
+        var cache = FileSystem.CacheDirectory;
+        File.WriteAllText(Path.Combine(cache, "FV_1_11_2026.pdf"), "x");
+        File.WriteAllText(Path.Combine(cache, "FV_1_11_2026_UPO.xml"), "x");
+        Directory.CreateDirectory(Path.Combine(cache, "share-copy"));
+        File.WriteAllText(Path.Combine(cache, "share-copy", "FV_1_11_2026.xml"), "x");
+
+        await _nav.SignOutAsync();
+
+        Assert.Empty(Directory.GetFileSystemEntries(cache));
+        await _auth.Received(1).LogoutAsync();
+    }
+
+    [Fact]
+    public async Task SignOut_FileThatCannotBeDeleted_StillLogsOut_AndRemovesTheRest()
+    {
+        var cache = FileSystem.CacheDirectory;
+        var locked = Path.Combine(cache, "locked.pdf");
+        var other = Path.Combine(cache, "other.pdf");
+        File.WriteAllText(other, "x");
+        using (new FileStream(locked, FileMode.Create, FileAccess.Write, FileShare.None))
+            await _nav.SignOutAsync();
+
+        await _auth.Received(1).LogoutAsync();
+        Assert.False(File.Exists(other));
+        File.Delete(locked);
+    }
+
+    [Fact]
+    public async Task SignOut_LogoutUnderwayFromHubStop_ClearedWhenLogoutThrows()
+    {
+        var duringHubStop = false;
+        _notificationHub.StopAsync().Returns(_ =>
+        {
+            duringHubStop = _auth.LogoutUnderway;
+            return Task.CompletedTask;
+        });
+        _auth.LogoutAsync().Returns(Task.FromException(new InvalidOperationException()));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(_nav.SignOutAsync);
+
+        Assert.True(duringHubStop);
+        Assert.False(_auth.LogoutUnderway);
+    }
+
+    [Fact]
+    public async Task SignOut_HubStopHangs_StillLogsOutAndClearsLogoutUnderway()
+    {
+        _notificationHub.StopAsync().Returns(new TaskCompletionSource().Task);
+
+        await _nav.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(30));
+
+        await _auth.Received(1).LogoutAsync();
+        Assert.False(_auth.LogoutUnderway);
+    }
+
+    [Fact]
+    public async Task SessionEnded_RemovesInvoiceFilesFromCache()
+    {
+        var file = Path.Combine(FileSystem.CacheDirectory, "FV_2_11_2026.pdf");
+        File.WriteAllText(file, "x");
+
+        await _nav.HandleSessionEndedAsync();
+
+        Assert.False(File.Exists(file));
+    }
+
+    [Fact]
+    public async Task SessionEnded_StopsHub_TellsUser_AndOpensLogin_KeepingLocalCache()
+    {
+        Application.Current!.Windows[0].Page = null;
+
+        await _nav.HandleSessionEndedAsync();
+
+        await _notificationHub.Received(1).StopAsync();
+        Assert.Equal("Zaloguj się ponownie.", Shell.Current.LastAlertMessage);
+        Assert.IsType<OpenKSeF.Mobile.AppShell>(Application.Current.Windows[0].Page);
+        await _auth.DidNotReceive().LogoutAsync();
+    }
+
+    [Fact]
     public async Task Navigate_OnboardingComplete_RegistersDeviceStartsHubAndOpensInvoices()
     {
         OnboardingComplete(true);
@@ -155,6 +249,28 @@ public class PostLoginNavigationServiceTests
 
         await _deviceTokenService.Received(1).EnsureDeviceRegisteredAsync();
         await _notificationHub.Received(1).StartAsync();
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Navigate_HubThatNeverConnects_DoesNotBlockNavigation()
+    {
+        OnboardingComplete(true);
+        _notificationHub.StartAsync().Returns(new TaskCompletionSource().Task);
+
+        await _nav.NavigateAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Navigate_HubThatFails_DoesNotBlockNavigation()
+    {
+        OnboardingComplete(true);
+        _notificationHub.StartAsync().ThrowsAsync(new Exception("hub"));
+
+        await _nav.NavigateAsync();
+
         Assert.Equal("//main/invoices", Shell.Current.LastRoute);
     }
 
@@ -207,6 +323,70 @@ public class PostLoginNavigationServiceTests
         await _nav.NavigateAsync();
 
         Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task Restore_ValidSession_OpensInvoicesAndRegistersDevice()
+    {
+        OnboardingComplete(true);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Restored);
+
+        await _nav.RestoreSessionAsync();
+
+        await _deviceTokenService.Received(1).EnsureDeviceRegisteredAsync();
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Restore_OnboardingNeeded_OpensOnboarding()
+    {
+        OnboardingComplete(false);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Restored);
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Equal("//onboarding", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Restore_DeadSession_StaysOnLogin()
+    {
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.None);
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Null(Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Restore_Offline_OpensInvoicesAndKeepsCacheWithoutCallingApi()
+    {
+        var tenantId = Guid.NewGuid();
+        await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Unverified);
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+        Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
+        await _api.DidNotReceive().GetMeAsync();
+        await _auth.DidNotReceive().LogoutAsync();
+    }
+
+    [Fact]
+    public async Task Restore_ApiDownAfterRefresh_KeepsCache()
+    {
+        var tenantId = Guid.NewGuid();
+        await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Restored);
+        _api.GetMeAsync().ThrowsAsync(new ApiException(System.Net.HttpStatusCode.ServiceUnavailable, "down"));
+
+        await _nav.RestoreSessionAsync();
+
+        Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
     }
 
     [Fact]

@@ -23,16 +23,20 @@ namespace Microsoft.Maui.Controls
         public bool AlertAnswer { get; set; } = true;
         public string? LastAlertMessage { get; private set; }
         public string? LastRoute { get; private set; }
+        public Exception? GoToFailure { get; set; }
 
         public void Reset()
         {
             AlertAnswer = true;
             LastAlertMessage = null;
             LastRoute = null;
+            GoToFailure = null;
         }
 
         public Task GoToAsync(string state)
         {
+            if (GoToFailure is not null)
+                return Task.FromException(GoToFailure);
             LastRoute = state;
             return Task.CompletedTask;
         }
@@ -70,6 +74,31 @@ namespace OpenKSeF.Mobile
 
 namespace Microsoft.Maui.ApplicationModel.DataTransfer
 {
+    public class ShareFile(string fullPath, string contentType)
+    {
+        public string FullPath { get; } = fullPath;
+        public string ContentType { get; } = contentType;
+    }
+
+    public class ShareFileRequest
+    {
+        public string? Title { get; set; }
+        public ShareFile? File { get; set; }
+    }
+
+    public class Share
+    {
+        public static Share Default { get; } = new();
+
+        public List<ShareFileRequest> Requests { get; } = [];
+
+        public Task RequestAsync(ShareFileRequest request)
+        {
+            Requests.Add(request);
+            return Task.CompletedTask;
+        }
+    }
+
     public class Clipboard
     {
         public static Clipboard Default { get; } = new();
@@ -128,7 +157,13 @@ namespace Microsoft.Maui.ApplicationModel
     {
         public static Browser Default { get; } = new();
 
-        public Task<bool> OpenAsync(string uri, BrowserLaunchMode mode) => Task.FromResult(true);
+        public string? LastUri { get; set; }
+
+        public Task<bool> OpenAsync(string uri, BrowserLaunchMode mode)
+        {
+            LastUri = uri;
+            return Task.FromResult(true);
+        }
     }
 }
 
@@ -163,9 +198,39 @@ namespace Microsoft.Maui.Storage
         public void Clear() => _values.Clear();
     }
 
+    public class SecureStorage
+    {
+        public static SecureStorage Default { get; } = new();
+
+        private readonly Dictionary<string, string> _values = [];
+
+        public bool ThrowOnRead { get; set; }
+
+        public int Count => _values.Count;
+
+        public void Reset()
+        {
+            _values.Clear();
+            ThrowOnRead = false;
+        }
+
+        public Task<string?> GetAsync(string key) => ThrowOnRead
+            ? throw new InvalidOperationException("keystore")
+            : Task.FromResult(_values.GetValueOrDefault(key));
+
+        public Task SetAsync(string key, string value)
+        {
+            _values[key] = value;
+            return Task.CompletedTask;
+        }
+
+        public bool Remove(string key) => _values.Remove(key);
+    }
+
     public static class FileSystem
     {
         public static string AppDataDirectory { get; } = Directory.CreateTempSubdirectory("openksef-tests-").FullName;
+        public static string CacheDirectory { get; } = Directory.CreateTempSubdirectory("openksef-tests-cache-").FullName;
     }
 
     public class FileResult

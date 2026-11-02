@@ -115,6 +115,14 @@ public class AccountViewModelNotificationTests
     }
 
     [Fact]
+    public async Task ThirdPartyNotices_OpensTheShippedFile()
+    {
+        await _vm.OpenThirdPartyNoticesCommand.ExecuteAsync(null);
+
+        Assert.EndsWith("/Resources/Raw/pdf/THIRD-PARTY-NOTICES.txt", Browser.Default.LastUri);
+    }
+
+    [Fact]
     public async Task Logout_Confirmed_SignsOutAndResetsShell()
     {
         await _vm.LogoutCommand.ExecuteAsync(null);

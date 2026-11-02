@@ -25,7 +25,23 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         _localDb = localDb;
     }
 
-    public async Task NavigateAsync()
+    public Task NavigateAsync() => NavigateAsync(sameUserAsCache: false);
+
+    public async Task RestoreSessionAsync()
+    {
+        switch (await _authService.RestoreSessionAsync())
+        {
+            case SessionRestoreResult.Restored:
+                await NavigateAsync(sameUserAsCache: true);
+                break;
+            case SessionRestoreResult.Unverified:
+                _ = StartHubAsync();
+                try { await Shell.Current.GoToAsync("//main/invoices"); } catch { }
+                break;
+        }
+    }
+
+    private async Task NavigateAsync(bool sameUserAsCache)
     {
         bool needsOnboarding = false;
 
@@ -36,7 +52,8 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         }
         catch
         {
-            try { await _localDb.ClearUserDataAsync(); } catch { }
+            if (!sameUserAsCache)
+                try { await _localDb.ClearUserDataAsync(); } catch { }
         }
 
         try
@@ -49,7 +66,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         if (!needsOnboarding)
         {
             try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
-            try { await _notificationHub.StartAsync(); } catch { }
+            _ = StartHubAsync();
         }
 
         try
@@ -62,11 +79,54 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         catch { }
     }
 
+    private async Task StartHubAsync()
+    {
+        try { await _notificationHub.StartAsync(); } catch { }
+    }
+
+    public async Task HandleSessionEndedAsync()
+    {
+        try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+        ClearCacheDirectory();
+        try { await Shell.Current.DisplayAlertAsync("Sesja wygasła", "Zaloguj się ponownie.", "OK"); } catch { }
+        if (Application.Current?.Windows is { Count: > 0 } windows)
+            windows[0].Page = new AppShell();
+    }
+
     public async Task SignOutAsync()
     {
-        try { await _notificationHub.StopAsync(); } catch { }
-        try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
-        try { await _localDb.ClearUserDataAsync(); } catch { }
-        await _authService.LogoutAsync();
+        _authService.LogoutUnderway = true;
+        try
+        {
+            try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+            try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+            try { await _localDb.ClearUserDataAsync(); } catch { }
+            ClearCacheDirectory();
+            await _authService.LogoutAsync();
+        }
+        finally
+        {
+            _authService.LogoutUnderway = false;
+        }
+    }
+
+    /// <summary>The whole directory, not named files: shared PDF, XML and UPO hold private buyers' data, and the share sheet may keep its own copies here.</summary>
+    private static void ClearCacheDirectory()
+    {
+        try
+        {
+            foreach (var entry in new DirectoryInfo(FileSystem.CacheDirectory).GetFileSystemInfos())
+            {
+                try
+                {
+                    if (entry is DirectoryInfo directory)
+                        directory.Delete(recursive: true);
+                    else
+                        entry.Delete();
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 }

@@ -71,6 +71,10 @@ public static class MauiProgram
         builder.Services.AddTransient<QrCodeViewModel>();
         builder.Services.AddTransient<ScanSetupQrViewModel>();
         builder.Services.AddTransient<AccountViewModel>();
+        builder.Services.AddTransient<SellerProfileViewModel>();
+        builder.Services.AddTransient<IssuedInvoiceListViewModel>();
+        builder.Services.AddTransient<InvoiceDraftViewModel>();
+        builder.Services.AddTransient<IssuedInvoiceDetailsViewModel>();
 
         // Pages
         builder.Services.AddTransient<LoginPage>();
@@ -82,6 +86,23 @@ public static class MauiProgram
         builder.Services.AddTransient<QrCodePage>();
         builder.Services.AddTransient<ScanSetupQrPage>();
         builder.Services.AddTransient<AccountPage>();
+        builder.Services.AddTransient<SellerProfilePage>();
+        builder.Services.AddTransient<IssuedInvoiceListPage>();
+        builder.Services.AddTransient<InvoiceDraftPage>();
+        builder.Services.AddTransient<IssuedInvoiceDetailsPage>();
+
+#if ANDROID
+        // Keyboard.Numeric installs a locale key listener that deletes the other decimal separator, so 2,5 became 25 on en-US.
+        // DigitsKeyListener is an InputFilter and strips pasted text, so 1e5 became 15. TextKeyListener filters nothing; the form refuses what it cannot parse.
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("DecimalEntryInput", (handler, entry) =>
+        {
+            if (entry is not Views.Controls.DecimalEntry)
+                return;
+
+            handler.PlatformView.KeyListener = Android.Text.Method.TextKeyListener.GetInstance(false, Android.Text.Method.TextKeyListener.Capitalize.None);
+            handler.PlatformView.SetRawInputType(Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal);
+        });
+#endif
 
 #if DEBUG
         builder.Logging.AddDebug();

@@ -22,6 +22,7 @@
     <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Link="Linked\Models\%(Filename)%(Extension)" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ApiService.cs" Link="Linked\Services\ApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\AuthOptions.cs" Link="Linked\Services\AuthOptions.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\AuthService.cs" Link="Linked\Services\AuthService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\DeviceTokenService.cs" Link="Linked\Services\DeviceTokenService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IApiService.cs" Link="Linked\Services\IApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IAuthService.cs" Link="Linked\Services\IAuthService.cs" />
@@ -29,15 +30,25 @@
     <Compile Include="..\OpenKSeF.Mobile\Services\INotificationHubService.cs" Link="Linked\Services\INotificationHubService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IPostLoginNavigationService.cs" Link="Linked\Services\IPostLoginNavigationService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IServerSettingsService.cs" Link="Linked\Services\IServerSettingsService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\IssuedInvoiceTotals.cs" Link="Linked\Services\IssuedInvoiceTotals.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\LocalDbService.cs" Link="Linked\Services\LocalDbService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\PostLoginNavigationService.cs" Link="Linked\Services\PostLoginNavigationService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\QrCodeGenerator.cs" Link="Linked\Services\QrCodeGenerator.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ServerUrlRules.cs" Link="Linked\Services\ServerUrlRules.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\AccountViewModel.cs" Link="Linked\ViewModels\AccountViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\InvoiceDetailsViewModel.cs" Link="Linked\ViewModels\InvoiceDetailsViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\InvoiceDraftViewModel.cs" Link="Linked\ViewModels\InvoiceDraftViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\IssuedInvoiceDetailsViewModel.cs" Link="Linked\ViewModels\IssuedInvoiceDetailsViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\IssuedInvoiceListViewModel.cs" Link="Linked\ViewModels\IssuedInvoiceListViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\IssuingFormat.cs" Link="Linked\ViewModels\IssuingFormat.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\LoginViewModel.cs" Link="Linked\ViewModels\LoginViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\ScanSetupQrViewModel.cs" Link="Linked\ViewModels\ScanSetupQrViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\SellerProfileViewModel.cs" Link="Linked\ViewModels\SellerProfileViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\TenantFormViewModel.cs" Link="Linked\ViewModels\TenantFormViewModel.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Services/Vectors/TotalsVectors.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

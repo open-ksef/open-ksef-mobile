@@ -74,4 +74,54 @@
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}" />
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}" />
 
+    <!-- Design system v1 (issuing pages) -->
+    <Color x:Key="UiBg">#f4f6f9</Color>
+    <Color x:Key="UiBgDark">#0b0d17</Color>
+    <Color x:Key="UiSurface">#ffffff</Color>
+    <Color x:Key="UiSurfaceDark">#151827</Color>
+    <Color x:Key="UiSurface2">#f9fafb</Color>
+    <Color x:Key="UiSurface2Dark">#1c2033</Color>
+    <Color x:Key="UiBorder">#e5e7eb</Color>
+    <Color x:Key="UiBorderDark">#2a2f45</Color>
+    <Color x:Key="UiBorderStrong">#d1d5db</Color>
+    <Color x:Key="UiBorderStrongDark">#3a4060</Color>
+    <Color x:Key="UiText">#111827</Color>
+    <Color x:Key="UiTextDark">#e5e7eb</Color>
+    <Color x:Key="UiMuted">#5b6474</Color>
+    <Color x:Key="UiMutedDark">#a1a7b8</Color>
+    <Color x:Key="UiPrimary">#4f46e5</Color>
+    <Color x:Key="UiPrimaryDark">#818cf8</Color>
+    <Color x:Key="UiPrimaryHover">#4338ca</Color>
+    <Color x:Key="UiPrimaryHoverDark">#a5b4fc</Color>
+    <Color x:Key="UiOnPrimary">#ffffff</Color>
+    <Color x:Key="UiOnPrimaryDark">#11132a</Color>
+    <Color x:Key="UiPrimarySubtle">#eef2ff</Color>
+    <Color x:Key="UiPrimarySubtleDark">#232657</Color>
+    <Color x:Key="UiAccent">#6366f1</Color>
+    <Color x:Key="UiAccentDark">#818cf8</Color>
+    <Color x:Key="UiFocus">#6366f1</Color>
+    <Color x:Key="UiFocusDark">#a5b4fc</Color>
+    <Color x:Key="UiSuccess">#047857</Color>
+    <Color x:Key="UiSuccessDark">#34d399</Color>
+    <Color x:Key="UiSuccessBg">#d1fae5</Color>
+    <Color x:Key="UiSuccessBgDark">#0c2f25</Color>
+    <Color x:Key="UiWarning">#b45309</Color>
+    <Color x:Key="UiWarningDark">#fbbf24</Color>
+    <Color x:Key="UiWarningBg">#fef3c7</Color>
+    <Color x:Key="UiWarningBgDark">#33260a</Color>
+    <Color x:Key="UiError">#b91c1c</Color>
+    <Color x:Key="UiErrorDark">#f87171</Color>
+    <Color x:Key="UiErrorBg">#fee2e2</Color>
+    <Color x:Key="UiErrorBgDark">#3a1414</Color>
+    <Color x:Key="UiOnError">#ffffff</Color>
+    <Color x:Key="UiOnErrorDark">#2a0a0a</Color>
+    <Color x:Key="UiInfo">#1d4ed8</Color>
+    <Color x:Key="UiInfoDark">#60a5fa</Color>
+    <Color x:Key="UiInfoBg">#dbeafe</Color>
+    <Color x:Key="UiInfoBgDark">#10264a</Color>
+    <Color x:Key="UiNeutral">#374151</Color>
+    <Color x:Key="UiNeutralDark">#cbd5e1</Color>
+    <Color x:Key="UiNeutralBg">#f3f4f6</Color>
+    <Color x:Key="UiNeutralBgDark">#252a3d</Color>
+
 </ResourceDictionary>

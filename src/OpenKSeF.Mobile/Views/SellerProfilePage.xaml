@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.SellerProfilePage"
+             x:DataType="vm:SellerProfileViewModel"
+             Style="{StaticResource UiPage}"
+             Title="Dane do faktur">
+
+    <Grid>
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="16">
+
+                <Border Style="{StaticResource UiAlert}"
+                        IsVisible="{Binding IsUnsupported}"
+                        AutomationId="SellerProfilePageAlertUnsupported"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}">
+                    <Label Text="Ten serwer OpenKSeF nie obsługuje jeszcze wystawiania faktur."
+                           TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
+                </Border>
+
+                <Border Style="{StaticResource UiAlert}"
+                        IsVisible="{Binding IsIncomplete}"
+                        AutomationId="SellerProfilePageAlertIncomplete"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource UiInfoBg}, Dark={StaticResource UiInfoBgDark}}">
+                    <Label Text="Uzupełnij dane firmy, aby wystawiać faktury."
+                           TextColor="{AppThemeBinding Light={StaticResource UiInfo}, Dark={StaticResource UiInfoDark}}" />
+                </Border>
+
+                <VerticalStackLayout Spacing="16" IsVisible="{Binding IsLoaded}">
+
+                    <Border Style="{StaticResource UiCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Sprzedawca" Style="{StaticResource UiH2}" />
+                            <Label Text="NIP" Style="{StaticResource UiFieldLabel}" />
+                            <Entry Text="{Binding Nip}" Style="{StaticResource UiEntryReadOnly}"
+                                   AutomationId="SellerProfilePageEntryNip" />
+                            <Button Text="Pobierz z NIP (biała lista)"
+                                    Style="{StaticResource UiButtonTonal}"
+                                    Command="{Binding LookupNipCommand}"
+                                    AutomationId="SellerProfilePageButtonLookup" />
+                            <ActivityIndicator IsRunning="{Binding IsLookingUp}" IsVisible="{Binding IsLookingUp}" HeightRequest="24" />
+                            <Label Text="{Binding LookupStatus}"
+                                   AutomationId="SellerProfilePageLabelLookupStatus"
+                                   IsVisible="{Binding LookupStatus, Converter={StaticResource IsNotNullConverter}}"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource UiSuccess}, Dark={StaticResource UiSuccessDark}}">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding LookupTone}" Value="Warning">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding LookupTone}" Value="Error">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+
+                            <Label Text="Nazwa firmy" Style="{StaticResource UiFieldLabel}" Margin="0,8,0,0" />
+                            <Entry Text="{Binding LegalName}" Style="{StaticResource UiEntry}"
+                                   AutomationId="SellerProfilePageEntryLegalName" />
+                            <Label Text="{Binding LegalNameError}" Style="{StaticResource UiFieldError}"
+                                   IsVisible="{Binding LegalNameError, Converter={StaticResource IsNotNullConverter}}" />
+
+                            <Label Text="Adres (ulica i numer)" Style="{StaticResource UiFieldLabel}" />
+                            <Entry Text="{Binding AddressLine1}" Style="{StaticResource UiEntry}"
+                                   AutomationId="SellerProfilePageEntryAddressLine1" />
+                            <Label Text="Kod pocztowy i miejscowość" Style="{StaticResource UiFieldLabel}" />
+                            <Entry Text="{Binding AddressLine2}" Style="{StaticResource UiEntry}"
+                                   AutomationId="SellerProfilePageEntryAddressLine2" />
+                            <Label Text="{Binding AddressError}" Style="{StaticResource UiFieldError}"
+                                   IsVisible="{Binding AddressError, Converter={StaticResource IsNotNullConverter}}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource UiCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Rachunek bankowy" Style="{StaticResource UiH2}" />
+                            <VerticalStackLayout Spacing="8"
+                                                 IsVisible="{Binding HasBankAccountOptions}"
+                                                 RadioButtonGroup.GroupName="bankAccount"
+                                                 RadioButtonGroup.SelectedValue="{Binding SelectedBankAccount}"
+                                                 BindableLayout.ItemsSource="{Binding BankAccountOptions}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="x:String">
+                                        <RadioButton Style="{StaticResource UiOptionCard}" Value="{Binding .}" Content="{Binding .}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Entry Text="{Binding OtherBankAccount}" Style="{StaticResource UiEntry}"
+                                   IsVisible="{Binding IsOtherAccount}"
+                                   Keyboard="Numeric"
+                                   Placeholder="61 1090 1014 0000 0712 1981 2874"
+                                   AutomationId="SellerProfilePageEntryBankAccount" />
+                            <Label Text="{Binding BankAccountError}" Style="{StaticResource UiFieldError}"
+                                   AutomationId="SellerProfilePageLabelBankAccountError"
+                                   IsVisible="{Binding BankAccountError, Converter={StaticResource IsNotNullConverter}}" />
+                            <Label Style="{StaticResource UiMutedText}" FontSize="12"
+                                   Text="Rachunek spoza białej listy to ryzyko podatkowe nabywcy przy płatnościach powyżej 15 000 zł." />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource UiCard}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="Numeracja" Style="{StaticResource UiH2}" />
+                            <Label Text="Wzór numeru" Style="{StaticResource UiFieldLabel}" />
+                            <Entry Text="{Binding NumberingPattern}" Style="{StaticResource UiEntry}"
+                                   FontFamily="{OnPlatform Android=monospace, iOS=Menlo}"
+                                   AutomationId="SellerProfilePageEntryPattern" />
+                            <Label Style="{StaticResource UiMutedText}" FontSize="12" Text="Znaczniki: {nr} {MM} {RRRR}" />
+                            <Label Text="{Binding NumberingPatternError}" Style="{StaticResource UiFieldError}"
+                                   IsVisible="{Binding NumberingPatternError, Converter={StaticResource IsNotNullConverter}}" />
+                            <Label Text="Następny numer" Style="{StaticResource UiFieldLabel}" />
+                            <Entry Text="{Binding NextNumber}" Style="{StaticResource UiEntry}" Keyboard="Numeric"
+                                   AutomationId="SellerProfilePageEntryNextNumber" />
+                            <Label Text="{Binding NextNumberError}" Style="{StaticResource UiFieldError}"
+                                   IsVisible="{Binding NextNumberError, Converter={StaticResource IsNotNullConverter}}" />
+                            <Label Text="{Binding NumberPreview}" Style="{StaticResource UiMutedText}"
+                                   AutomationId="SellerProfilePageLabelPreview" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource UiCard}">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12">
+                            <Label Text="Metoda kasowa" Style="{StaticResource UiFieldLabel}" />
+                            <Label Grid.Row="1" Style="{StaticResource UiMutedText}" FontSize="12"
+                                   Text="Dodaje adnotację „metoda kasowa” (P_16)" />
+                            <Switch Grid.Column="1" Grid.RowSpan="2" IsToggled="{Binding CashAccounting}"
+                                    AutomationId="SellerProfilePageSwitchCashAccounting" />
+                        </Grid>
+                    </Border>
+
+                    <Label Text="{Binding ErrorMessage}" Style="{StaticResource UiFieldError}" FontSize="14"
+                           AutomationId="SellerProfilePageLabelError"
+                           IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}" />
+
+                    <Button Text="Zapisz dane"
+                            Style="{StaticResource UiButtonPrimary}"
+                            Command="{Binding SaveCommand}"
+                            AutomationId="SellerProfilePageButtonSave" />
+                </VerticalStackLayout>
+
+                <Label Text="{Binding ErrorMessage}" Style="{StaticResource UiFieldError}" FontSize="14"
+                       IsVisible="{Binding IsLoaded, Converter={StaticResource InvertedBoolConverter}}" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                           VerticalOptions="Center" HorizontalOptions="Center" />
+    </Grid>
+
+</ContentPage>
