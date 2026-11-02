@@ -159,6 +159,47 @@ public class PostLoginNavigationServiceTests
         _api.GetOnboardingStatusAsync().Returns(new OnboardingStatusDto { IsComplete = complete });
 
     [Fact]
+    public async Task SignOut_RemovesInvoiceFilesAndShareCopiesFromCache()
+    {
+        var cache = FileSystem.CacheDirectory;
+        File.WriteAllText(Path.Combine(cache, "FV_1_11_2026.pdf"), "x");
+        File.WriteAllText(Path.Combine(cache, "FV_1_11_2026_UPO.xml"), "x");
+        Directory.CreateDirectory(Path.Combine(cache, "share-copy"));
+        File.WriteAllText(Path.Combine(cache, "share-copy", "FV_1_11_2026.xml"), "x");
+
+        await _nav.SignOutAsync();
+
+        Assert.Empty(Directory.GetFileSystemEntries(cache));
+        await _auth.Received(1).LogoutAsync();
+    }
+
+    [Fact]
+    public async Task SignOut_FileThatCannotBeDeleted_StillLogsOut_AndRemovesTheRest()
+    {
+        var cache = FileSystem.CacheDirectory;
+        var locked = Path.Combine(cache, "locked.pdf");
+        var other = Path.Combine(cache, "other.pdf");
+        File.WriteAllText(other, "x");
+        using (new FileStream(locked, FileMode.Create, FileAccess.Write, FileShare.None))
+            await _nav.SignOutAsync();
+
+        await _auth.Received(1).LogoutAsync();
+        Assert.False(File.Exists(other));
+        File.Delete(locked);
+    }
+
+    [Fact]
+    public async Task SessionEnded_RemovesInvoiceFilesFromCache()
+    {
+        var file = Path.Combine(FileSystem.CacheDirectory, "FV_2_11_2026.pdf");
+        File.WriteAllText(file, "x");
+
+        await _nav.HandleSessionEndedAsync();
+
+        Assert.False(File.Exists(file));
+    }
+
+    [Fact]
     public async Task SessionEnded_StopsHub_TellsUser_AndOpensLogin_KeepingLocalCache()
     {
         Application.Current!.Windows[0].Page = null;

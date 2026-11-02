@@ -87,6 +87,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
     public async Task HandleSessionEndedAsync()
     {
         try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+        ClearCacheDirectory();
         try { await Shell.Current.DisplayAlertAsync("Sesja wygasła", "Zaloguj się ponownie.", "OK"); } catch { }
         Application.Current!.Windows[0].Page = new AppShell();
     }
@@ -96,6 +97,27 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         try { await _notificationHub.StopAsync(); } catch { }
         try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
         try { await _localDb.ClearUserDataAsync(); } catch { }
+        ClearCacheDirectory();
         await _authService.LogoutAsync();
+    }
+
+    /// <summary>The whole directory, not named files: shared PDF, XML and UPO hold private buyers' data, and the share sheet may keep its own copies here.</summary>
+    private static void ClearCacheDirectory()
+    {
+        try
+        {
+            foreach (var entry in new DirectoryInfo(FileSystem.CacheDirectory).GetFileSystemInfos())
+            {
+                try
+                {
+                    if (entry is DirectoryInfo directory)
+                        directory.Delete(recursive: true);
+                    else
+                        entry.Delete();
+                }
+                catch { }
+            }
+        }
+        catch { }
     }
 }
