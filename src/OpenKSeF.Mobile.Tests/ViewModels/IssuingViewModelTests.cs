@@ -558,7 +558,7 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task Draft_CopyAfterInvVal022_OpensNewDraft()
+    public async Task Draft_CopyAfterInvVal022_SwitchesFormToNewDraft()
     {
         var copy = Invoice("Draft");
         copy.Id = Guid.NewGuid();
@@ -568,7 +568,10 @@ public class IssuingViewModelTests : IDisposable
 
         await vm.CopyAsNewCommand.ExecuteAsync(null);
 
-        Assert.Equal($"../invoiceDraft?tenantId={TenantId}&invoiceId={copy.Id}", Shell.Current.LastRoute);
+        Assert.Equal(copy.Id.ToString(), vm.InvoiceId);
+        Assert.False(vm.ShowCopyAsNew);
+        Assert.Null(vm.IssueDateError);
+        Assert.Equal(copy.Buyer.Name, vm.BuyerName);
     }
 
     [Fact]

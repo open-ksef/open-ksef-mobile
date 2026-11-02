@@ -422,7 +422,9 @@ public partial class InvoiceDraftViewModel : ObservableObject
         try
         {
             var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, invoiceId);
-            try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); } catch { }
+            ClearErrors();
+            InvoiceId = copy.Id.ToString();
+            Fill(copy);
         }
         catch (Exception ex)
         {
