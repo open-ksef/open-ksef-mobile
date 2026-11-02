@@ -11,6 +11,21 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: Unit tests (pl-PL)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Unit tests
+        env:
+          TEST_CULTURE: pl-PL
+        run: dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj -c Release --nologo
+
   # ─────────────────────────────────────────────
   # 1. Create draft GitHub Release
   # ─────────────────────────────────────────────
@@ -50,7 +65,7 @@ jobs:
   # ─────────────────────────────────────────────
   android:
     name: Android (signed)
-    needs: create-release
+    needs: [test, create-release]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -158,6 +173,15 @@ jobs:
             ${{ steps.artifacts.outputs.aab }}
             ${{ steps.artifacts.outputs.apk }}
 
+      - name: Upload AAB to Google Play internal track
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.openksef.mobile
+          releaseFiles: ${{ steps.artifacts.outputs.aab }}
+          tracks: internal
+          status: completed
+
   # ─────────────────────────────────────────────
   # 3. MAUI iOS → IPA
   #    Signing requires Apple Developer secrets.
@@ -166,7 +190,7 @@ jobs:
   # ─────────────────────────────────────────────
   ios:
     name: iOS IPA
-    needs: create-release
+    needs: [test, create-release]
     runs-on: macos-26
     timeout-minutes: 60
     permissions:
