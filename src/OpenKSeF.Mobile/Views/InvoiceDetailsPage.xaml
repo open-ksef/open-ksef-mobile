@@ -148,7 +148,7 @@
                                                         <Span Text="   Brutto: " TextColor="{StaticResource TextMuted}" FontSize="11" />
                                                         <Span Text="{Binding AmountGrossText}" />
                                                         <Span Text="   VAT: " TextColor="{StaticResource TextMuted}" FontSize="11" />
-                                                        <Span Text="{Binding VatRate}" />
+                                                        <Span Text="{Binding VatRateText}" />
                                                     </FormattedString>
                                                 </Label.FormattedText>
                                             </Label>

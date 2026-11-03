@@ -75,7 +75,22 @@ public class DisplayTextTests
         Assert.Equal("—", line.UnitPriceNetText);
         Assert.Equal("—", line.AmountNetText);
         Assert.Equal("—", line.AmountGrossText);
+        Assert.Equal("—", line.VatRateText);
     }
+
+    [Fact]
+    public void InvoiceLineDto_VatRate_ShownAsSent() =>
+        Assert.Equal("23", new InvoiceLineDto { VatRate = "23" }.VatRateText);
+
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("pl-PL")]
+    public void ReceivedUnitPrice_KeepsPortalPrecision(string culture) => UnderCulture(culture, () =>
+    {
+        Assert.Equal("0,1234", new InvoiceLineDto { UnitPriceNet = 0.1234m }.UnitPriceNetText);
+        Assert.Equal($"1{Nbsp}000,50", new InvoiceLineDto { UnitPriceNet = 1000.5m }.UnitPriceNetText);
+        Assert.Equal("10,00", new InvoiceLineDto { UnitPriceNet = 10m }.UnitPriceNetText);
+    });
 
     [Theory]
     [InlineData("en-US")]
@@ -96,7 +111,7 @@ public class DisplayTextTests
 
     [Theory]
     [InlineData(typeof(InvoiceDto), new[] { "GrossText", "GrossAmountText", "IssueDateText", "AcquisitionDateText", "DisplayNumber" })]
-    [InlineData(typeof(InvoiceLineDto), new[] { "QuantityText", "UnitPriceNetText", "AmountNetText", "AmountGrossText" })]
+    [InlineData(typeof(InvoiceLineDto), new[] { "QuantityText", "UnitPriceNetText", "AmountNetText", "AmountGrossText", "VatRateText" })]
     public void DisplayProperties_NeverReachTheWire(Type dto, string[] display)
     {
         var json = JsonSerializer.Serialize(Activator.CreateInstance(dto), dto);
@@ -127,7 +142,7 @@ public class DisplayTextTests
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../OpenKSeF.Mobile"));
         var files = Directory.GetFiles(Path.Combine(root, "Views"), "*.xaml")
             .Concat(Directory.GetFiles(Path.Combine(root, "ViewModels"), "*.cs"));
-        var cultureDependent = new Regex(@":N\d|:dd\b|:HH\b|:yyyy\b");
+        var cultureDependent = new Regex(@":N\d|:dd\b|:HH\b|:yyyy\b|ToString\(""[^""]*(N\d|yyyy|MM|dd|HH)[^""]*""\)");
 
         var hits = files.Where(f => cultureDependent.IsMatch(File.ReadAllText(f))).Select(Path.GetFileName);
 

@@ -18,9 +18,11 @@ public class InvoiceLineDto
     [JsonIgnore]
     public string QuantityText => IssuingFormat.Quantity(Quantity);
     [JsonIgnore]
-    public string UnitPriceNetText => IssuingFormat.Amount(UnitPriceNet);
+    public string UnitPriceNetText => IssuingFormat.UnitPrice(UnitPriceNet);
     [JsonIgnore]
     public string AmountNetText => IssuingFormat.Amount(AmountNet);
     [JsonIgnore]
     public string AmountGrossText => IssuingFormat.Amount(AmountGross);
+    [JsonIgnore]
+    public string VatRateText => string.IsNullOrEmpty(VatRate) ? "—" : VatRate;
 }

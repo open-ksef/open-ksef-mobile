@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
@@ -160,7 +161,23 @@ public class SellerProfileViewModelTests
 
         await vm.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal((1, DateTime.Today.ToString("yyyy-MM")), (sent!.NextNumber, sent.NextNumberPeriod));
+        Assert.Equal((1, DateTime.Today.ToString("yyyy-MM", CultureInfo.InvariantCulture)), (sent!.NextNumber, sent.NextNumberPeriod));
+    }
+
+    [Fact]
+    public async Task Save_ChangedNextNumber_SendsGregorianPeriodOnAnyDevice()
+    {
+        var vm = await LoadedAsync(Profile());
+        vm.NextNumber = "1";
+        SellerProfileRequest? sent = null;
+        _api.UpdateSellerProfileAsync(TenantId, Arg.Do<SellerProfileRequest>(r => sent = r)).Returns(Profile());
+
+        var saved = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("th-TH");
+        try { await vm.SaveCommand.ExecuteAsync(null); }
+        finally { CultureInfo.CurrentCulture = saved; }
+
+        Assert.Equal($"{DateTime.Today.Year:D4}-{DateTime.Today.Month:D2}", sent!.NextNumberPeriod);
     }
 
     [Fact]

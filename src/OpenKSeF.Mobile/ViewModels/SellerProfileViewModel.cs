@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenKSeF.Mobile.Models;
@@ -228,7 +229,7 @@ public partial class SellerProfileViewModel : ObservableObject
             CashAccounting = CashAccounting,
             NumberingPattern = NumberingPattern,
             NextNumber = nextNumber,
-            NextNumberPeriod = nextNumber == _loadedNextNumber ? _loadedNextNumberPeriod : DateTime.Today.ToString("yyyy-MM")
+            NextNumberPeriod = nextNumber == _loadedNextNumber ? _loadedNextNumberPeriod : DateTime.Today.ToString("yyyy-MM", CultureInfo.InvariantCulture)
         };
 
         try

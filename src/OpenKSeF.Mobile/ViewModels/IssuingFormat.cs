@@ -16,6 +16,8 @@ public static class IssuingFormat
 
     public static string Quantity(decimal? quantity) => quantity?.ToString("#,0.######", Pl) ?? "—";
 
+    public static string UnitPrice(decimal? price) => price?.ToString("#,0.00####", Pl) ?? "—";
+
     public static string Date(DateOnly date) => date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
 
     public static string Date(DateTime? date) => date?.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) ?? "—";
