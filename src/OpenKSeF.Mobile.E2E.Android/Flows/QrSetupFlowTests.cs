@@ -78,6 +78,10 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
         if (AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0)
         {
+            if (AndroidDriver.FindElements(ByAutoId("LoginPageButtonScanQr")).Count == 0)
+                AndroidDriver.FindElement(ByAutoId("LoginPageButtonChangeServer")).Click();
+
+            wait.Until(d => d.FindElements(ByAutoId("LoginPageButtonScanQr")).Count > 0);
             AndroidDriver.FindElement(ByAutoId("LoginPageButtonScanQr")).Click();
             wait.Until(d => d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0);
         }
@@ -129,7 +133,7 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
             Thread.Sleep(1000);
 
-            var qrFile = AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'openksef-setup-qr')]"))
+            var qrFile = AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'openksef-setup-qr') or starts-with(@content-desc, 'openksef-setup-qr')]"))
                 .FirstOrDefault();
 
             if (qrFile is null)
@@ -141,14 +145,13 @@ public sealed class QrSetupFlowTests : AndroidTestBase
             qrFile.Click();
 
             var switchButton = By.XPath("//*[@text='Przełącz' or @text='PRZEŁĄCZ']");
+            wait.IgnoreExceptionTypes(typeof(StaleElementReferenceException));
             wait.Until(d =>
-                d.FindElements(switchButton).Count > 0 ||
-                d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0);
-            AndroidDriver.FindElements(switchButton).FirstOrDefault()?.Click();
-
-            wait.Until(d =>
-                d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0 &&
-                d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
+            {
+                d.FindElements(switchButton).FirstOrDefault()?.Click();
+                return d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0 &&
+                    d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0;
+            });
 
             Assert.That(AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail")).Displayed, Is.True,
                 "Login page should be visible after scanning a QR with a stale setup token.");

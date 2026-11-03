@@ -56,9 +56,9 @@ public class ScanSetupQrViewModelTests
         Assert.Contains("Serwer ustawiony", vm.StatusText);
         Assert.Null(vm.ErrorMessage);
         Assert.Empty(_postLoginNav.ReceivedCalls());
-        Assert.DoesNotContain(
-            typeof(ScanSetupQrViewModel).GetConstructors().Single().GetParameters(),
-            p => p.ParameterType == typeof(IAuthService) || p.ParameterType == typeof(IApiService));
+        Assert.Equal(
+            new[] { typeof(IServerSettingsService), typeof(IPostLoginNavigationService) },
+            typeof(ScanSetupQrViewModel).GetConstructors().Single().GetParameters().Select(p => p.ParameterType));
     }
 
     [Fact]
