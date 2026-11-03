@@ -103,6 +103,10 @@ public class AutomationIdCoverageTests
             "IssuedInvoiceDetailsPageLabelKsefNumber",
             "IssuedInvoiceDetailsPageLabelRejection",
             "IssuedInvoiceDetailsPageToolbarCopy");
+
+        AssertFileContainsAll(
+            "AccountPage.xaml",
+            "AccountPageRowDeleteAccount");
     }
 
     private static void AssertFileContainsAll(string fileName, params string[] automationIds)

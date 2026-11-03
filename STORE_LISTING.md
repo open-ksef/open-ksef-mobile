@@ -21,7 +21,7 @@ Reference document for the Google Play Console submission. Copy-paste these valu
 ## Short description (max 80 characters)
 
 ```
-Przeglądaj i synchronizuj faktury z KSeF na telefonie — powiadomienia i QR.
+Wystawiaj i przeglądaj faktury w KSeF na telefonie — powiadomienia i kody QR.
 ```
 
 ---
@@ -29,17 +29,19 @@ Przeglądaj i synchronizuj faktury z KSeF na telefonie — powiadomienia i QR.
 ## Full description (max 4000 characters)
 
 ```
-OpenKSeF to darmowa, open-source'owa aplikacja mobilna do przeglądania i synchronizacji faktur z Krajowego Systemu e-Faktur (KSeF).
+OpenKSeF to darmowa, open-source'owa aplikacja mobilna do wystawiania, przeglądania i synchronizacji faktur w Krajowym Systemie e-Faktur (KSeF).
 
-Aplikacja łączy się z Twoją instancją OpenKSeF i pozwala szybko sprawdzać faktury, kopiować dane do przelewu i generować kody QR — bez potrzeby logowania do portalu KSeF na komputerze.
+Aplikacja łączy się z Twoją instancją OpenKSeF i pozwala szybko wystawiać i sprawdzać faktury, kopiować dane do przelewu i generować kody QR — bez potrzeby logowania do portalu KSeF na komputerze.
 
 GŁÓWNE FUNKCJE:
 
 • Przegląd faktur – lista faktur z KSeF z wyszukiwaniem i filtrami. Szczegóły faktury: kwoty, daty, dane kontrahenta.
 
+• Wystawianie faktur – utwórz fakturę dla firmy lub osoby prywatnej, pobierz dane nabywcy po NIP i wyślij fakturę do KSeF. Sprawdzaj jej status, udostępniaj PDF, XML i UPO.
+
 • Synchronizacja w tle – nowe faktury pojawiają się automatycznie dzięki synchronizacji z KSeF przez backend OpenKSeF.
 
-• Powiadomienia push – natychmiastowe powiadomienia o nowych fakturach (SignalR + opcjonalnie Firebase Cloud Messaging).
+• Powiadomienia push – powiadomienia o nowych fakturach.
 
 • Kody QR i dane przelewu – skopiuj dane przelewu jednym kliknięciem lub wygeneruj kod QR do szybkiej płatności.
 
@@ -51,7 +53,7 @@ GŁÓWNE FUNKCJE:
 
 • Bezpieczeństwo – logowanie przez OpenID Connect (Keycloak), szyfrowanie tokenów KSeF w bazie, komunikacja HTTPS.
 
-• Self-hosted – OpenKSeF to oprogramowanie self-hosted. Twoje dane faktur pozostają na Twoim serwerze. Nie korzystamy z żadnych zewnętrznych usług do przechowywania Twoich danych.
+• Self-hosted – OpenKSeF możesz uruchomić na własnym serwerze. Dane firm i faktur są przechowywane na instancji, z którą łączy się aplikacja. Powiadomienia push przechodzą przez usługę relay OpenKSeF oraz Firebase Cloud Messaging lub Apple Push Notification service, wystawione faktury trafiają do KSeF, a sprawdzenie NIP-u korzysta z białej listy Ministerstwa Finansów.
 
 • Open source – kod źródłowy jest publicznie dostępny na GitHub (github.com/open-ksef). Licencja Elastic License 2.0.
 
@@ -64,7 +66,7 @@ JAK ZACZĄĆ:
 
 WYMAGANIA:
 
-• Własna instancja OpenKSeF (self-hosted) lub dostęp do instancji demo
+• Dostęp do instancji OpenKSeF: własnej (self-hosted) lub udostępnionej przez jej właściciela
 • Android 7.0 (API 24) lub nowszy
 
 WSPARCIE I KONTAKT:
@@ -119,20 +121,44 @@ Expected rating: **Everyone / PEGI 3**
 
 ## Data safety
 
-| Data type                      | Collected | Shared                | Purpose                            | Optional |
-|--------------------------------|-----------|-----------------------|------------------------------------|----------|
-| Email address                  | Yes       | No                    | Account creation, notifications    | No       |
-| Name (business/vendor name)    | Yes       | No                    | Invoice display                    | No       |
-| Financial info (invoices, NIP) | Yes       | No                    | Core app functionality             | No       |
-| Device identifiers (FCM token) | Yes       | Yes (to push relay)   | Push notifications                 | Yes      |
-| App interactions               | No        | No                    | —                                  | —        |
-| Crash logs                     | No        | No                    | —                                  | —        |
+Answers cover the hosted instance and self-hosted instances together, because one label covers one binary. Evidence: T-303. Internal-only builds are exempt; submit before closed, open or production.
+
+| Data type (Play)                                                     | Collected | Shared | Purpose                                 | Optional |
+|----------------------------------------------------------------------|-----------|--------|-----------------------------------------|----------|
+| Personal: Name (account, seller, private buyer)                      | Yes       | No     | App functionality, account management   | Yes      |
+| Personal: Email address                                              | Yes       | No     | App functionality, account management   | No       |
+| Personal: User IDs (account ID)                                      | Yes       | No     | App functionality, account management   | No       |
+| Personal: Address (seller, buyer, may be a home address)             | Yes       | No     | App functionality                       | Yes      |
+| Personal: Other info (NIP, KSeF token)                               | Yes       | No     | App functionality                       | No       |
+| Financial: User payment info (seller bank account)                   | Yes       | No     | App functionality                       | Yes      |
+| Financial: Other financial info (issued invoices, amounts, lines)    | Yes       | No     | App functionality                       | Yes      |
+| Financial: Purchase history (received invoices)                      | Yes       | No     | App functionality                       | No       |
+| Device or other IDs (FCM/APNs token, device ID, Firebase install ID) | Yes       | No     | App functionality (push notifications)  | No       |
+| App interactions                                                     | No        | No     | -                                       | -        |
+| Crash logs, diagnostics                                              | No        | No     | -                                       | -        |
+| Photos, files, location, contacts, messages                          | No        | No     | -                                       | -        |
 
 Additional declarations:
-- Data is encrypted in transit (HTTPS)
-- Users can request account and data deletion
-- Data is NOT shared with third parties for advertising
-- Data is NOT used for personalization or profiling
+- All data is encrypted in transit (HTTPS enforced in Release builds)
+- Account creation: in-app (username and password, Google through Keycloak)
+- Account deletion URL: https://open-ksef.pl/docs/polityka-prywatnosci/#usuwanie-konta
+- Users can request account and data deletion; invoices accepted in KSeF on production may be retained
+- Not "shared" under Google's exclusions: push relay (run by the publisher), FCM and APNs (service providers), KSeF and the MF VAT white list (legal purpose, user action)
+- Data is NOT used for advertising, personalization or profiling
+- Crash logs change to Yes when Sentry ships (T-108); update this table and the form first (T-107)
+
+### App Store: App Privacy
+
+Not submitted yet; iOS is not released. Purpose for all: App Functionality. Linked to user: Yes. Tracking: No.
+
+| Category       | Types collected                                  |
+|----------------|--------------------------------------------------|
+| Contact Info   | Name, Email Address, Physical Address            |
+| Financial Info | Payment Info (bank account), Other Financial Info |
+| User Content   | Other User Content (invoice line descriptions)   |
+| Identifiers    | User ID, Device ID                               |
+
+Not collected: Diagnostics, Location, Contacts, Browsing History, Search History, Purchases, Usage Data, Sensitive Info, Health and Fitness.
 
 ---
 
