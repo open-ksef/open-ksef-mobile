@@ -101,7 +101,7 @@ public class AuthService : IAuthService
         _refreshToken = tokenResponse.RefreshToken;
         _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
 
-        await StoreTokensAsync();
+        await StoreLoginTokensAsync();
         return AuthResult.Success;
     }
 
@@ -130,7 +130,7 @@ public class AuthService : IAuthService
         _refreshToken = result.RefreshToken;
         _tokenExpiry = result.AccessTokenExpiration;
 
-        await StoreTokensAsync();
+        await StoreLoginTokensAsync();
         return AuthResult.Success;
     }
 
@@ -152,9 +152,6 @@ public class AuthService : IAuthService
             using var response = await _httpClient.PostAsJsonAsync(
                 $"{baseUrl}/api/account/register", registerPayload);
 
-            if (response.StatusCode == HttpStatusCode.Forbidden)
-                throw new InvalidOperationException("Rejestracja na tym serwerze jest wyłączona.");
-
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync();
@@ -175,7 +172,17 @@ public class AuthService : IAuthService
             return AuthResult.ServerUnreachable;
         }
 
-        if (await LoginWithCredentialsAsync(email, password) != AuthResult.Success)
+        AuthResult login;
+        try
+        {
+            login = await LoginWithCredentialsAsync(email, password);
+        }
+        catch
+        {
+            login = AuthResult.Rejected;
+        }
+
+        if (login != AuthResult.Success)
             throw new InvalidOperationException("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.");
 
         return AuthResult.Success;
@@ -350,6 +357,19 @@ public class AuthService : IAuthService
         catch
         {
             return SessionRestoreResult.Unverified;
+        }
+    }
+
+    private async Task StoreLoginTokensAsync()
+    {
+        try
+        {
+            await StoreTokensAsync();
+        }
+        catch
+        {
+            ClearTokens();
+            throw;
         }
     }
 

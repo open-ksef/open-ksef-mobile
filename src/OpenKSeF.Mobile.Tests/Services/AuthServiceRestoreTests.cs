@@ -804,6 +804,31 @@ public class AuthServiceRestoreTests
     }
 
     [Fact]
+    public async Task Login_TokensPartlyStored_Throws_LeavesNoSession()
+    {
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
+        SecureStorage.Default.WritesLeft = 1;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+
+        Assert.False(_auth.HasSession);
+        Assert.False(_auth.IsAuthenticated);
+        Assert.Equal(0, SecureStorage.Default.Count);
+    }
+
+    [Fact]
+    public async Task Register_CreatedButTokensCannotBeStored_SaysAccountCreated()
+    {
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
+        SecureStorage.Default.WritesLeft = 0;
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.RegisterAsync("a@b.pl", "password1", null, null));
+
+        Assert.Contains("Konto zostało utworzone", ex.Message);
+        Assert.False(_auth.HasSession);
+    }
+
+    [Fact]
     public Task GoogleLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser()
     {
         UseOidcClient(KnownProvider);

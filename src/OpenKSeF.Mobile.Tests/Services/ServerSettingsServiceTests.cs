@@ -217,12 +217,14 @@ public class ServerSettingsServiceTests
     }
 
     [Theory]
-    [InlineData("<html>not found</html>", "text/html")]
-    [InlineData("", "text/plain")]
-    public async Task Register_UnreadableErrorBody_KeepsFixedTextAndRevealsTheField(string body, string mediaType)
+    [InlineData(HttpStatusCode.NotFound, "<html>not found</html>", "text/html")]
+    [InlineData(HttpStatusCode.NotFound, "", "text/plain")]
+    [InlineData(HttpStatusCode.Forbidden, "<html>403</html>", "text/html")]
+    [InlineData(HttpStatusCode.Forbidden, "", "text/plain")]
+    public async Task Register_UnreadableErrorBody_KeepsFixedTextAndRevealsTheField(HttpStatusCode status, string body, string mediaType)
     {
         var (vm, _) = StoredServerLogin();
-        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.NotFound, body, mediaType));
+        _handler.Respond = _ => Task.FromResult(Response(status, body, mediaType));
 
         await vm.RegisterCommand.ExecuteAsync(null);
 
@@ -231,18 +233,16 @@ public class ServerSettingsServiceTests
     }
 
     [Theory]
-    [InlineData("""{"error":"Registration is disabled."}""", "application/json")]
-    [InlineData("""{"title":"Forbidden","status":403}""", "application/problem+json")]
-    [InlineData("<html>403</html>", "text/html")]
-    [InlineData("", "text/plain")]
-    public async Task Register_Forbidden_ShowsRegistrationOff_FieldHidden_NoLoginAttempt(string body, string mediaType)
+    [InlineData("""{"code":"registration_disabled","error":"Rejestracja nowych kont jest wyłączona. Skontaktuj się z administratorem."}""", "Rejestracja nowych kont jest wyłączona. Skontaktuj się z administratorem.")]
+    [InlineData("""{"title":"Forbidden","status":403}""", "Rejestracja nie powiodła się.")]
+    public async Task Register_ForbiddenWithJson_ShowsServerText_FieldUnchanged_NoLoginAttempt(string body, string message)
     {
         var (vm, _) = StoredServerLogin();
-        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.Forbidden, body, mediaType));
+        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.Forbidden, body));
 
         await vm.RegisterCommand.ExecuteAsync(null);
 
-        Assert.Equal("Rejestracja na tym serwerze jest wyłączona.", vm.ErrorMessage);
+        Assert.Equal(message, vm.ErrorMessage);
         Assert.False(vm.IsServerVisible);
         Assert.Single(_handler.Requests);
         await _postLoginNav.DidNotReceive().NavigateAsync();
