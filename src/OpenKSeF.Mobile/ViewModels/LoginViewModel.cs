@@ -231,7 +231,10 @@ public partial class LoginViewModel : ObservableObject
             if (success)
                 await _postLoginNav.NavigateAsync();
             else
+            {
+                ErrorMessage = "Rejestracja nie powiodła się. Sprawdź adres serwera.";
                 IsServerVisible = true;
+            }
         }
         catch (InvalidOperationException ex)
         {
@@ -271,6 +274,7 @@ public partial class LoginViewModel : ObservableObject
         if (!_serverSettings.TryUpdateServerUrl(ServerUrl, out var normalizedUrl, out var validationError))
         {
             ErrorMessage = validationError;
+            IsServerVisible = true;
             return false;
         }
 

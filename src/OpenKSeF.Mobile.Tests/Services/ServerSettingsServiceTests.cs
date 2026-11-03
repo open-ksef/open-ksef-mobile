@@ -142,7 +142,20 @@ public class ServerSettingsServiceTests
         await RunAsync(vm, action);
 
         Assert.True(vm.IsServerVisible);
+        Assert.NotNull(vm.ErrorMessage);
         Assert.Equal("https://dead.example.pl", Preferences.Default.Get(ServerUrlKey, string.Empty));
+    }
+
+    [Fact]
+    public async Task HiddenEmptyField_ValidationErrorRevealsTheField()
+    {
+        var vm = CreateLoginViewModel(Substitute.For<IAuthService>(), new ServerSettingsService());
+        vm.ToggleServerCommand.Execute(null);
+        Assert.False(vm.IsServerVisible);
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsServerVisible);
     }
 
     private sealed class RecordingHandler : HttpMessageHandler
