@@ -169,11 +169,11 @@ public class DeviceTokenServiceTests
     }
 
     [Fact]
-    public async Task EnableNotifications_ApiFailure_ReturnsFalse()
+    public async Task EnableNotifications_ApiFailure_Throws()
     {
         _api.RegisterDeviceTokenAsync(default!).ThrowsAsyncForAnyArgs(new HttpRequestException());
 
-        Assert.False(await _service.EnableNotificationsAsync());
+        await Assert.ThrowsAsync<HttpRequestException>(() => _service.EnableNotificationsAsync());
     }
 
     [Fact]
@@ -354,7 +354,7 @@ public class DeviceTokenServiceTests
         TurnedOff();
         _api.RegisterDeviceTokenAsync(default!).ThrowsAsyncForAnyArgs(new HttpRequestException());
 
-        Assert.False(await _service.EnableNotificationsAsync());
+        await Assert.ThrowsAsync<HttpRequestException>(() => _service.EnableNotificationsAsync());
 
         Assert.True(_service.PushDisabledByUser);
     }

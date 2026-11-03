@@ -139,35 +139,26 @@ public class DeviceTokenService : IDeviceTokenService
         if (status != PermissionStatus.Granted)
             return false;
 
-        var registered = false;
-        try
+        var platformInt = GetCurrentPlatform();
+
+        var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
+        var nativeToken = await TryGetNativePushTokenAsync();
+        var token = !string.IsNullOrWhiteSpace(nativeToken)
+            ? nativeToken
+            : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
+
+        await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
         {
-            var platformInt = GetCurrentPlatform();
+            Token = token,
+            Platform = platformInt,
+            TenantId = null
+        });
 
-            var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-            var nativeToken = await TryGetNativePushTokenAsync();
-            var token = !string.IsNullOrWhiteSpace(nativeToken)
-                ? nativeToken
-                : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
-
-            await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
-            {
-                Token = token,
-                Platform = platformInt,
-                TenantId = null
-            });
-
-            Preferences.Default.Set(TokenStorageKey, token);
-            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
-            Preferences.Default.Set(DeviceRegisteredKey, true);
-            Preferences.Default.Remove(PushDisabledKey);
-            registered = true;
-        }
-        catch
-        {
-        }
-
-        return registered;
+        Preferences.Default.Set(TokenStorageKey, token);
+        Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
+        Preferences.Default.Set(DeviceRegisteredKey, true);
+        Preferences.Default.Remove(PushDisabledKey);
+        return true;
     }
 
     public async Task<bool> AreNotificationsEnabledAsync()
@@ -214,7 +205,7 @@ public class DeviceTokenService : IDeviceTokenService
     {
         try
         {
-            await DeleteServerDevicesAsync(tokens).WaitAsync(TimeSpan.FromSeconds(10));
+            await DeleteServerDevicesAsync(tokens).WaitAsync(TimeSpan.FromSeconds(15));
             return true;
         }
         catch
