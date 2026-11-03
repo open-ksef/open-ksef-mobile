@@ -2,22 +2,34 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 using OpenKSeF.Mobile.Models;
 
 namespace OpenKSeF.Mobile.Services;
 
 public class ApiService : IApiService
 {
+    private const string SessionExpired = "Sesja wygasła. Zaloguj się ponownie.";
+    private const string NoConnection = "Brak połączenia z serwerem. Spróbuj ponownie po powrocie sieci.";
+    private const string TokenRejected = "Serwer nie przyjął logowania. Spróbuj ponownie później, a jeśli błąd wróci, wyloguj się i zaloguj ponownie.";
+
+    private static readonly Regex Sensitive = new(
+        @"Bearer\s+\S+|[\w+/=.-]{32,}|[^\s""'<>@:,;]+@[^\s""'<>@:,;]+|\d(?:[ -]?\d){8,}",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     private readonly HttpClient _http;
     private readonly IAuthService _auth;
     private readonly IServerSettingsService _serverSettings;
+    private readonly ILogger<ApiService> _logger;
 
-    public ApiService(HttpClient http, IAuthService auth, IServerSettingsService serverSettings)
+    public ApiService(HttpClient http, IAuthService auth, IServerSettingsService serverSettings, ILogger<ApiService> logger)
     {
         _http = http;
         _http.DefaultRequestHeaders.TryAddWithoutValidation("ngrok-skip-browser-warning", "true");
         _auth = auth;
         _serverSettings = serverSettings;
+        _logger = logger;
     }
 
     public async Task<UserInfo> GetMeAsync()
@@ -192,15 +204,14 @@ public class ApiService : IApiService
 
     private async Task<HttpResponseMessage> ExecuteAsync(HttpMethod method, string path, object? body = null)
     {
-        await SetAuthHeaderAsync();
+        var session = _auth.SessionGeneration;
+        var token = await _auth.GetAccessTokenAsync();
+        ThrowIfSessionChanged(session);
 
-        var response = await SendRequestAsync(method, path, body);
+        var response = await SendRequestAsync(method, path, body, token);
 
         if (response.StatusCode == HttpStatusCode.Unauthorized)
-            response = await TryRefreshAndRetryAsync(response, method, path, body);
-
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-            throw new ApiException(HttpStatusCode.Unauthorized, "Sesja wygasła. Zaloguj się ponownie.");
+            response = await RefreshAndRetryAsync(response, method, path, body, session);
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
             throw new ApiException(HttpStatusCode.Forbidden, "Brak uprawnien do tego zasobu.");
@@ -208,21 +219,33 @@ public class ApiService : IApiService
         if (!response.IsSuccessStatusCode)
         {
             var responseBody = await response.Content.ReadAsStringAsync();
-            throw new ApiException(
-                response.StatusCode,
-                (response.StatusCode == HttpStatusCode.Conflict ? ParseConflictMessage(responseBody) : null)
-                    ?? $"Blad serwera ({(int)response.StatusCode}): {responseBody}",
-                response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict ? ParseValidation(responseBody) : null);
+            var rejected = response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict;
+            var ruleMessage = rejected ? ParseRuleMessage(responseBody) : null;
+            var validation = rejected ? ParseValidation(responseBody) : null;
+
+            if (ruleMessage is null && validation is not { Errors.Count: > 0 })
+                _logger.LogWarning("{Method} {Path} returned {Status}: {Body}", method, Redact(StripQuery(path)), (int)response.StatusCode, Redact(responseBody));
+
+            throw new ApiException(response.StatusCode, ruleMessage ?? FixedMessage(response.StatusCode), validation);
         }
 
         return response;
     }
 
-    private static string? ParseConflictMessage(string body)
+    private static string FixedMessage(HttpStatusCode status) => (int)status >= 500
+        ? $"Błąd serwera ({(int)status}). Spróbuj ponownie później."
+        : $"Serwer odrzucił żądanie ({(int)status}).";
+
+    private static string StripQuery(string path) => path.Split('?')[0];
+
+    private static string Redact(string text) => Sensitive.Replace(text.Length > 1000 ? text[..1000] : text, "[redacted]");
+
+    private static string? ParseRuleMessage(string body)
     {
         try
         {
-            return JsonSerializer.Deserialize<ConflictBody>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web))?.Message;
+            var rule = JsonSerializer.Deserialize<RuleBody>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            return rule?.Message ?? rule?.Error;
         }
         catch (JsonException)
         {
@@ -230,7 +253,7 @@ public class ApiService : IApiService
         }
     }
 
-    private sealed record ConflictBody(string? Message);
+    private sealed record RuleBody(string? Message, string? Error);
 
     private static ValidationEnvelope? ParseValidation(string body)
     {
@@ -244,22 +267,41 @@ public class ApiService : IApiService
         }
     }
 
-    private async Task<HttpResponseMessage> TryRefreshAndRetryAsync(
-        HttpResponseMessage originalResponse, HttpMethod method, string path, object? body)
+    private async Task<HttpResponseMessage> RefreshAndRetryAsync(
+        HttpResponseMessage rejected, HttpMethod method, string path, object? body, int session)
     {
+        rejected.Dispose();
+        ThrowIfSessionChanged(session);
+
         var token = await _auth.RefreshAccessTokenAsync();
+        ThrowIfSessionChanged(session);
+
         if (token is null)
-            return originalResponse;
+        {
+            throw _auth.HasSession
+                ? new ApiException(HttpStatusCode.ServiceUnavailable, NoConnection)
+                : new ApiException(HttpStatusCode.Unauthorized, SessionExpired);
+        }
 
-        originalResponse.Dispose();
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var retried = await SendRequestAsync(method, path, body, token);
+        if (retried.StatusCode != HttpStatusCode.Unauthorized)
+            return retried;
 
-        return await SendRequestAsync(method, path, body);
+        retried.Dispose();
+        throw new ApiException(HttpStatusCode.Unauthorized, TokenRejected);
     }
 
-    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string path, object? body)
+    private void ThrowIfSessionChanged(int session)
+    {
+        if (_auth.SessionGeneration != session)
+            throw new ApiException(HttpStatusCode.Unauthorized, SessionExpired);
+    }
+
+    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string path, object? body, string? token)
     {
         var request = new HttpRequestMessage(method, BuildRequestUri(path));
+        if (token is not null)
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         if (body is not null)
             request.Content = JsonContent.Create(body);
 
@@ -267,9 +309,10 @@ public class ApiService : IApiService
         {
             return await _http.SendAsync(request);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            throw new ApiException(HttpStatusCode.ServiceUnavailable, $"Brak polaczenia z serwerem: {ex.Message}");
+            _logger.LogWarning("{Method} {Path} failed: {Error}", method, Redact(StripQuery(path)), ex.GetType().Name);
+            throw new ApiException(HttpStatusCode.ServiceUnavailable, NoConnection);
         }
     }
 
@@ -277,14 +320,5 @@ public class ApiService : IApiService
     {
         var serverRoot = _serverSettings.ServerUrl;
         return new Uri(new Uri($"{serverRoot}/"), path.TrimStart('/'));
-    }
-
-    private async Task SetAuthHeaderAsync()
-    {
-        var token = await _auth.GetAccessTokenAsync();
-        if (token is not null)
-        {
-            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        }
     }
 }
