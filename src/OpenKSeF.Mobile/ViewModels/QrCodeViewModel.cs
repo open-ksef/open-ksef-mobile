@@ -67,7 +67,7 @@ public partial class QrCodeViewModel : ObservableObject
                 Guid.Parse(TenantId),
                 Guid.Parse(InvoiceId));
 
-            Title = $"{invoice.VendorName} — {invoice.AmountGross:N2} {invoice.Currency}";
+            Title = $"{invoice.VendorName} — {invoice.GrossText}";
 
             _qrBytes = TransferQrGenerator.Generate(invoice);
             QrImage = ImageSource.FromStream(() => new MemoryStream(_qrBytes));

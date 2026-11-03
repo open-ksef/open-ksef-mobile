@@ -493,7 +493,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
                 : await _apiService.CreateIssuedInvoiceAsync(tenantId, request);
             _loaded = true;
             InvoiceId = saved.Id.ToString();
-            SavedAt = $"Zapisano {DateTime.Now:HH:mm}";
+            SavedAt = $"Zapisano {IssuingFormat.Time(DateTime.Now)}";
             return saved;
         }
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)

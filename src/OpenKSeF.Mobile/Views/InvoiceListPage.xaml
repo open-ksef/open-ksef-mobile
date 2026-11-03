@@ -108,22 +108,16 @@
                                        FontAttributes="Bold"
                                        LineBreakMode="TailTruncation" />
                                 <Label Grid.Column="1"
+                                       Text="{Binding GrossText}"
                                        FontSize="16"
                                        FontAttributes="Bold"
-                                       TextColor="{StaticResource Primary}">
-                                    <Label.Text>
-                                        <MultiBinding StringFormat="{}{0:N2} {1}">
-                                            <Binding Path="AmountGross" />
-                                            <Binding Path="Currency" />
-                                        </MultiBinding>
-                                    </Label.Text>
-                                </Label>
+                                       TextColor="{StaticResource Primary}" />
                                 <Label Grid.Row="1"
                                        Text="{Binding DisplayNumber}"
                                        FontSize="13"
                                        TextColor="{StaticResource TextMuted}" />
                                 <Label Grid.Row="2"
-                                       Text="{Binding IssueDate, StringFormat='{0:dd.MM.yyyy}'}"
+                                       Text="{Binding IssueDateText}"
                                        Style="{StaticResource LabelCaption}" />
                             </Grid>
                         </Border>
