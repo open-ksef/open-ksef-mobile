@@ -117,6 +117,8 @@ public partial class LoginViewModel : ObservableObject
     private void ToggleServer()
     {
         IsServerVisible = !IsServerVisible;
+        if (!IsServerVisible)
+            ServerUrl = _serverSettings.ServerUrl;
     }
 
     [RelayCommand]
@@ -138,15 +140,14 @@ public partial class LoginViewModel : ObservableObject
                 return;
             }
 
-            var success = await _authService.LoginWithCredentialsAsync(Email.Trim(), Password);
+            var result = await _authService.LoginWithCredentialsAsync(Email.Trim(), Password);
 
-            if (success)
+            if (result == AuthResult.Success)
                 await _postLoginNav.NavigateAsync();
+            else if (result == AuthResult.ServerUnreachable)
+                ShowServerUnreachable();
             else
-            {
                 ErrorMessage = "Nieprawidłowy email lub hasło.";
-                IsServerVisible = true;
-            }
         }
         catch (Exception ex)
         {
@@ -171,15 +172,14 @@ public partial class LoginViewModel : ObservableObject
             if (!EnsureServerConfigured())
                 return;
 
-            var success = await _authService.LoginWithGoogleAsync();
+            var result = await _authService.LoginWithGoogleAsync();
 
-            if (success)
+            if (result == AuthResult.Success)
                 await _postLoginNav.NavigateAsync();
+            else if (result == AuthResult.ServerUnreachable)
+                ShowServerUnreachable();
             else
-            {
                 ErrorMessage = "Logowanie przez Google nie powiodło się.";
-                IsServerVisible = true;
-            }
         }
         catch (Exception ex)
         {
@@ -222,14 +222,16 @@ public partial class LoginViewModel : ObservableObject
                 return;
             }
 
-            var success = await _authService.RegisterAsync(
+            var result = await _authService.RegisterAsync(
                 RegEmail.Trim(),
                 RegPassword,
                 string.IsNullOrWhiteSpace(RegFirstName) ? null : RegFirstName.Trim(),
                 string.IsNullOrWhiteSpace(RegLastName) ? null : RegLastName.Trim());
 
-            if (success)
+            if (result == AuthResult.Success)
                 await _postLoginNav.NavigateAsync();
+            else if (result == AuthResult.ServerUnreachable)
+                ShowServerUnreachable();
             else
             {
                 ErrorMessage = "Rejestracja nie powiodła się. Sprawdź adres serwera.";
@@ -267,6 +269,12 @@ public partial class LoginViewModel : ObservableObject
     private async Task ScanQrAsync()
     {
         try { await Shell.Current.GoToAsync("scanSetupQr"); } catch { }
+    }
+
+    private void ShowServerUnreachable()
+    {
+        ErrorMessage = $"Nie można połączyć się z serwerem {ActiveServerHost}. Sprawdź adres serwera i połączenie z siecią.";
+        IsServerVisible = true;
     }
 
     private bool EnsureServerConfigured()

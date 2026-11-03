@@ -82,7 +82,7 @@ public class LoginViewModelTests
     [Fact]
     public async Task LoginWithCredentials_Success_NavigatesPostLogin()
     {
-        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(true);
+        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(AuthResult.Success);
         var vm = CreateViewModel();
         vm.Email = " user@example.com ";
         vm.Password = "secret";

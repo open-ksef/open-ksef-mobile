@@ -7,11 +7,18 @@ public enum SessionRestoreResult
     Unverified
 }
 
+public enum AuthResult
+{
+    Rejected,
+    Success,
+    ServerUnreachable
+}
+
 public interface IAuthService
 {
-    Task<bool> LoginWithCredentialsAsync(string email, string password);
-    Task<bool> LoginWithGoogleAsync();
-    Task<bool> RegisterAsync(string email, string password, string? firstName, string? lastName);
+    Task<AuthResult> LoginWithCredentialsAsync(string email, string password);
+    Task<AuthResult> LoginWithGoogleAsync();
+    Task<AuthResult> RegisterAsync(string email, string password, string? firstName, string? lastName);
     Task LogoutAsync();
     Task<string?> GetAccessTokenAsync();
     Task<string?> RefreshAccessTokenAsync();
