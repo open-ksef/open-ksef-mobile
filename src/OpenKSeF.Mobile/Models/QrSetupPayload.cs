@@ -13,9 +13,6 @@ public class QrSetupPayload
     [JsonPropertyName("serverUrl")]
     public string ServerUrl { get; set; } = "";
 
-    [JsonPropertyName("setupToken")]
-    public string? SetupToken { get; set; }
-
     public bool IsValid =>
         Type == "openksef-setup" && Version >= 1 && !string.IsNullOrWhiteSpace(ServerUrl);
 }

@@ -1,5 +1,4 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
-using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
@@ -61,49 +60,13 @@ public sealed class QrSetupFlowTests : AndroidTestBase
     }
 
     [Test]
-    public async Task SetupTokenApi_GeneratesAndRedeems()
-    {
-        var serverUrl = Environment.GetEnvironmentVariable("APP_EXTERNAL_BASE_URL")
-            ?? "http://localhost:8080";
-
-        var username = Environment.GetEnvironmentVariable("KEYCLOAK_USERNAME");
-        var password = Environment.GetEnvironmentVariable("KEYCLOAK_PASSWORD");
-
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-        {
-            Assert.Ignore("KEYCLOAK_USERNAME / KEYCLOAK_PASSWORD are required.");
-            return;
-        }
-
-        var result = await SetupTokenHelper.GenerateSetupTokenAsync(serverUrl);
-
-        Assert.That(result.SetupToken, Is.Not.Empty, "Setup token should be generated");
-        Assert.That(result.QrPayloadJson, Does.Contain("openksef-setup"),
-            "QR payload should contain the expected type");
-        Assert.That(result.QrPayloadJson, Does.Contain(serverUrl.TrimEnd('/')),
-            "QR payload should contain the server URL");
-
-        TestContext.Progress.WriteLine($"Setup token generated successfully for {serverUrl}");
-        TestContext.Progress.WriteLine($"QR payload length: {result.QrPayloadJson.Length}");
-    }
-
-    [Test]
-    public void QrAutoLogin_ViaGalleryPick_NavigatesToAuthenticatedPage()
+    public void QrWithStaleSetupToken_ViaGalleryPick_SetsServerAndLandsOnLogin()
     {
         var serverUrl = Environment.GetEnvironmentVariable("APP_EXTERNAL_BASE_URL");
 
         if (string.IsNullOrWhiteSpace(serverUrl))
         {
-            Assert.Ignore("APP_EXTERNAL_BASE_URL is required for QR auto-login E2E test.");
-            return;
-        }
-
-        var username = Environment.GetEnvironmentVariable("KEYCLOAK_USERNAME");
-        var password = Environment.GetEnvironmentVariable("KEYCLOAK_PASSWORD");
-
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-        {
-            Assert.Ignore("KEYCLOAK_USERNAME / KEYCLOAK_PASSWORD are required.");
+            Assert.Ignore("APP_EXTERNAL_BASE_URL is required for this QR E2E test.");
             return;
         }
 
@@ -113,19 +76,18 @@ public sealed class QrSetupFlowTests : AndroidTestBase
             d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0 ||
             d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
 
-        var isOnQrPage = AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0;
-        if (!isOnQrPage)
+        if (AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0)
         {
-            Assert.Ignore("App did not start on QR setup page. Reset app data to test QR auto-login.");
-            return;
+            if (AndroidDriver.FindElements(ByAutoId("LoginPageButtonScanQr")).Count == 0)
+                AndroidDriver.FindElement(ByAutoId("LoginPageButtonChangeServer")).Click();
+
+            wait.Until(d => d.FindElements(ByAutoId("LoginPageButtonScanQr")).Count > 0);
+            AndroidDriver.FindElement(ByAutoId("LoginPageButtonScanQr")).Click();
+            wait.Until(d => d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0);
         }
 
-        // Generate QR code image, push to device, and trigger gallery pick
-        var setupResult = SetupTokenHelper.GenerateSetupTokenAsync(serverUrl)
-            .GetAwaiter().GetResult();
-
-        // Push a QR code PNG to the emulator via adb
-        var qrImagePath = GenerateQrCodeImage(setupResult.QrPayloadJson);
+        var qrPayload = $$"""{"type":"openksef-setup","version":1,"serverUrl":"{{serverUrl.TrimEnd('/')}}","setupToken":"stale-token"}""";
+        var qrImagePath = GenerateQrCodeImage(qrPayload);
         var devicePath = "/sdcard/Download/openksef-setup-qr.png";
 
         try
@@ -139,7 +101,6 @@ public sealed class QrSetupFlowTests : AndroidTestBase
             return;
         }
 
-        // Trigger media scan so the file appears in the picker
         try
         {
             AndroidDriver.ExecuteScript("mobile: shell", new Dictionary<string, object>
@@ -153,30 +114,26 @@ public sealed class QrSetupFlowTests : AndroidTestBase
             // Best-effort media scan
         }
 
-        // Tap "Pick from gallery" button
-        var galleryButton = AndroidDriver.FindElement(ByAutoId("ScanSetupQrButtonGallery"));
-        galleryButton.Click();
+        AndroidDriver.FindElement(ByAutoId("ScanSetupQrButtonGallery")).Click();
 
-        // Wait for the file picker and try to select the file
-        // Android file picker varies by OS version; use a defensive approach
-        var longWait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(15));
         try
         {
-            // Try to find and navigate in the Android file picker
-            // Look for "Downloads" or the file name in the picker
-            longWait.Until(d =>
+            try
             {
-                var elements = d.FindElements(By.XPath("//*[contains(@text, 'Download')]"));
-                return elements.Count > 0;
-            });
+                new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(15)).Until(d =>
+                    d.FindElements(By.XPath("//*[contains(@text, 'Download')]")).Count > 0);
+            }
+            catch (WebDriverTimeoutException)
+            {
+                Assert.Ignore("Android file picker did not behave as expected. This test requires a standard file picker.");
+                return;
+            }
 
-            var downloadFolder = AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'Download')]"))
-                .FirstOrDefault();
-            downloadFolder?.Click();
+            AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'Download')]")).FirstOrDefault()?.Click();
 
             Thread.Sleep(1000);
 
-            var qrFile = AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'openksef-setup-qr')]"))
+            var qrFile = AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'openksef-setup-qr') or starts-with(@content-desc, 'openksef-setup-qr')]"))
                 .FirstOrDefault();
 
             if (qrFile is null)
@@ -187,28 +144,20 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
             qrFile.Click();
 
-            // Wait for auto-login to complete
-            var authWait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(60));
-            authWait.Until(d =>
-                d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
-                d.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0 ||
-                d.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0);
+            var switchButton = By.XPath("//*[@text='Przełącz' or @text='PRZEŁĄCZ']");
+            wait.IgnoreExceptionTypes(typeof(StaleElementReferenceException));
+            wait.Until(d =>
+            {
+                d.FindElements(switchButton).FirstOrDefault()?.Click();
+                return d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0 &&
+                    d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0;
+            });
 
-            var authenticatedElement = AndroidDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle"))
-                .FirstOrDefault()
-                ?? AndroidDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).FirstOrDefault()
-                ?? AndroidDriver.FindElements(ByAutoId("OnboardingStepIndicator")).FirstOrDefault();
-
-            Assert.That(authenticatedElement, Is.Not.Null,
-                "Expected authenticated page (invoices or onboarding) after QR auto-login.");
-        }
-        catch (WebDriverTimeoutException)
-        {
-            Assert.Ignore("Android file picker did not behave as expected. This test requires a standard file picker.");
+            Assert.That(AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail")).Displayed, Is.True,
+                "Login page should be visible after scanning a QR with a stale setup token.");
         }
         finally
         {
-            // Cleanup: remove QR image from device
             try
             {
                 AndroidDriver.ExecuteScript("mobile: shell", new Dictionary<string, object>

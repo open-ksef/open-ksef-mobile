@@ -9,7 +9,6 @@ namespace OpenKSeF.Mobile.ViewModels;
 public partial class ScanSetupQrViewModel : ObservableObject
 {
     private readonly IServerSettingsService _serverSettings;
-    private readonly IAuthService _authService;
     private readonly IPostLoginNavigationService _postLoginNav;
     private bool _processed;
 
@@ -24,11 +23,9 @@ public partial class ScanSetupQrViewModel : ObservableObject
 
     public ScanSetupQrViewModel(
         IServerSettingsService serverSettings,
-        IAuthService authService,
         IPostLoginNavigationService postLoginNav)
     {
         _serverSettings = serverSettings;
-        _authService = authService;
         _postLoginNav = postLoginNav;
     }
 
@@ -83,19 +80,6 @@ public partial class ScanSetupQrViewModel : ObservableObject
                 ErrorMessage = validationError;
                 _processed = false;
                 return;
-            }
-
-            if (!string.IsNullOrEmpty(payload.SetupToken))
-            {
-                var redeemed = await _authService.RedeemSetupTokenAsync(normalizedUrl, payload.SetupToken);
-                if (redeemed)
-                {
-                    StatusText = "Zalogowano automatycznie!";
-                    await _postLoginNav.NavigateAsync();
-                    return;
-                }
-
-                ErrorMessage = "Token wygasł lub jest nieprawidłowy. Zaloguj się ręcznie.";
             }
 
             StatusText = $"Serwer ustawiony: {normalizedUrl}";

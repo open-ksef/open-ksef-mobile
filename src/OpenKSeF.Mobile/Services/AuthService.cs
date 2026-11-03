@@ -266,38 +266,6 @@ public class AuthService : IAuthService
         return await RefreshOnceAsync() == SessionRestoreResult.Restored ? _accessToken : null;
     }
 
-    public async Task<bool> RedeemSetupTokenAsync(string serverUrl, string setupToken)
-    {
-        try
-        {
-            var baseUrl = serverUrl.TrimEnd('/');
-            var request = new RedeemSetupTokenRequest { SetupToken = setupToken };
-            using var response = await _httpClient.PostAsJsonAsync(
-                $"{baseUrl}/api/account/redeem-setup-token", request);
-
-            if (!response.IsSuccessStatusCode)
-                return false;
-
-            var result = await response.Content.ReadFromJsonAsync<RedeemTokenResponse>();
-            if (result?.AccessToken is null)
-                return false;
-
-            EnsureConfiguration();
-
-            Interlocked.Increment(ref _sessionGeneration);
-            _accessToken = result.AccessToken;
-            _refreshToken = result.RefreshToken;
-            _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(result.ExpiresIn);
-
-            await StoreTokensAsync();
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     /// <summary>A realm with refresh token rotation ends the session when one token is used twice, so all callers share one POST and its result.</summary>
     private Task<SessionRestoreResult> RefreshOnceAsync()
     {
@@ -467,23 +435,4 @@ public class AuthService : IAuthService
         [JsonPropertyName("error")]
         public string? Error { get; set; }
     }
-
-    private sealed class RedeemSetupTokenRequest
-    {
-        [JsonPropertyName("setupToken")]
-        public string SetupToken { get; set; } = "";
-    }
-
-    private sealed class RedeemTokenResponse
-    {
-        [JsonPropertyName("accessToken")]
-        public string? AccessToken { get; set; }
-
-        [JsonPropertyName("refreshToken")]
-        public string? RefreshToken { get; set; }
-
-        [JsonPropertyName("expiresIn")]
-        public int ExpiresIn { get; set; }
-    }
-
 }

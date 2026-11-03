@@ -8,7 +8,6 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 /// Integration tests that verify the full auth flow against the real backend
 /// without Appium or an emulator. These tests catch issues like:
 /// - ROPC login failures (credential/deserialization problems)
-/// - Token redeem failures (QR setup flow)
 /// - API call failures after authentication
 /// - JSON deserialization issues (e.g. source-gen breaking token parsing)
 ///
@@ -136,49 +135,6 @@ public class AuthIntegrationTests
     }
 
     [Test]
-    public async Task SetupTokenFlow_GenerateAndRedeem()
-    {
-        using var http = CreateClient();
-        var accessToken = await GetAccessTokenAsync(http);
-
-        http.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-
-        // Generate setup token
-        var setupResponse = await http.PostAsync($"{_serverUrl}/api/account/setup-token", null);
-        Assert.That((int)setupResponse.StatusCode, Is.EqualTo(200),
-            $"Setup token generation failed: {setupResponse.StatusCode}");
-
-        var setupResult = await setupResponse.Content.ReadFromJsonAsync<SetupTokenResponse>();
-        Assert.That(setupResult?.SetupToken, Is.Not.Null.And.Not.Empty,
-            "Setup token is missing from response");
-
-        TestContext.Progress.WriteLine($"Setup token generated: {setupResult!.SetupToken[..8]}...");
-
-        // Redeem setup token (as if scanned by the app)
-        http.DefaultRequestHeaders.Authorization = null;
-        var redeemResponse = await http.PostAsJsonAsync(
-            $"{_serverUrl}/api/account/redeem-setup-token",
-            new { setupToken = setupResult.SetupToken });
-
-        var redeemBody = await redeemResponse.Content.ReadAsStringAsync();
-
-        if (redeemResponse.IsSuccessStatusCode)
-        {
-            var redeemResult = await redeemResponse.Content.ReadFromJsonAsync<RedeemTokenResponse>();
-            Assert.That(redeemResult?.AccessToken, Is.Not.Null.And.Not.Empty,
-                "Redeemed access token is missing -- JSON deserialization may be broken");
-            TestContext.Progress.WriteLine($"Redeem OK: token length={redeemResult!.AccessToken!.Length}");
-        }
-        else
-        {
-            TestContext.Progress.WriteLine($"Redeem returned {redeemResponse.StatusCode}: {redeemBody} (expected in some backend configs)");
-            Assert.That((int)redeemResponse.StatusCode, Is.Not.EqualTo(500),
-                "Redeem should not crash the server (5xx)");
-        }
-    }
-
-    [Test]
     public async Task FullLoginFlow_RopcThenApiCall_EndToEnd()
     {
         using var http = CreateClient();
@@ -265,23 +221,5 @@ public class AuthIntegrationTests
         public Guid Id { get; set; }
         public string Nip { get; set; } = "";
         public string? DisplayName { get; set; }
-    }
-
-    private sealed class SetupTokenResponse
-    {
-        [JsonPropertyName("setupToken")]
-        public string? SetupToken { get; set; }
-    }
-
-    private sealed class RedeemTokenResponse
-    {
-        [JsonPropertyName("accessToken")]
-        public string? AccessToken { get; set; }
-
-        [JsonPropertyName("refreshToken")]
-        public string? RefreshToken { get; set; }
-
-        [JsonPropertyName("expiresIn")]
-        public int ExpiresIn { get; set; }
     }
 }

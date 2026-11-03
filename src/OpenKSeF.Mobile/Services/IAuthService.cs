@@ -16,7 +16,6 @@ public interface IAuthService
     Task<string?> GetAccessTokenAsync();
     Task<string?> RefreshAccessTokenAsync();
     Task<SessionRestoreResult> RestoreSessionAsync();
-    Task<bool> RedeemSetupTokenAsync(string serverUrl, string setupToken);
     bool IsAuthenticated { get; }
     bool HasSession { get; }
     int SessionGeneration { get; }

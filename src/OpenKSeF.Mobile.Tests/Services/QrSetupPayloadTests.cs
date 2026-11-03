@@ -52,7 +52,7 @@ public class QrSetupPayloadTests
     }
 
     [Fact]
-    public void JsonDeserialization_WithSetupToken()
+    public void JsonDeserialization_OldQrWithSetupToken_TokenIgnored()
     {
         var json = """{"type":"openksef-setup","version":1,"serverUrl":"https://test.com","setupToken":"abc123"}""";
         var payload = JsonSerializer.Deserialize<QrSetupPayload>(json);
@@ -61,18 +61,16 @@ public class QrSetupPayloadTests
         Assert.Equal("openksef-setup", payload.Type);
         Assert.Equal(1, payload.Version);
         Assert.Equal("https://test.com", payload.ServerUrl);
-        Assert.Equal("abc123", payload.SetupToken);
         Assert.True(payload.IsValid);
     }
 
     [Fact]
-    public void JsonDeserialization_WithoutSetupToken()
+    public void JsonDeserialization_ServerOnly()
     {
         var json = """{"type":"openksef-setup","version":1,"serverUrl":"https://test.com"}""";
         var payload = JsonSerializer.Deserialize<QrSetupPayload>(json);
 
         Assert.NotNull(payload);
-        Assert.Null(payload.SetupToken);
         Assert.True(payload.IsValid);
     }
 
