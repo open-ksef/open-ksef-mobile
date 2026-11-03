@@ -6,6 +6,10 @@ namespace OpenKSeF.Mobile.ViewModels;
 
 public partial class AccountViewModel : ObservableObject
 {
+    private const string PushOffText = "Powiadomienia push są wyłączone.";
+    private const string PushOffPendingText =
+        "Powiadomienia wyłączone, ale serwer jeszcze o tym nie wie. Powiadomienie może dotrzeć, dopóki nie uruchomisz aplikacji ponownie z dostępem do sieci.";
+
     private readonly IServerSettingsService _serverSettings;
     private readonly IDeviceTokenService _deviceTokenService;
     private readonly INotificationHubService _notificationHub;
@@ -50,7 +54,7 @@ public partial class AccountViewModel : ObservableObject
             var hubStatus = _notificationHub.IsConnected ? " (SignalR połączony)" : "";
             NotificationStatusText = NotificationsEnabled
                 ? $"Powiadomienia push są włączone.{hubStatus}"
-                : "Powiadomienia push są wyłączone.";
+                : _deviceTokenService.PushRemovalPending ? PushOffPendingText : PushOffText;
         }
         catch
         {
@@ -71,15 +75,17 @@ public partial class AccountViewModel : ObservableObject
 
             if (alreadyEnabled)
             {
-                var refreshed = await _deviceTokenService.EnableNotificationsAsync();
-                NotificationsEnabled = refreshed;
-                NotificationStatusText = refreshed
-                    ? "Powiadomienia push są włączone."
-                    : "Nie udało się odnowić rejestracji powiadomień.";
+                var disable = _deviceTokenService.DisableNotificationsAsync();
+                try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+                var unregistered = await disable;
+                NotificationsEnabled = false;
+                NotificationStatusText = unregistered ? PushOffText : PushOffPendingText;
                 return;
             }
 
             var granted = await _deviceTokenService.EnableNotificationsAsync();
+            if (granted)
+                _ = _notificationHub.StartAsync();
 
             NotificationsEnabled = granted;
             NotificationStatusText = granted

@@ -253,6 +253,31 @@ public class PostLoginNavigationServiceTests
     }
 
     [Fact]
+    public async Task Navigate_PushOff_DoesNotStartHub()
+    {
+        OnboardingComplete(true);
+        _deviceTokenService.PushDisabledByUser.Returns(true);
+
+        await _nav.NavigateAsync();
+
+        await _notificationHub.DidNotReceive().StartAsync();
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+    }
+
+    [Theory]
+    [InlineData(false, 1)]
+    [InlineData(true, 0)]
+    public async Task RestoreUnverified_StartsHubOnlyWhenPushOn(bool pushOff, int hubStarts)
+    {
+        _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Unverified);
+        _deviceTokenService.PushDisabledByUser.Returns(pushOff);
+
+        await _nav.RestoreSessionAsync();
+
+        await _notificationHub.Received(hubStarts).StartAsync();
+    }
+
+    [Fact]
     public async Task Navigate_HubThatNeverConnects_DoesNotBlockNavigation()
     {
         OnboardingComplete(true);
