@@ -95,9 +95,9 @@ public partial class InvoiceDetailsViewModel : ObservableObject
         {
             await Shell.Current.DisplayAlertAsync("Błąd", ex.Message, "OK");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            await Shell.Current.DisplayAlertAsync("Błąd", $"Nie udało się skopiować: {ex.Message}", "OK");
+            await Shell.Current.DisplayAlertAsync("Błąd", "Nie udało się skopiować danych przelewu.", "OK");
         }
     }
 

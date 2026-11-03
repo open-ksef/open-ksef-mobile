@@ -90,7 +90,8 @@ public partial class QrCodeViewModel : ObservableObject
             if (load != _loadVersion)
                 return;
 
-            Title = $"{transfer.RecipientName} — {IssuingFormat.Money(transfer.Amount, transfer.Currency)}";
+            var money = IssuingFormat.Money(transfer.Amount, transfer.Currency);
+            Title = string.IsNullOrWhiteSpace(transfer.RecipientName) ? money : $"{transfer.RecipientName} — {money}";
             TransferText = transfer.TransferText;
             QrMessage = transfer.ServerHasQrRules ? transfer.QrMessage : OldServerMessage;
 
@@ -132,9 +133,9 @@ public partial class QrCodeViewModel : ObservableObject
             await Clipboard.Default.SetTextAsync(TransferText);
             await Shell.Current.DisplayAlertAsync("Skopiowano", "Dane przelewu skopiowane do schowka.", "OK");
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            ErrorMessage = $"Nie udało się skopiować: {ex.Message}";
+            await Shell.Current.DisplayAlertAsync("Błąd", "Nie udało się skopiować danych przelewu.", "OK");
         }
     }
 
@@ -155,9 +156,9 @@ public partial class QrCodeViewModel : ObservableObject
                 File = new ShareFile(filePath)
             });
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            await Shell.Current.DisplayAlertAsync("Błąd", $"Nie udało się udostępnić: {ex.Message}", "OK");
+            await Shell.Current.DisplayAlertAsync("Błąd", "Nie udało się udostępnić kodu QR.", "OK");
         }
     }
 }

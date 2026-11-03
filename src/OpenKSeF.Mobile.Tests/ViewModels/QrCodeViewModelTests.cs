@@ -295,6 +295,36 @@ public class QrCodeViewModelTests
     }
 
     [Fact]
+    public async Task Copy_ClipboardFails_ShowsFixedAlertAndNoRetryError()
+    {
+        Server(InvoiceA, Main(null, "x"));
+        var vm = Open(InvoiceA);
+        Clipboard.Default.Failure = new InvalidOperationException("raw");
+
+        try
+        {
+            await vm.CopyTransferTextCommand.ExecuteAsync(null);
+        }
+        finally
+        {
+            Clipboard.Default.Failure = null;
+        }
+
+        Assert.Equal("Nie udało się skopiować danych przelewu.", Shell.Current.LastAlertMessage);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public void Title_NoRecipientName_ShowsOnlyAmount()
+    {
+        Server(InvoiceA, Main(null, "x").Replace("\"recipientName\":\"Dostawca Testowy\"", "\"recipientName\":\"\""));
+
+        var vm = Open(InvoiceA);
+
+        Assert.Equal(IssuingFormat.Money(1476.00m, "PLN"), vm.Title);
+    }
+
+    [Fact]
     public async Task Copy_WithNothingLoaded_LeavesClipboardAlone()
     {
         var pending = new TaskCompletionSource<TransferDetailsDto>();

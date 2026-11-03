@@ -112,8 +112,13 @@ namespace Microsoft.Maui.ApplicationModel.DataTransfer
 
         public string? Text { get; private set; }
 
+        public Exception? Failure { get; set; }
+
         public Task SetTextAsync(string? text)
         {
+            if (Failure is not null)
+                return Task.FromException(Failure);
+
             Text = text;
             return Task.CompletedTask;
         }

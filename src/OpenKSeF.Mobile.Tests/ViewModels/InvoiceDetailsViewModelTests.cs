@@ -54,6 +54,21 @@ public class InvoiceDetailsViewModelTests
     }
 
     [Fact]
+    public async Task CopyTransferDetails_NonJsonBody_ShowsFixedTextNotParserError()
+    {
+        Shell.Current.Reset();
+        await Clipboard.Default.SetTextAsync("before");
+        _api.GetTransferDetailsAsync(TenantId, InvoiceId)
+            .ThrowsAsync(new System.Text.Json.JsonException("'<' is an invalid start of a value."));
+        var vm = Loaded();
+
+        await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
+
+        Assert.Equal("before", Clipboard.Default.Text);
+        Assert.Equal("Nie udało się skopiować danych przelewu.", Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
     public async Task CopyTransferDetails_RetryAfterOffline_CopiesServerText()
     {
         Shell.Current.Reset();
