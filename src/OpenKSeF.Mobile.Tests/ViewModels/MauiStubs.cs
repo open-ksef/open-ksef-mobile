@@ -191,6 +191,8 @@ namespace Microsoft.Maui.Storage
 
         public T Get<T>(string key, T defaultValue) => _values.TryGetValue(key, out var value) ? (T)value! : defaultValue;
 
+        public bool ContainsKey(string key) => _values.ContainsKey(key);
+
         public void Set<T>(string key, T value) => _values[key] = value;
 
         public void Remove(string key) => _values.Remove(key);

@@ -212,7 +212,7 @@
                     </Grid>
                     <VerticalStackLayout Spacing="6" IsVisible="{Binding IsServerVisible}">
                         <Entry Text="{Binding ServerUrl}"
-                               Placeholder="https://demo.open-ksef.pl"
+                               Placeholder="https://faktury.twoja-firma.pl"
                                Keyboard="Url"
                                FontSize="12"
                                AutomationId="LoginPageEntryServerUrl" />

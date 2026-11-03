@@ -99,7 +99,6 @@ public partial class ScanSetupQrViewModel : ObservableObject
     [RelayCommand]
     private async Task SkipAsync()
     {
-        _serverSettings.MarkAsConfigured();
         try { await Shell.Current.GoToAsync("//login"); } catch { }
     }
 

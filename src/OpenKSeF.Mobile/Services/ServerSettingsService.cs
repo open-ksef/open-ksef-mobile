@@ -3,14 +3,12 @@ namespace OpenKSeF.Mobile.Services;
 public class ServerSettingsService : IServerSettingsService
 {
     private const string ServerUrlKey = "server_url";
-    private const string DefaultServerUrl = "https://demo.open-ksef.pl";
     private const string RealmPath = "/auth/realms/openksef";
 
     public ServerSettingsService()
     {
         IsConfigured = Preferences.Default.ContainsKey(ServerUrlKey);
-        var stored = Preferences.Default.Get(ServerUrlKey, DefaultServerUrl);
-        ServerUrl = stored;
+        ServerUrl = Preferences.Default.Get(ServerUrlKey, string.Empty);
     }
 
     public string ServerUrl { get; private set; }
@@ -18,11 +16,6 @@ public class ServerSettingsService : IServerSettingsService
     public string Authority => $"{ServerUrl}{RealmPath}";
 
     public bool IsConfigured { get; private set; }
-
-    public void MarkAsConfigured()
-    {
-        IsConfigured = true;
-    }
 
     public bool TryUpdateServerUrl(string url, out string normalizedUrl, out string? validationError)
     {
