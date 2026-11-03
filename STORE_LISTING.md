@@ -29,9 +29,11 @@ Wystawiaj i przeglądaj faktury w KSeF na telefonie — powiadomienia i kody QR.
 ## Full description (max 4000 characters)
 
 ```
-OpenKSeF to darmowa, open-source'owa aplikacja mobilna do wystawiania, przeglądania i synchronizacji faktur w Krajowym Systemie e-Faktur (KSeF).
+OpenKSeF to darmowa aplikacja mobilna z publicznie dostępnym kodem źródłowym do wystawiania, przeglądania i synchronizacji faktur w Krajowym Systemie e-Faktur (KSeF).
 
 Aplikacja łączy się z Twoją instancją OpenKSeF i pozwala szybko wystawiać i sprawdzać faktury, kopiować dane do przelewu i generować kody QR — bez potrzeby logowania do portalu KSeF na komputerze.
+
+OpenKSeF to niezależny projekt, niepowiązany z Ministerstwem Finansów. Z KSeF łączy się przez jego publiczne API.
 
 GŁÓWNE FUNKCJE:
 
@@ -45,7 +47,7 @@ GŁÓWNE FUNKCJE:
 
 • Kody QR i dane przelewu – skopiuj dane przelewu jednym kliknięciem lub wygeneruj kod QR do szybkiej płatności.
 
-• Tryb offline – faktury są zapisywane lokalnie na urządzeniu, więc możesz je przeglądać bez połączenia z internetem.
+• Tryb offline – ostatnie faktury otrzymane są zapisywane lokalnie na urządzeniu, więc możesz je przeglądać bez połączenia z internetem. Wystawianie faktur wymaga połączenia.
 
 • Wiele firm – obsługuj kilka firm (NIP-ów) w jednej aplikacji. Szybkie przełączanie między firmami.
 
@@ -53,9 +55,9 @@ GŁÓWNE FUNKCJE:
 
 • Bezpieczeństwo – logowanie przez OpenID Connect (Keycloak), szyfrowanie tokenów KSeF w bazie, komunikacja HTTPS.
 
-• Self-hosted – OpenKSeF możesz uruchomić na własnym serwerze. Dane firm i faktur są przechowywane na instancji, z którą łączy się aplikacja. Powiadomienia push przechodzą przez usługę relay OpenKSeF oraz Firebase Cloud Messaging lub Apple Push Notification service, wystawione faktury trafiają do KSeF, a sprawdzenie NIP-u korzysta z białej listy Ministerstwa Finansów.
+• Self-hosted – OpenKSeF możesz uruchomić na własnym serwerze. Dane firm i faktur są przechowywane na instancji, z którą łączy się aplikacja. Powiadomienia push domyślnie przechodzą przez usługę relay OpenKSeF i Firebase Cloud Messaging, wystawione faktury trafiają do KSeF, a sprawdzenie NIP-u korzysta z białej listy Ministerstwa Finansów.
 
-• Open source – kod źródłowy jest publicznie dostępny na GitHub (github.com/open-ksef). Licencja Elastic License 2.0.
+• Kod źródłowy – kod jest publicznie dostępny na GitHub (github.com/open-ksef). Licencja Elastic License 2.0.
 
 JAK ZACZĄĆ:
 
