@@ -61,10 +61,11 @@ public class AuthService : IAuthService
         _oidcClient = CreateOidcClient(_authority);
     }
 
-    public async Task<bool> LoginWithCredentialsAsync(string email, string password)
+    public async Task<AuthResult> LoginWithCredentialsAsync(string email, string password)
     {
         EnsureConfiguration();
 
+        KeycloakTokenResponse? tokenResponse;
         try
         {
             var tokenEndpoint = $"{_authority}/protocol/openid-connect/token";
@@ -79,54 +80,61 @@ public class AuthService : IAuthService
 
             using var response = await _httpClient.PostAsync(tokenEndpoint, new FormUrlEncodedContent(formData));
             if (!response.IsSuccessStatusCode)
-                return false;
+            {
+                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                return error?.Error == "invalid_grant" ? AuthResult.Rejected : AuthResult.ServerUnreachable;
+            }
 
-            var tokenResponse = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>();
-            if (tokenResponse?.AccessToken is null)
-                return false;
-
-            Interlocked.Increment(ref _sessionGeneration);
-            _accessToken = tokenResponse.AccessToken;
-            _refreshToken = tokenResponse.RefreshToken;
-            _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
-
-            await StoreTokensAsync();
-            return true;
+            tokenResponse = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>();
         }
+        // Bare catch: on Android socket and TLS failures can arrive as Java exceptions, not HttpRequestException.
         catch
         {
-            return false;
+            return AuthResult.ServerUnreachable;
         }
+
+        if (tokenResponse?.AccessToken is null)
+            return AuthResult.ServerUnreachable;
+
+        Interlocked.Increment(ref _sessionGeneration);
+        _accessToken = tokenResponse.AccessToken;
+        _refreshToken = tokenResponse.RefreshToken;
+        _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
+
+        await StoreLoginTokensAsync();
+        return AuthResult.Success;
     }
 
-    public async Task<bool> LoginWithGoogleAsync()
+    public async Task<AuthResult> LoginWithGoogleAsync()
     {
         EnsureConfiguration();
 
+        LoginResult result;
         try
         {
             var loginRequest = new LoginRequest();
             loginRequest.FrontChannelExtraParameters.Add("kc_idp_hint", "google");
-            var result = await _oidcClient.LoginAsync(loginRequest);
-
-            if (result.IsError)
-                return false;
-
-            Interlocked.Increment(ref _sessionGeneration);
-            _accessToken = result.AccessToken;
-            _refreshToken = result.RefreshToken;
-            _tokenExpiry = result.AccessTokenExpiration;
-
-            await StoreTokensAsync();
-            return true;
+            result = await _oidcClient.LoginAsync(loginRequest);
         }
+        // OidcClient throws when discovery fails; a cancelled or refused sign-in comes back as IsError.
         catch
         {
-            return false;
+            return AuthResult.ServerUnreachable;
         }
+
+        if (result.IsError)
+            return AuthResult.Rejected;
+
+        Interlocked.Increment(ref _sessionGeneration);
+        _accessToken = result.AccessToken;
+        _refreshToken = result.RefreshToken;
+        _tokenExpiry = result.AccessTokenExpiration;
+
+        await StoreLoginTokensAsync();
+        return AuthResult.Success;
     }
 
-    public async Task<bool> RegisterAsync(string email, string password, string? firstName, string? lastName)
+    public async Task<AuthResult> RegisterAsync(string email, string password, string? firstName, string? lastName)
     {
         EnsureConfiguration();
 
@@ -150,12 +158,10 @@ public class AuthService : IAuthService
                 var error = JsonSerializer.Deserialize<ErrorResponse>(body);
                 throw new InvalidOperationException(error?.Error ?? "Rejestracja nie powiodła się.");
             }
-
-            var loginSuccess = await LoginWithCredentialsAsync(email, password);
-            if (!loginSuccess)
-                throw new InvalidOperationException("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.");
-
-            return true;
+        }
+        catch (JsonException)
+        {
+            return AuthResult.Rejected;
         }
         catch (InvalidOperationException)
         {
@@ -163,8 +169,23 @@ public class AuthService : IAuthService
         }
         catch
         {
-            return false;
+            return AuthResult.ServerUnreachable;
         }
+
+        AuthResult login;
+        try
+        {
+            login = await LoginWithCredentialsAsync(email, password);
+        }
+        catch
+        {
+            login = AuthResult.Rejected;
+        }
+
+        if (login != AuthResult.Success)
+            throw new InvalidOperationException("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.");
+
+        return AuthResult.Success;
     }
 
     public async Task LogoutAsync()
@@ -336,6 +357,19 @@ public class AuthService : IAuthService
         catch
         {
             return SessionRestoreResult.Unverified;
+        }
+    }
+
+    private async Task StoreLoginTokensAsync()
+    {
+        try
+        {
+            await StoreTokensAsync();
+        }
+        catch
+        {
+            ClearTokens();
+            throw;
         }
     }
 

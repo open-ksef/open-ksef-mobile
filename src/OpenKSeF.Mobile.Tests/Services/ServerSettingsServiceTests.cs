@@ -13,6 +13,8 @@ public class ServerSettingsServiceTests
 {
     private const string ServerUrlKey = "server_url";
     private const string EmptyServerMessage = "Adres serwera nie może być pusty.";
+    private const string StoredServer = "https://dead.example.pl";
+    private const string UnreachableMessage = "Nie można połączyć się z serwerem dead.example.pl. Sprawdź adres serwera i połączenie z siecią.";
 
     private readonly RecordingHandler _handler = new();
     private readonly IPostLoginNavigationService _postLoginNav = Substitute.For<IPostLoginNavigationService>();
@@ -129,21 +131,191 @@ public class ServerSettingsServiceTests
         Assert.True(new LoginViewModel(Substitute.For<IAuthService>(), settings, _postLoginNav).IsServerVisible);
     }
 
-    [Theory]
-    [InlineData("login")]
-    [InlineData("google")]
-    [InlineData("register")]
-    public async Task StoredDeadServer_FailedSignInRevealsTheFieldAndKeepsTheUrl(string action)
+    private (LoginViewModel Vm, ServerSettingsService Settings) StoredServerLogin()
     {
-        Preferences.Default.Set(ServerUrlKey, "https://dead.example.pl");
-        var vm = CreateLoginViewModel(Substitute.For<IAuthService>(), new ServerSettingsService());
+        Preferences.Default.Set(ServerUrlKey, StoredServer);
+        var settings = new ServerSettingsService();
+        var vm = CreateLoginViewModel(CreateAuthService(settings), settings);
         Assert.False(vm.IsServerVisible);
+        return (vm, settings);
+    }
 
-        await RunAsync(vm, action);
+    private static HttpResponseMessage Response(HttpStatusCode status, string body, string mediaType = "application/json") =>
+        new(status) { Content = new StringContent(body, Encoding.UTF8, mediaType) };
 
+    public static TheoryData<Func<HttpRequestMessage, Task<HttpResponseMessage>>> ServerProblems => new()
+    {
+        _ => throw new HttpRequestException("connection refused"),
+        _ => throw new HttpRequestException("ssl", new System.Security.Authentication.AuthenticationException("certificate")),
+        _ => throw new IOException("java.net.ssl handshake"),
+        _ => throw new TaskCanceledException("timeout"),
+        _ => Task.FromResult(Response(HttpStatusCode.NotFound, string.Empty)),
+        _ => Task.FromResult(Response(HttpStatusCode.NotFound, "<html>404</html>", "text/html")),
+        _ => Task.FromResult(Response(HttpStatusCode.BadGateway, "<html>502</html>", "text/html")),
+        _ => Task.FromResult(Response(HttpStatusCode.Unauthorized, "<html>proxy</html>", "text/html")),
+        _ => Task.FromResult(Response(HttpStatusCode.BadRequest, """{"error":"unauthorized_client"}""")),
+        _ => Task.FromResult(Response(HttpStatusCode.OK, "<html>portal</html>", "text/html")),
+        _ => Task.FromResult(Response(HttpStatusCode.OK, "{}")),
+    };
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task Login_ServerProblem_NamesTheServerAndRevealsTheField(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = problem;
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Equal(UnreachableMessage, vm.ErrorMessage);
         Assert.True(vm.IsServerVisible);
-        Assert.NotNull(vm.ErrorMessage);
-        Assert.Equal("https://dead.example.pl", Preferences.Default.Get(ServerUrlKey, string.Empty));
+        Assert.Equal(StoredServer, Preferences.Default.Get(ServerUrlKey, string.Empty));
+        Assert.Equal(0, SecureStorage.Default.Count);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, false)]
+    [InlineData(HttpStatusCode.BadRequest, false)]
+    [InlineData(HttpStatusCode.Unauthorized, true)]
+    public async Task Login_RejectedCredentials_ShowsBadPassword_FieldVisibilityUnchanged(HttpStatusCode status, bool fieldVisible)
+    {
+        var (vm, _) = StoredServerLogin();
+        if (fieldVisible)
+            vm.ToggleServerCommand.Execute(null);
+        _handler.Respond = _ => Task.FromResult(Response(status, """{"error":"invalid_grant","error_description":"Invalid user credentials"}"""));
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Equal("Nieprawidłowy email lub hasło.", vm.ErrorMessage);
+        Assert.Equal(fieldVisible, vm.IsServerVisible);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
+    }
+
+    [Fact]
+    public async Task Login_RightPassword_Navigates()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.OK, """{"access_token":"a","refresh_token":"r","expires_in":300}"""));
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        await _postLoginNav.Received(1).NavigateAsync();
+    }
+
+    [Fact]
+    public async Task Register_NetworkFailure_NamesTheServerAndRevealsTheField()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => throw new HttpRequestException("connection refused");
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal(UnreachableMessage, vm.ErrorMessage);
+        Assert.True(vm.IsServerVisible);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, "<html>not found</html>", "text/html")]
+    [InlineData(HttpStatusCode.NotFound, "", "text/plain")]
+    [InlineData(HttpStatusCode.Forbidden, "<html>403</html>", "text/html")]
+    [InlineData(HttpStatusCode.Forbidden, "", "text/plain")]
+    public async Task Register_UnreadableErrorBody_KeepsFixedTextAndRevealsTheField(HttpStatusCode status, string body, string mediaType)
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(status, body, mediaType));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal("Rejestracja nie powiodła się. Sprawdź adres serwera.", vm.ErrorMessage);
+        Assert.True(vm.IsServerVisible);
+    }
+
+    [Theory]
+    [InlineData("""{"code":"registration_disabled","error":"Rejestracja nowych kont jest wyłączona. Skontaktuj się z administratorem."}""", "Rejestracja nowych kont jest wyłączona. Skontaktuj się z administratorem.")]
+    [InlineData("""{"title":"Forbidden","status":403}""", "Rejestracja nie powiodła się.")]
+    public async Task Register_ForbiddenWithJson_ShowsServerText_FieldUnchanged_NoLoginAttempt(string body, string message)
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.Forbidden, body));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal(message, vm.ErrorMessage);
+        Assert.False(vm.IsServerVisible);
+        Assert.Single(_handler.Requests);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
+    }
+
+    [Fact]
+    public async Task Register_ServerError_ShowsTheServerMessage()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.Conflict, """{"error":"Konto już istnieje."}"""));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal("Konto już istnieje.", vm.ErrorMessage);
+        Assert.False(vm.IsServerVisible);
+    }
+
+    [Fact]
+    public async Task Register_CreatedButLoginCannotReachServer_SaysAccountCreated()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = request => request.RequestUri!.AbsolutePath.EndsWith("/token")
+            ? throw new HttpRequestException("connection refused")
+            : Task.FromResult(Response(HttpStatusCode.OK, "{}"));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.", vm.ErrorMessage);
+    }
+
+    [Theory]
+    [InlineData(AuthResult.ServerUnreachable, UnreachableMessage, true)]
+    [InlineData(AuthResult.Rejected, "Logowanie przez Google nie powiodło się.", false)]
+    public async Task Google_Failure_ShowsMessage_RevealsFieldOnlyWhenUnreachable(AuthResult result, string message, bool fieldVisible)
+    {
+        Preferences.Default.Set(ServerUrlKey, StoredServer);
+        var auth = Substitute.For<IAuthService>();
+        auth.LoginWithGoogleAsync().Returns(result);
+        var vm = CreateLoginViewModel(auth, new ServerSettingsService());
+
+        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.Equal(message, vm.ErrorMessage);
+        Assert.Equal(fieldVisible, vm.IsServerVisible);
+    }
+
+    [Fact]
+    public async Task HiddenDraft_IsDiscarded_LoginGoesToTheStoredServer()
+    {
+        var (vm, _) = StoredServerLogin();
+        vm.ToggleServerCommand.Execute(null);
+        vm.ServerUrl = "https://draft.example.pl";
+
+        vm.ToggleServerCommand.Execute(null);
+
+        Assert.Equal(StoredServer, vm.ServerUrl);
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Equal("dead.example.pl", _handler.Requests.Single().RequestUri!.Host);
+        Assert.Equal(StoredServer, Preferences.Default.Get(ServerUrlKey, string.Empty));
+    }
+
+    [Fact]
+    public async Task VisibleDraft_IsUsedByLogin()
+    {
+        var (vm, _) = StoredServerLogin();
+        vm.ToggleServerCommand.Execute(null);
+        vm.ServerUrl = "https://draft.example.pl";
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Equal("draft.example.pl", _handler.Requests.Single().RequestUri!.Host);
     }
 
     [Fact]
@@ -162,13 +334,12 @@ public class ServerSettingsServiceTests
     {
         public List<HttpRequestMessage> Requests { get; } = [];
 
+        public Func<HttpRequestMessage, Task<HttpResponseMessage>> Respond { get; set; } = _ => Task.FromResult(Response(HttpStatusCode.Unauthorized, "{}"));
+
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            });
+            return Respond(request);
         }
     }
 }

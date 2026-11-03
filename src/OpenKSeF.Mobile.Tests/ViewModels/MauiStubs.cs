@@ -208,12 +208,15 @@ namespace Microsoft.Maui.Storage
 
         public bool ThrowOnRead { get; set; }
 
+        public int WritesLeft { get; set; } = int.MaxValue;
+
         public int Count => _values.Count;
 
         public void Reset()
         {
             _values.Clear();
             ThrowOnRead = false;
+            WritesLeft = int.MaxValue;
         }
 
         public Task<string?> GetAsync(string key) => ThrowOnRead
@@ -222,6 +225,9 @@ namespace Microsoft.Maui.Storage
 
         public Task SetAsync(string key, string value)
         {
+            if (WritesLeft-- <= 0)
+                throw new InvalidOperationException("keystore");
+
             _values[key] = value;
             return Task.CompletedTask;
         }
