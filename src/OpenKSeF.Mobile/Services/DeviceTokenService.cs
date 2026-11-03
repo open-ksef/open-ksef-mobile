@@ -4,7 +4,7 @@ namespace OpenKSeF.Mobile.Services;
 
 public class DeviceTokenService : IDeviceTokenService
 {
-    internal static readonly TimeSpan ServerRemovalLimit = TimeSpan.FromSeconds(15);
+    internal static TimeSpan ServerRemovalLimit { get; set; } = TimeSpan.FromSeconds(15);
 
     private const string TokenStorageKey = "device_push_token";
     private const string PlatformStorageKey = "device_push_platform";
@@ -205,9 +205,10 @@ public class DeviceTokenService : IDeviceTokenService
 
     private async Task<bool> TryDeleteServerDevicesAsync(HashSet<string> tokens)
     {
+        using var limit = new CancellationTokenSource(ServerRemovalLimit);
         try
         {
-            await DeleteServerDevicesAsync(tokens).WaitAsync(ServerRemovalLimit);
+            await DeleteServerDevicesAsync(tokens, limit.Token).WaitAsync(limit.Token);
             return true;
         }
         catch
@@ -216,7 +217,7 @@ public class DeviceTokenService : IDeviceTokenService
         }
     }
 
-    private async Task DeleteServerDevicesAsync(HashSet<string> tokens)
+    private async Task DeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken limit)
     {
         var nativeToken = await TryGetNativePushTokenAsync();
         if (!string.IsNullOrEmpty(nativeToken))
@@ -228,7 +229,10 @@ public class DeviceTokenService : IDeviceTokenService
 
         var devices = await _apiService.GetDevicesAsync();
         foreach (var device in devices.Where(d => tokens.Contains(d.Token)))
+        {
+            limit.ThrowIfCancellationRequested();
             await _apiService.UnregisterDeviceAsync(device.Id);
+        }
     }
 
     private static int GetCurrentPlatform()

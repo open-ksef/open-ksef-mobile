@@ -847,6 +847,49 @@ public class AuthServiceRestoreTests
         Assert.Equal("new-access", delete.Headers.Authorization?.Parameter);
     }
 
+    private async Task AssertSignOutDevicesListAfterLimit_NoDeleteAsync(Func<Task> afterSignOut)
+    {
+        await LoginAsync();
+        Preferences.Default.Clear();
+        Preferences.Default.Set("device_push_token", "fcm-token");
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                await release.Task;
+                return Json(HttpStatusCode.OK, $$"""[{"id":"{{Guid.NewGuid()}}","token":"fcm-token"}]""");
+            }
+
+            return IsTokenRequest(request) ? Json(HttpStatusCode.OK, UserBTokens) : Json(HttpStatusCode.NoContent, string.Empty);
+        };
+
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            await Navigation(new DeviceTokenService(CreateApi())).SignOutAsync();
+            await afterSignOut();
+            release.SetResult();
+            await Task.Delay(300);
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Get);
+        Assert.DoesNotContain(_handler.Requests, r => r.Method == HttpMethod.Delete);
+    }
+
+    [Fact]
+    public Task SignOut_DevicesListAfterLimit_NobodyLoggedIn_NoDelete() =>
+        AssertSignOutDevicesListAfterLimit_NoDeleteAsync(() => Task.CompletedTask);
+
+    [Fact]
+    public Task SignOut_DevicesListAfterLimit_NextUserLoggedIn_NoDelete() =>
+        AssertSignOutDevicesListAfterLimit_NoDeleteAsync(async () => Assert.True(await _auth.LoginWithCredentialsAsync("b@b.pl", "x")));
+
     [Fact]
     public async Task RestoreInvalidGrant_DoesNotRaiseSessionEnded()
     {

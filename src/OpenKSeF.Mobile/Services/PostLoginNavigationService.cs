@@ -102,7 +102,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         try
         {
             try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
-            try { await _deviceTokenService.UnregisterCurrentDeviceAsync().WaitAsync(DeviceTokenService.ServerRemovalLimit); } catch { }
+            try { await _deviceTokenService.UnregisterCurrentDeviceAsync(); } catch { }
             try { await _localDb.ClearUserDataAsync(); } catch { }
             ClearCacheDirectory();
             await _authService.LogoutAsync();

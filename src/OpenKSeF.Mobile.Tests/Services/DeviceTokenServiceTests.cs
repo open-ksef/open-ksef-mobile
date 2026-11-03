@@ -279,6 +279,38 @@ public class DeviceTokenServiceTests
     }
 
     [Fact]
+    public async Task Disable_TimedOut_NoLateDelete_RetriesAtNextLogin()
+    {
+        Preferences.Default.Set(TokenKey, "fcm-abc");
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
+        var devices = new TaskCompletionSource<List<DeviceTokenDto>>();
+        _api.GetDevicesAsync().Returns(devices.Task);
+
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            Assert.False(await _service.DisableNotificationsAsync());
+            Assert.True(_service.PushDisabledByUser);
+            Assert.True(_service.PushRemovalPending);
+
+            devices.SetResult([mine]);
+            await Task.Delay(300);
+            await _api.DidNotReceiveWithAnyArgs().UnregisterDeviceAsync(default);
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        _api.GetDevicesAsync().Returns([mine]);
+        await _service.EnsureDeviceRegisteredAsync();
+
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+        Assert.False(_service.PushRemovalPending);
+    }
+
+    [Fact]
     public async Task EnsureDeviceRegistered_AfterOfflineDisable_RetriesDeleteAndClearsKeys()
     {
         Preferences.Default.Set(TokenKey, "fcm-abc");
