@@ -264,6 +264,14 @@ public class AccountViewModelNotificationTests
     }
 
     [Fact]
+    public async Task AccountDeletion_OpensThePolicySection()
+    {
+        await _vm.OpenAccountDeletionCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://open-ksef.pl/docs/polityka-prywatnosci/#usuwanie-konta", Browser.Default.LastUri);
+    }
+
+    [Fact]
     public async Task Logout_Confirmed_SignsOutAndResetsShell()
     {
         await _vm.LogoutCommand.ExecuteAsync(null);

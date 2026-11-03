@@ -170,4 +170,16 @@ public partial class AccountViewModel : ObservableObject
         }
         catch { }
     }
+
+    [RelayCommand]
+    private async Task OpenAccountDeletionAsync()
+    {
+        try
+        {
+            await Browser.Default.OpenAsync(
+                "https://open-ksef.pl/docs/polityka-prywatnosci/#usuwanie-konta",
+                BrowserLaunchMode.SystemPreferred);
+        }
+        catch { }
+    }
 }

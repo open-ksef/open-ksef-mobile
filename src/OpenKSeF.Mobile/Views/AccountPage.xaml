@@ -102,6 +102,16 @@
                             <TapGestureRecognizer Command="{Binding OpenPrivacyPolicyCommand}" />
                         </Grid.GestureRecognizers>
                     </Grid>
+                    <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10" AutomationId="AccountPageRowDeleteAccount">
+                        <Label Text="👤" FontSize="20" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="Usuń konto" FontSize="15"
+                               VerticalOptions="Center" Margin="12,0,0,0" />
+                        <Label Grid.Column="2" Text="›" FontSize="22"
+                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenAccountDeletionCommand}" />
+                        </Grid.GestureRecognizers>
+                    </Grid>
                     <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10" AutomationId="AccountPageRowThirdPartyNotices">
                         <Label Text="📄" FontSize="20" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="Licencje oprogramowania" FontSize="15"
