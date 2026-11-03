@@ -27,16 +27,23 @@
                         HorizontalOptions="Center" />
             </VerticalStackLayout>
 
+            <Label Text="{Binding Title}"
+                   IsVisible="{Binding Title, Converter={StaticResource IsNotNullConverter}}"
+                   AutomationId="QrCodePageLabelTitle"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   HorizontalTextAlignment="Center" />
+
+            <Label Text="{Binding QrMessage}"
+                   IsVisible="{Binding QrMessage, Converter={StaticResource IsNotNullConverter}}"
+                   AutomationId="QrCodePageLabelMessage"
+                   FontAttributes="Bold"
+                   HorizontalTextAlignment="Center" />
+
             <!-- QR Content -->
             <VerticalStackLayout IsVisible="{Binding QrImage, Converter={StaticResource IsNotNullConverter}}"
                                  Spacing="20"
                                  HorizontalOptions="Center">
-
-                <Label Text="{Binding Title}"
-                       AutomationId="QrCodePageLabelTitle"
-                       FontSize="18"
-                       FontAttributes="Bold"
-                       HorizontalTextAlignment="Center" />
 
                 <Border Padding="15"
                         StrokeShape="RoundRectangle 12,12,12,12"
@@ -50,13 +57,24 @@
                            Aspect="AspectFit" />
                 </Border>
 
-                <Label Text="Zeskanuj kodem w aplikacji bankowej, aby wykonać przelew."
+                <Label Text="Zeskanuj kod w aplikacji banku, aby wypełnić przelew. Na tym telefonie: udostępnij i zapisz obraz, a w banku wczytaj kod z galerii."
                        Style="{StaticResource LabelMuted}"
                        HorizontalTextAlignment="Center" />
 
-                <Button Text="Udostępnij kod QR"
+                <Button Text="Udostępnij / zapisz kod QR"
                         AutomationId="QrCodePageButtonShare"
                         Command="{Binding ShareQrCommand}"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+
+            <!-- No QR -->
+            <VerticalStackLayout IsVisible="{Binding ShowTransferText}"
+                                 Spacing="20">
+                <Label Text="{Binding TransferText}"
+                       AutomationId="QrCodePageLabelTransferText" />
+                <Button Text="Kopiuj dane przelewu"
+                        AutomationId="QrCodePageButtonCopy"
+                        Command="{Binding CopyTransferTextCommand}"
                         HorizontalOptions="Fill" />
             </VerticalStackLayout>
 

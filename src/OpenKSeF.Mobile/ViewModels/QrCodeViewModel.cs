@@ -9,6 +9,8 @@ namespace OpenKSeF.Mobile.ViewModels;
 [QueryProperty(nameof(InvoiceId), "invoiceId")]
 public partial class QrCodeViewModel : ObservableObject
 {
+    private const string OldServerMessage = "Kod QR wymaga nowszej wersji serwera. Skopiuj dane przelewu.";
+
     private readonly IApiService _apiService;
 
     [ObservableProperty]
@@ -18,7 +20,17 @@ public partial class QrCodeViewModel : ObservableObject
     private string? _invoiceId;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowTransferText))]
     private ImageSource? _qrImage;
+
+    [ObservableProperty]
+    private string? _qrMessage;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowTransferText))]
+    private string? _transferText;
+
+    public bool ShowTransferText => QrImage is null && !string.IsNullOrEmpty(TransferText);
 
     [ObservableProperty]
     private string? _title;
@@ -30,6 +42,7 @@ public partial class QrCodeViewModel : ObservableObject
     private string? _errorMessage;
 
     private byte[]? _qrBytes;
+    private int _loadVersion;
 
     public QrCodeViewModel(IApiService apiService)
     {
@@ -55,34 +68,73 @@ public partial class QrCodeViewModel : ObservableObject
     [RelayCommand]
     private async Task GenerateQrAsync()
     {
-        if (IsBusy || TenantId is null || InvoiceId is null)
+        if (TenantId is null || InvoiceId is null)
             return;
+
+        var load = ++_loadVersion;
 
         try
         {
             IsBusy = true;
             ErrorMessage = null;
+            Title = null;
+            QrMessage = null;
+            TransferText = null;
+            QrImage = null;
+            _qrBytes = null;
 
-            var invoice = await _apiService.GetInvoiceDetailsAsync(
+            var transfer = await _apiService.GetTransferDetailsAsync(
                 Guid.Parse(TenantId),
                 Guid.Parse(InvoiceId));
 
-            Title = $"{invoice.VendorName} — {invoice.GrossText}";
+            if (load != _loadVersion)
+                return;
 
-            _qrBytes = TransferQrGenerator.Generate(invoice);
-            QrImage = ImageSource.FromStream(() => new MemoryStream(_qrBytes));
+            Title = $"{transfer.RecipientName} — {IssuingFormat.Money(transfer.Amount, transfer.Currency)}";
+            TransferText = transfer.TransferText;
+            QrMessage = transfer.ServerHasQrRules ? transfer.QrMessage : OldServerMessage;
+
+            if (transfer.ServerHasQrRules && !string.IsNullOrEmpty(transfer.QrCodeBase64))
+            {
+                var bytes = Convert.FromBase64String(transfer.QrCodeBase64[(transfer.QrCodeBase64.IndexOf(',') + 1)..]);
+                if (bytes.Length == 0)
+                    throw new FormatException();
+
+                _qrBytes = bytes;
+                QrImage = ImageSource.FromStream(() => new MemoryStream(bytes));
+            }
         }
         catch (ApiException ex)
         {
-            ErrorMessage = ex.Message;
+            if (load == _loadVersion)
+                ErrorMessage = ex.Message;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            ErrorMessage = $"Nie udało się wygenerować kodu QR: {ex.Message}";
+            if (load == _loadVersion)
+                ErrorMessage = "Nie udało się wyświetlić kodu QR. Skopiuj dane przelewu albo spróbuj ponownie.";
         }
         finally
         {
-            IsBusy = false;
+            if (load == _loadVersion)
+                IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task CopyTransferTextAsync()
+    {
+        if (string.IsNullOrEmpty(TransferText))
+            return;
+
+        try
+        {
+            await Clipboard.Default.SetTextAsync(TransferText);
+            await Shell.Current.DisplayAlertAsync("Skopiowano", "Dane przelewu skopiowane do schowka.", "OK");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Nie udało się skopiować: {ex.Message}";
         }
     }
 

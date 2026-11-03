@@ -1,4 +1,3 @@
-using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenKSeF.Mobile.Models;
@@ -83,18 +82,22 @@ public partial class InvoiceDetailsViewModel : ObservableObject
     [RelayCommand]
     private async Task CopyTransferDetailsAsync()
     {
-        if (Invoice is null)
+        if (Invoice is null || TenantId is null)
             return;
 
         try
         {
-            var details = BuildTransferDetails(Invoice);
-            await Clipboard.Default.SetTextAsync(details);
+            var transfer = await _apiService.GetTransferDetailsAsync(Guid.Parse(TenantId), Invoice.Id);
+            await Clipboard.Default.SetTextAsync(transfer.TransferText);
             await Shell.Current.DisplayAlertAsync("Skopiowano", "Dane przelewu skopiowane do schowka.", "OK");
+        }
+        catch (ApiException ex)
+        {
+            await Shell.Current.DisplayAlertAsync("Błąd", ex.Message, "OK");
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Nie udało się skopiować: {ex.Message}";
+            await Shell.Current.DisplayAlertAsync("Błąd", $"Nie udało się skopiować: {ex.Message}", "OK");
         }
     }
 
@@ -105,13 +108,5 @@ public partial class InvoiceDetailsViewModel : ObservableObject
             return;
 
         try { await Shell.Current.GoToAsync($"qrCode?tenantId={TenantId}&invoiceId={Invoice.Id}"); } catch { }
-    }
-
-    internal static string BuildTransferDetails(InvoiceDto invoice)
-    {
-        return $"Odbiorca: {invoice.VendorName}\n" +
-               $"NIP: {invoice.VendorNip}\n" +
-               $"Kwota: {invoice.AmountGross.ToString("N2", CultureInfo.GetCultureInfo("pl-PL"))} {invoice.Currency}\n" +
-               $"Tytul: {invoice.InvoiceNumber ?? invoice.KSeFInvoiceNumber}";
     }
 }

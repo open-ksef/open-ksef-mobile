@@ -14,6 +14,13 @@ namespace Microsoft.Maui.Controls
         public string QueryId { get; } = queryId;
     }
 
+    public class ImageSource
+    {
+        public Func<Stream>? Stream { get; private init; }
+
+        public static ImageSource FromStream(Func<Stream> stream) => new() { Stream = stream };
+    }
+
     public class Page;
 
     public class Shell : Page
@@ -74,10 +81,10 @@ namespace OpenKSeF.Mobile
 
 namespace Microsoft.Maui.ApplicationModel.DataTransfer
 {
-    public class ShareFile(string fullPath, string contentType)
+    public class ShareFile(string fullPath, string? contentType = null)
     {
         public string FullPath { get; } = fullPath;
-        public string ContentType { get; } = contentType;
+        public string? ContentType { get; } = contentType;
     }
 
     public class ShareFileRequest

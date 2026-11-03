@@ -63,7 +63,10 @@ public class AutomationIdCoverageTests
             "QrCodePageImageQr",
             "QrCodePageButtonShare",
             "QrCodePageButtonRetry",
-            "QrCodePageLabelError");
+            "QrCodePageLabelError",
+            "QrCodePageLabelMessage",
+            "QrCodePageLabelTransferText",
+            "QrCodePageButtonCopy");
 
         AssertFileContainsAll(
             "SellerProfilePage.xaml",

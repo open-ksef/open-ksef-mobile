@@ -38,6 +38,29 @@ public class ApiServiceTests
         Assert.Equal("u1", me.UserId);
     }
 
+    [Theory]
+    [InlineData(",\"qrMessage\":null", true)]
+    [InlineData(",\"qrMessage\":\"x\"", true)]
+    [InlineData("", false)]
+    public async Task GetTransferDetails_FlagsServerRulesFromTheKeyNotItsValue(string messagePart, bool expected)
+    {
+        var tenantId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.OK, "{\"recipientName\":\"Dostawca\",\"recipientAccount\":null,\"recipientNip\":\"1234567890\",\"amount\":12.00,\"currency\":\"PLN\",\"title\":\"FV 1\",\"transferText\":\"text\",\"qrCodeBase64\":\"data:image/png;base64,AQID\"" + messagePart + "}");
+
+        var transfer = await CreateService().GetTransferDetailsAsync(tenantId, invoiceId);
+
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/invoices/{invoiceId}/transfer", Assert.Single(_handler.Requests).Uri);
+        Assert.Equal(expected, transfer.ServerHasQrRules);
+        Assert.Equal("Dostawca", transfer.RecipientName);
+        Assert.Equal("1234567890", transfer.RecipientNip);
+        Assert.Equal(12.00m, transfer.Amount);
+        Assert.Equal("PLN", transfer.Currency);
+        Assert.Equal("FV 1", transfer.Title);
+        Assert.Equal("text", transfer.TransferText);
+        Assert.Equal("data:image/png;base64,AQID", transfer.QrCodeBase64);
+    }
+
     [Fact]
     public async Task GetInvoices_BuildsPagedUrlAndDeserializesBackendJson()
     {
