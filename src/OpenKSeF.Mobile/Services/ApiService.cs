@@ -76,6 +76,13 @@ public class ApiService : IApiService
             $"/api/tenants/{tenantId}/invoices/{invoiceId}");
     }
 
+    public async Task<TransferDetailsDto> GetTransferDetailsAsync(Guid tenantId, Guid invoiceId)
+    {
+        return await SendAsync<TransferDetailsDto>(
+            HttpMethod.Get,
+            $"/api/tenants/{tenantId}/invoices/{invoiceId}/transfer");
+    }
+
     public async Task AddOrUpdateCredentialAsync(Guid tenantId, string token)
     {
         await SendNoContentAsync(HttpMethod.Post, $"/api/tenants/{tenantId}/credentials",

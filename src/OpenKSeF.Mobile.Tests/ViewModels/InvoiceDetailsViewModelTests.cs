@@ -1,5 +1,6 @@
-using System.Globalization;
+using System.Net;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
 using OpenKSeF.Mobile.ViewModels;
@@ -10,72 +11,76 @@ namespace OpenKSeF.Mobile.Tests.ViewModels;
 [Collection("Shell")]
 public class InvoiceDetailsViewModelTests
 {
-    private static InvoiceDto Invoice(decimal amount = 1230.50m, string currency = "PLN", string? invoiceNumber = null, string vendorNip = "5261040828") =>
-        new()
-        {
-            VendorName = "Test Sp. z o.o.",
-            VendorNip = vendorNip,
-            AmountGross = amount,
-            Currency = currency,
-            InvoiceNumber = invoiceNumber,
-            KSeFInvoiceNumber = "KSEF-001"
-        };
+    private const string TransferText = "Odbiorca: Inny niz lokalnie\nRachunek: PL61 1090 1014 0000 0712 1981 2874\nKwota: 1,476.00 EUR\nTytul: FV 1/2026";
+    private static readonly Guid TenantId = Guid.Parse("304f3ff7-06b6-43e8-bdf4-a0ad77f194e3");
+    private static readonly Guid InvoiceId = Guid.Parse("0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a");
 
-    [Theory]
-    [InlineData("pl-PL")]
-    [InlineData("en-US")]
-    [InlineData("")]
-    public void BuildTransferDetails_FormatsAmountInPolish_RegardlessOfDeviceCulture(string deviceCulture)
+    private readonly IApiService _api = Substitute.For<IApiService>();
+
+    private InvoiceDetailsViewModel Loaded() => new(_api)
     {
-        var original = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(deviceCulture);
-        try
-        {
-            var result = InvoiceDetailsViewModel.BuildTransferDetails(Invoice(1234567.89m, invoiceNumber: "FV/2026/001"));
-
-            Assert.Equal(
-                "Odbiorca: Test Sp. z o.o.\nNIP: 5261040828\nKwota: 1 234 567,89 PLN\nTytul: FV/2026/001",
-                result);
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = original;
-        }
-    }
-
-    [Theory]
-    [InlineData("500", "500,00")]
-    [InlineData("99.99", "99,99")]
-    [InlineData("1230.5", "1 230,50")]
-    public void BuildTransferDetails_AmountHasTwoDecimals(string amount, string expected)
-    {
-        var result = InvoiceDetailsViewModel.BuildTransferDetails(Invoice(decimal.Parse(amount, CultureInfo.InvariantCulture), "EUR"));
-
-        Assert.Contains($"Kwota: {expected} EUR", result);
-    }
+        Invoice = new InvoiceDto { Id = InvoiceId, VendorName = "Test Sp. z o.o.", VendorNip = "5261040828", AmountGross = 1230.50m, KSeFInvoiceNumber = "KSEF-001" },
+        TenantId = TenantId.ToString()
+    };
 
     [Fact]
-    public void BuildTransferDetails_PrefersSellerInvoiceNumber()
-    {
-        Assert.EndsWith("Tytul: 15445/04/2026", InvoiceDetailsViewModel.BuildTransferDetails(Invoice(invoiceNumber: "15445/04/2026")));
-    }
-
-    [Fact]
-    public void BuildTransferDetails_UsesKsefNumberWhenSellerInvoiceNumberMissing()
-    {
-        Assert.EndsWith("Tytul: KSEF-001", InvoiceDetailsViewModel.BuildTransferDetails(Invoice()));
-    }
-
-    [Fact]
-    public async Task CopyTransferDetails_PutsTransferTextOnClipboard()
+    public async Task CopyTransferDetails_PutsServerTextOnClipboardByteForByte()
     {
         Shell.Current.Reset();
-        var vm = new InvoiceDetailsViewModel(Substitute.For<IApiService>()) { Invoice = Invoice() };
+        _api.GetTransferDetailsAsync(TenantId, InvoiceId).Returns(new TransferDetailsDto { TransferText = TransferText });
+        var vm = Loaded();
 
         await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
 
-        Assert.Equal(InvoiceDetailsViewModel.BuildTransferDetails(vm.Invoice!), Clipboard.Default.Text);
+        Assert.Equal(TransferText, Clipboard.Default.Text);
         Assert.Equal("Dane przelewu skopiowane do schowka.", Shell.Current.LastAlertMessage);
         Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CopyTransferDetails_Offline_LeavesClipboardAndShowsMessage()
+    {
+        Shell.Current.Reset();
+        await Clipboard.Default.SetTextAsync("before");
+        _api.GetTransferDetailsAsync(TenantId, InvoiceId)
+            .ThrowsAsync(new ApiException(HttpStatusCode.ServiceUnavailable, "Brak połączenia z serwerem."));
+        var vm = Loaded();
+
+        await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
+
+        Assert.Equal("before", Clipboard.Default.Text);
+        Assert.Equal("Brak połączenia z serwerem.", Shell.Current.LastAlertMessage);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task CopyTransferDetails_NonJsonBody_ShowsFixedTextNotParserError()
+    {
+        Shell.Current.Reset();
+        await Clipboard.Default.SetTextAsync("before");
+        _api.GetTransferDetailsAsync(TenantId, InvoiceId)
+            .ThrowsAsync(new System.Text.Json.JsonException("'<' is an invalid start of a value."));
+        var vm = Loaded();
+
+        await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
+
+        Assert.Equal("before", Clipboard.Default.Text);
+        Assert.Equal("Nie udało się skopiować danych przelewu.", Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public async Task CopyTransferDetails_RetryAfterOffline_CopiesServerText()
+    {
+        Shell.Current.Reset();
+        _api.GetTransferDetailsAsync(TenantId, InvoiceId)
+            .ThrowsAsync(new ApiException(HttpStatusCode.ServiceUnavailable, "offline"));
+        var vm = Loaded();
+        await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
+
+        _api.GetTransferDetailsAsync(TenantId, InvoiceId).Returns(new TransferDetailsDto { TransferText = TransferText });
+        await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
+
+        Assert.Equal("Dane przelewu skopiowane do schowka.", Shell.Current.LastAlertMessage);
+        Assert.Equal(TransferText, Clipboard.Default.Text);
     }
 }
