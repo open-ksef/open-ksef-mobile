@@ -34,6 +34,7 @@
     <Compile Include="..\OpenKSeF.Mobile\Services\LocalDbService.cs" Link="Linked\Services\LocalDbService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\PostLoginNavigationService.cs" Link="Linked\Services\PostLoginNavigationService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\QrCodeGenerator.cs" Link="Linked\Services\QrCodeGenerator.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\ServerSettingsService.cs" Link="Linked\Services\ServerSettingsService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ServerUrlRules.cs" Link="Linked\Services\ServerUrlRules.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\AccountViewModel.cs" Link="Linked\ViewModels\AccountViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\InvoiceDetailsViewModel.cs" Link="Linked\ViewModels\InvoiceDetailsViewModel.cs" />

@@ -22,7 +22,7 @@ public static class ServerUrlRules
 
         if (string.IsNullOrWhiteSpace(normalizedUrl))
         {
-            validationError = "Adres serwera nie moze byc pusty.";
+            validationError = "Adres serwera nie może być pusty.";
             return false;
         }
 

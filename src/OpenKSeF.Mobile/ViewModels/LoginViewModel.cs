@@ -129,7 +129,8 @@ public partial class LoginViewModel : ObservableObject
             IsBusy = true;
             ErrorMessage = null;
 
-            EnsureServerConfigured();
+            if (!EnsureServerConfigured())
+                return;
 
             if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
             {
@@ -142,7 +143,10 @@ public partial class LoginViewModel : ObservableObject
             if (success)
                 await _postLoginNav.NavigateAsync();
             else
+            {
                 ErrorMessage = "Nieprawidłowy email lub hasło.";
+                IsServerVisible = true;
+            }
         }
         catch (Exception ex)
         {
@@ -164,14 +168,18 @@ public partial class LoginViewModel : ObservableObject
             IsBusy = true;
             ErrorMessage = null;
 
-            EnsureServerConfigured();
+            if (!EnsureServerConfigured())
+                return;
 
             var success = await _authService.LoginWithGoogleAsync();
 
             if (success)
                 await _postLoginNav.NavigateAsync();
             else
+            {
                 ErrorMessage = "Logowanie przez Google nie powiodło się.";
+                IsServerVisible = true;
+            }
         }
         catch (Exception ex)
         {
@@ -193,7 +201,8 @@ public partial class LoginViewModel : ObservableObject
             IsBusy = true;
             ErrorMessage = null;
 
-            EnsureServerConfigured();
+            if (!EnsureServerConfigured())
+                return;
 
             if (string.IsNullOrWhiteSpace(RegEmail) || string.IsNullOrWhiteSpace(RegPassword))
             {
@@ -221,6 +230,8 @@ public partial class LoginViewModel : ObservableObject
 
             if (success)
                 await _postLoginNav.NavigateAsync();
+            else
+                IsServerVisible = true;
         }
         catch (InvalidOperationException ex)
         {
@@ -246,15 +257,7 @@ public partial class LoginViewModel : ObservableObject
     private void SaveServer()
     {
         ErrorMessage = null;
-
-        if (!_serverSettings.TryUpdateServerUrl(ServerUrl, out var normalizedUrl, out var validationError))
-        {
-            ErrorMessage = validationError;
-            return;
-        }
-
-        ServerUrl = normalizedUrl;
-        OnPropertyChanged(nameof(ActiveServerHost));
+        EnsureServerConfigured();
     }
 
     [RelayCommand]
@@ -263,14 +266,16 @@ public partial class LoginViewModel : ObservableObject
         try { await Shell.Current.GoToAsync("scanSetupQr"); } catch { }
     }
 
-    private void EnsureServerConfigured()
+    private bool EnsureServerConfigured()
     {
         if (!_serverSettings.TryUpdateServerUrl(ServerUrl, out var normalizedUrl, out var validationError))
         {
-            throw new InvalidOperationException(validationError);
+            ErrorMessage = validationError;
+            return false;
         }
 
         ServerUrl = normalizedUrl;
         OnPropertyChanged(nameof(ActiveServerHost));
+        return true;
     }
 }
