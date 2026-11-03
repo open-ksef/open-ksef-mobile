@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
@@ -14,6 +15,7 @@ public class ApiServiceTests
     private readonly IAuthService _auth = Substitute.For<IAuthService>();
     private readonly IServerSettingsService _serverSettings = Substitute.For<IServerSettingsService>();
     private readonly FakeHandler _handler = new();
+    private readonly RecordingLogger _logger = new();
 
     public ApiServiceTests()
     {
@@ -21,7 +23,7 @@ public class ApiServiceTests
         _serverSettings.ServerUrl.Returns("https://ksef.example.com");
     }
 
-    private ApiService CreateService() => new(new HttpClient(_handler), _auth, _serverSettings);
+    private ApiService CreateService() => new(new HttpClient(_handler), _auth, _serverSettings, _logger);
 
     [Fact]
     public async Task GetMe_SendsBearerTokenToConfiguredServer()
@@ -85,7 +87,7 @@ public class ApiServiceTests
     }
 
     [Fact]
-    public async Task Unauthorized_AfterRetry_ThrowsSessionExpired()
+    public async Task Unauthorized_AfterRetry_ThrowsTokenRejected()
     {
         _auth.RefreshAccessTokenAsync().Returns("refreshed-token");
         _handler.Respond(HttpStatusCode.Unauthorized);
@@ -94,8 +96,27 @@ public class ApiServiceTests
         var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetMeAsync());
 
         Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Contains("Serwer nie przyjął logowania", ex.Message);
         Assert.Equal(2, _handler.Requests.Count);
         await _auth.Received(1).RefreshAccessTokenAsync();
+    }
+
+    [Fact]
+    public async Task EachRequest_CarriesCurrentToken_DefaultHeadersStayClear()
+    {
+        var http = new HttpClient(_handler);
+        var api = new ApiService(http, _auth, _serverSettings, _logger);
+        _auth.GetAccessTokenAsync().Returns("token-a", "token-b", (string?)null);
+        _handler.Respond(HttpStatusCode.OK, new List<TenantDto>());
+        _handler.Respond(HttpStatusCode.OK, new List<TenantDto>());
+        _handler.Respond(HttpStatusCode.OK, new List<TenantDto>());
+
+        await api.GetTenantsAsync();
+        await api.GetTenantsAsync();
+        await api.GetTenantsAsync();
+
+        Assert.Equal(["Bearer token-a", "Bearer token-b", null], _handler.Requests.Select(r => r.Authorization));
+        Assert.Null(http.DefaultRequestHeaders.Authorization);
     }
 
     [Fact]
@@ -125,6 +146,85 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task ServerError_ShowsFixedText_LogsBodyWithoutTokenOrPersonalData()
+    {
+        const string jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJlLXZhbHVlLWhlcmU";
+        _auth.GetAccessTokenAsync().Returns(jwt);
+        _handler.RespondJson(HttpStatusCode.InternalServerError, $$"""{"detail":"Bearer {{jwt}} jan.kowalski@firma.pl NIP 526-104-08-28 boom"}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetIssuedInvoicesAsync(Guid.NewGuid(), q: "Kowalski"));
+
+        Assert.Equal("Błąd serwera (500). Spróbuj ponownie później.", ex.Message);
+        var log = Assert.Single(_logger.Lines);
+        Assert.Contains("500", log);
+        Assert.Contains("boom", log);
+        Assert.DoesNotContain("eyJ", log);
+        Assert.DoesNotContain("kowalski", log, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("526-104", log);
+    }
+
+    [Fact]
+    public async Task NipLookup_NotFound_LogDoesNotCarryNip()
+    {
+        _handler.Respond(HttpStatusCode.NotFound);
+
+        Assert.Null(await CreateService().LookupNipAsync("5261040828"));
+
+        Assert.DoesNotContain("5261040828", Assert.Single(_logger.Lines));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Conflict, """{"error":"A tenant with this NIP already exists for your account."}""", "A tenant with this NIP already exists for your account.")]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"Invalid NIP format. Must be 10 digits."}""", "Invalid NIP format. Must be 10 digits.")]
+    [InlineData(HttpStatusCode.Conflict, """{"message":"Numer jest już użyty."}""", "Numer jest już użyty.")]
+    public async Task ServerRuleMessage_ReachesUser_NotLogged(HttpStatusCode status, string body, string shown)
+    {
+        _handler.RespondJson(status, body);
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().CreateTenantAsync(new CreateTenantRequest { Nip = "1111111111" }));
+
+        Assert.Equal(shown, ex.Message);
+        Assert.Empty(_logger.Lines);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadGateway, """{"error":"KSeF said: secret upstream detail"}""", "Błąd serwera (502). Spróbuj ponownie później.")]
+    [InlineData(HttpStatusCode.BadRequest, "<html>proxy secret upstream detail</html>", "Serwer odrzucił żądanie (400).")]
+    [InlineData(HttpStatusCode.BadRequest, """{"title":"secret upstream detail","errors":{"Nip":["Invalid"]}}""", "Serwer odrzucił żądanie (400).")]
+    public async Task UnstructuredBody_ShowsFixedText_BodyOnlyLogged(HttpStatusCode status, string body, string shown)
+    {
+        _handler.RespondJson(status, body);
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetTenantsAsync());
+
+        Assert.Equal(shown, ex.Message);
+        Assert.Contains("secret upstream detail", Assert.Single(_logger.Lines));
+    }
+
+    [Fact]
+    public async Task ValidationEnvelope_ReachesCaller_FixedMessage_NotLogged()
+    {
+        _handler.RespondJson(HttpStatusCode.BadRequest, """{"errors":[{"code":"INV-VAL-001","field":"buyer.nip","message":"Niepoprawny NIP nabywcy"}],"warnings":[]}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().CreateIssuedInvoiceAsync(Guid.NewGuid(), new IssuedInvoiceDraftRequest()));
+
+        Assert.Equal("Niepoprawny NIP nabywcy", Assert.Single(ex.Validation!.Errors).Message);
+        Assert.Equal("Serwer odrzucił żądanie (400).", ex.Message);
+        Assert.Empty(_logger.Lines);
+    }
+
+    [Fact]
+    public async Task Timeout_ThrowsNetworkFailure_WithFixedText()
+    {
+        _handler.Throw(new TaskCanceledException("HttpClient.Timeout of 30 seconds elapsing"));
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetTenantsAsync());
+
+        Assert.True(ApiException.IsNetworkFailure(ex));
+        Assert.Equal("Brak połączenia z serwerem. Spróbuj ponownie po powrocie sieci.", ex.Message);
+    }
+
+    [Fact]
     public async Task ConnectionFailure_ThrowsNetworkFailure()
     {
         _handler.Throw(new HttpRequestException("no route"));
@@ -132,6 +232,7 @@ public class ApiServiceTests
         var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetTenantsAsync());
 
         Assert.True(ApiException.IsNetworkFailure(ex));
+        Assert.DoesNotContain("no route", ex.Message);
     }
 
     [Fact]
@@ -274,6 +375,18 @@ public class ApiServiceTests
         _handler.Enqueue(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes) });
 
         Assert.Equal(bytes, await CreateService().GetIssuedInvoiceXmlAsync(Guid.NewGuid(), Guid.NewGuid()));
+    }
+
+    private sealed class RecordingLogger : ILogger<ApiService>
+    {
+        public List<string> Lines { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            Lines.Add(formatter(state, exception));
     }
 
     private sealed record SentRequest(string Method, string Uri, string? Authorization, string? Body);

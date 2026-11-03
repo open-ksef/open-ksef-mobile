@@ -1,5 +1,13 @@
 using System.Net;
+using System.Reflection;
+using System.Security.Claims;
 using System.Text;
+using System.Text.RegularExpressions;
+using IdentityModel.Jwk;
+using IdentityModel.OidcClient;
+using IdentityModel.OidcClient.Browser;
+using IdentityModel.OidcClient.Results;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
@@ -16,20 +24,21 @@ public class AuthServiceRestoreTests
 
     private readonly StubHandler _handler = new();
     private readonly AuthService _auth;
+    private readonly IServerSettingsService _settings = Substitute.For<IServerSettingsService>();
+    private readonly OidcBrowser _browser = Substitute.For<OidcBrowser>();
 
     public AuthServiceRestoreTests()
     {
         SecureStorage.Default.Reset();
         AuthService.RestoreTimeout = TimeSpan.FromSeconds(5);
 
-        var settings = Substitute.For<IServerSettingsService>();
-        settings.ServerUrl.Returns("https://ksef.example.com");
-        settings.Authority.Returns("https://ksef.example.com/auth/realms/openksef");
+        _settings.ServerUrl.Returns("https://ksef.example.com");
+        _settings.Authority.Returns("https://ksef.example.com/auth/realms/openksef");
 
         _auth = new AuthService(
-            new AuthOptions { Authority = settings.Authority, ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
-            Substitute.For<OidcBrowser>(),
-            settings,
+            new AuthOptions { Authority = _settings.Authority, ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
+            _browser,
+            _settings,
             new HttpClient(_handler));
     }
 
@@ -321,7 +330,7 @@ public class AuthServiceRestoreTests
         var settings = Substitute.For<IServerSettingsService>();
         settings.ServerUrl.Returns("https://ksef.example.com");
 
-        Assert.Empty(await new ApiService(new HttpClient(_handler), _auth, settings).GetTenantsAsync());
+        Assert.Empty(await new ApiService(new HttpClient(_handler), _auth, settings, NullLogger<ApiService>.Instance).GetTenantsAsync());
 
         Assert.Equal(["/api/tenants", "/auth/realms/openksef/protocol/openid-connect/token", "/api/tenants"], _handler.Requests.Select(r => r.RequestUri!.AbsolutePath));
         Assert.Contains("grant_type=refresh_token", _handler.Bodies[1]);
@@ -402,12 +411,7 @@ public class AuthServiceRestoreTests
         Assert.Equal(0, rejected);
     }
 
-    private ApiService CreateApi()
-    {
-        var settings = Substitute.For<IServerSettingsService>();
-        settings.ServerUrl.Returns("https://ksef.example.com");
-        return new ApiService(new HttpClient(_handler), _auth, settings);
-    }
+    private ApiService CreateApi() => new(new HttpClient(_handler), _auth, _settings, NullLogger<ApiService>.Instance);
 
     private static bool IsTokenRequest(HttpRequestMessage request) => request.RequestUri!.AbsolutePath.EndsWith("/token");
 
@@ -438,7 +442,7 @@ public class AuthServiceRestoreTests
 
     [Theory]
     [MemberData(nameof(ServerProblems))]
-    public async Task Api401_RefreshServerProblem_KeepsSession_ThrowsSessionExpired_WithoutRetry(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    public async Task Api401_RefreshServerProblem_ShowsNoConnection_KeepsSession_NextCallRecovers(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
     {
         await LoginAsync();
         var stored = SecureStorage.Default.Count;
@@ -447,17 +451,28 @@ public class AuthServiceRestoreTests
         _handler.Respond = request => IsTokenRequest(request)
             ? problem(request)
             : Task.FromResult(Json(HttpStatusCode.Unauthorized, string.Empty));
+        var api = CreateApi();
 
-        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateApi().GetTenantsAsync());
+        var ex = await Assert.ThrowsAsync<ApiException>(api.GetTenantsAsync);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, ex.StatusCode);
+        Assert.Equal("Brak połączenia z serwerem. Spróbuj ponownie po powrocie sieci.", ex.Message);
+        Assert.True(ApiException.IsNetworkFailure(ex));
         Assert.Equal(2, _handler.Requests.Count);
         Assert.Equal(0, ended);
         Assert.Equal(stored, SecureStorage.Default.Count);
+
+        _handler.Respond = request => Task.FromResult(IsTokenRequest(request)
+            ? Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""")
+            : request.Headers.Authorization?.Parameter == "a2"
+                ? Json(HttpStatusCode.OK, "[]")
+                : Json(HttpStatusCode.Unauthorized, string.Empty));
+
+        Assert.Empty(await api.GetTenantsAsync());
     }
 
     [Fact]
-    public async Task Api401_AfterSuccessfulRefresh_OnePostPerCall_NoLoop_KeepsSession()
+    public async Task Api401_AfterSuccessfulRefresh_OnePostPerCall_NoLoop_KeepsSession_ShowsTokenRejected()
     {
         await LoginAsync();
         var stored = SecureStorage.Default.Count;
@@ -469,13 +484,411 @@ public class AuthServiceRestoreTests
         var api = CreateApi();
 
         for (var call = 0; call < 3; call++)
-            await Assert.ThrowsAsync<ApiException>(() => api.GetTenantsAsync());
+        {
+            var ex = await Assert.ThrowsAsync<ApiException>(() => api.GetTenantsAsync());
+            Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+            Assert.Contains("Serwer nie przyjął logowania", ex.Message);
+            Assert.Contains("wyloguj się", ex.Message);
+            Assert.False(ApiException.IsNetworkFailure(ex));
+        }
 
         Assert.Equal(9, _handler.Requests.Count);
         Assert.Equal(3, _handler.Requests.Count(IsTokenRequest));
         Assert.Equal(0, ended);
         Assert.Equal(stored, SecureStorage.Default.Count);
     }
+
+    private const string UserBTokens = """{"access_token":"b-access","refresh_token":"b-refresh","expires_in":300}""";
+
+    private static bool IsLogoutRequest(HttpRequestMessage request) => request.RequestUri!.AbsolutePath.EndsWith("/logout");
+
+    private async Task SwitchToUserBAsync()
+    {
+        await _auth.LogoutAsync();
+        Assert.True(await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+    }
+
+    private IEnumerable<HttpRequestMessage> ApiRequests => _handler.Requests.Where(r => r.RequestUri!.AbsolutePath.StartsWith("/api/"));
+
+    [Fact]
+    public async Task OneApiInstance_UserSwitch_EachRequestCarriesThatUsersToken()
+    {
+        await LoginAsync();
+        var http = new HttpClient(_handler);
+        var api = new ApiService(http, _auth, _settings, NullLogger<ApiService>.Instance);
+        _handler.Respond = request => Task.FromResult(request.RequestUri!.AbsolutePath.StartsWith("/api/")
+            ? Json(HttpStatusCode.OK, "[]")
+            : IsLogoutRequest(request) ? Json(HttpStatusCode.NoContent, string.Empty) : Json(HttpStatusCode.OK, UserBTokens));
+
+        await api.GetTenantsAsync();
+        await SwitchToUserBAsync();
+        await api.GetTenantsAsync();
+
+        Assert.Equal(["new-access", "b-access"], ApiRequests.Select(r => r.Headers.Authorization?.Parameter));
+        Assert.Null(http.DefaultRequestHeaders.Authorization);
+    }
+
+    [Fact]
+    public async Task AfterSessionEnded_NextRequestCarriesNoBearer()
+    {
+        await LoginAsync();
+        var api = CreateApi();
+        _handler.Respond = request => Task.FromResult(IsTokenRequest(request)
+            ? Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""")
+            : Json(HttpStatusCode.Unauthorized, string.Empty));
+
+        await Assert.ThrowsAsync<ApiException>(api.GetTenantsAsync);
+        _handler.Requests.Clear();
+        var ex = await Assert.ThrowsAsync<ApiException>(api.GetTenantsAsync);
+
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Null(Assert.Single(_handler.Requests).Headers.Authorization);
+    }
+
+    [Fact]
+    public async Task RequestAfterLogout_CarriesNoBearer_NoRefresh()
+    {
+        await LoginAsync();
+        var api = CreateApi();
+        _handler.Respond = request => Task.FromResult(request.RequestUri!.AbsolutePath.StartsWith("/api/")
+            ? request.Headers.Authorization is null ? Json(HttpStatusCode.Unauthorized, string.Empty) : Json(HttpStatusCode.OK, "[]")
+            : Json(HttpStatusCode.NoContent, string.Empty));
+        await api.GetTenantsAsync();
+        await _auth.LogoutAsync();
+        _handler.Requests.Clear();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => api.DeleteTenantAsync(Guid.NewGuid()));
+
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Null(Assert.Single(_handler.Requests).Headers.Authorization);
+    }
+
+    [Fact]
+    public async Task Late401_AfterLogout_NoRefresh_NoRetry_SessionExpired()
+    {
+        await LoginAsync();
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (IsLogoutRequest(request))
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            await release.Task;
+            return Json(HttpStatusCode.Unauthorized, string.Empty);
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await Task.Delay(50);
+        await _auth.LogoutAsync();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Single(ApiRequests);
+        Assert.DoesNotContain(_handler.Requests, IsTokenRequest);
+    }
+
+    [Fact]
+    public async Task Late401_AfterUserSwitch_NotRetriedWithNextUsersToken()
+    {
+        await LoginAsync();
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (IsLogoutRequest(request))
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            if (IsTokenRequest(request))
+                return Json(HttpStatusCode.OK, UserBTokens);
+            await release.Task;
+            return Json(HttpStatusCode.Unauthorized, string.Empty);
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await Task.Delay(50);
+        await SwitchToUserBAsync();
+        _handler.Bodies.Clear();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal(HttpStatusCode.Unauthorized, ex.StatusCode);
+        Assert.Equal("new-access", Assert.Single(ApiRequests).Headers.Authorization?.Parameter);
+        Assert.Empty(_handler.Bodies);
+        Assert.Equal("b-access", await _auth.GetAccessTokenAsync());
+    }
+
+    [Fact]
+    public async Task UserSwitchDuringForcedRefresh_NotRetriedWithNextUsersToken()
+    {
+        await LoginAsync();
+        var refreshSent = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var firstTokenPost = true;
+        _handler.Respond = async request =>
+        {
+            if (IsLogoutRequest(request))
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            if (!IsTokenRequest(request))
+                return Json(HttpStatusCode.Unauthorized, string.Empty);
+            if (!firstTokenPost)
+                return Json(HttpStatusCode.OK, UserBTokens);
+            firstTokenPost = false;
+            refreshSent.SetResult();
+            await release.Task;
+            return Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""");
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await refreshSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await SwitchToUserBAsync();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Single(ApiRequests);
+        Assert.Equal("b-access", await _auth.GetAccessTokenAsync());
+    }
+
+    [Fact]
+    public async Task UserSwitchWhileWaitingForToken_RequestNeverGoesOut()
+    {
+        await LoginExpiringAsync();
+        var refreshSent = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        var firstTokenPost = true;
+        _handler.Respond = async request =>
+        {
+            if (IsLogoutRequest(request))
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            if (!firstTokenPost)
+                return Json(HttpStatusCode.OK, UserBTokens);
+            firstTokenPost = false;
+            refreshSent.SetResult();
+            await release.Task;
+            return Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""");
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await refreshSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await SwitchToUserBAsync();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Empty(ApiRequests);
+    }
+
+    [Fact]
+    public async Task ServerSwitch_NewServerTokensLoaded_Late401NotRefreshedNorRetried()
+    {
+        await LoginAsync();
+        UseServer("other.example.com");
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, UserBTokens));
+        Assert.True(await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+        UseServer("ksef.example.com");
+
+        var sent = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (request.Headers.Authorization?.Parameter == "b-access")
+                return Json(HttpStatusCode.OK, "[]");
+            sent.SetResult();
+            await release.Task;
+            return Json(HttpStatusCode.Unauthorized, string.Empty);
+        };
+        var api = CreateApi();
+        var delete = api.DeleteTenantAsync(Guid.NewGuid());
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        UseServer("other.example.com");
+        Assert.Equal("b-access", await _auth.GetAccessTokenAsync());
+        _handler.Requests.Clear();
+        _handler.Bodies.Clear();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Empty(_handler.Requests);
+
+        Assert.Empty(await api.GetTenantsAsync());
+        Assert.Equal("other.example.com", Assert.Single(_handler.Requests).RequestUri!.Host);
+        Assert.Equal("b-access", _handler.Requests[0].Headers.Authorization?.Parameter);
+    }
+
+    private void UseServer(string host)
+    {
+        _settings.ServerUrl.Returns($"https://{host}");
+        _settings.Authority.Returns($"https://{host}/auth/realms/openksef");
+    }
+
+    private async Task AssertNoBearerRequestNotRetriedAcrossLoginAsync(Func<Task<bool>> login, string tokens = UserBTokens)
+    {
+        var sent = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (request.Method != HttpMethod.Delete)
+                return Json(HttpStatusCode.OK, tokens);
+            sent.SetResult();
+            await release.Task;
+            return Json(HttpStatusCode.Unauthorized, string.Empty);
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(await login());
+        _handler.Bodies.Clear();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Null(Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Delete).Headers.Authorization);
+        Assert.Empty(_handler.Bodies);
+    }
+
+    [Fact]
+    public Task FirstPasswordLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
+        AssertNoBearerRequestNotRetriedAcrossLoginAsync(() => _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+
+    [Fact]
+    public Task SetupTokenRedeem_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
+        AssertNoBearerRequestNotRetriedAcrossLoginAsync(
+            () => _auth.RedeemSetupTokenAsync("https://ksef.example.com", "setup"),
+            """{"accessToken":"b-access","refreshToken":"b-refresh","expiresIn":300}""");
+
+    [Fact]
+    public Task GoogleLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser()
+    {
+        const string authority = "https://ksef.example.com/auth/realms/openksef";
+        typeof(AuthService).GetField("_oidcClient", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_auth, new OidcClient(new OidcClientOptions
+        {
+            Authority = authority,
+            ClientId = "openksef-mobile",
+            Scope = "openid",
+            RedirectUri = "openksef://auth/callback",
+            Browser = _browser,
+            BackchannelHandler = _handler,
+            LoadProfile = false,
+            DisablePushedAuthorization = true,
+            IdentityTokenValidator = new AcceptAnyIdentityToken(),
+            ProviderInformation = new ProviderInformation
+            {
+                IssuerName = authority,
+                AuthorizeEndpoint = $"{authority}/protocol/openid-connect/auth",
+                TokenEndpoint = $"{authority}/protocol/openid-connect/token",
+                KeySet = new JsonWebKeySet()
+            }
+        }));
+        _browser.InvokeAsync(Arg.Any<BrowserOptions>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            var state = Regex.Match(call.Arg<BrowserOptions>().StartUrl, "state=([^&]+)").Groups[1].Value;
+            return new BrowserResult { ResultType = BrowserResultType.Success, Response = $"openksef://auth/callback?code=c&state={state}" };
+        });
+
+        return AssertNoBearerRequestNotRetriedAcrossLoginAsync(
+            _auth.LoginWithGoogleAsync,
+            """{"access_token":"b-access","refresh_token":"b-refresh","id_token":"i","token_type":"Bearer","expires_in":300}""");
+    }
+
+    private sealed class AcceptAnyIdentityToken : IIdentityTokenValidator
+    {
+        public Task<IdentityTokenValidationResult> ValidateAsync(string identityToken, OidcClientOptions options, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new IdentityTokenValidationResult { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "b")], "test")) });
+    }
+
+    [Fact]
+    public async Task LogoutWhileWaitingForToken_RequestNeverGoesOut()
+    {
+        await LoginExpiringAsync();
+        var refreshSent = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (IsLogoutRequest(request))
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            if (request.RequestUri!.AbsolutePath.StartsWith("/api/"))
+                return Json(HttpStatusCode.Unauthorized, string.Empty);
+            refreshSent.SetResult();
+            await release.Task;
+            return Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""");
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await refreshSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _auth.LogoutAsync();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Empty(ApiRequests);
+    }
+
+    [Fact]
+    public async Task SignOut_DevicesListSlowerThanFiveSeconds_DeleteStillCarriesBearer()
+    {
+        await LoginAsync();
+        Preferences.Default.Clear();
+        Preferences.Default.Set("device_push_token", "fcm-token");
+        var deviceId = Guid.NewGuid();
+        _handler.Respond = async request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(6));
+                return Json(HttpStatusCode.OK, $$"""[{"id":"{{deviceId}}","token":"fcm-token"}]""");
+            }
+
+            return Json(request.Method == HttpMethod.Delete && request.Headers.Authorization is null ? HttpStatusCode.Unauthorized : HttpStatusCode.NoContent, string.Empty);
+        };
+
+        await Navigation(new DeviceTokenService(CreateApi())).SignOutAsync();
+
+        var delete = Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Delete);
+        Assert.EndsWith($"/api/devices/{deviceId}", delete.RequestUri!.AbsolutePath);
+        Assert.Equal("new-access", delete.Headers.Authorization?.Parameter);
+    }
+
+    private async Task AssertSignOutDevicesListAfterLimit_NoDeleteAsync(Func<Task> afterSignOut)
+    {
+        await LoginAsync();
+        Preferences.Default.Clear();
+        Preferences.Default.Set("device_push_token", "fcm-token");
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                await release.Task;
+                return Json(HttpStatusCode.OK, $$"""[{"id":"{{Guid.NewGuid()}}","token":"fcm-token"}]""");
+            }
+
+            return IsTokenRequest(request) ? Json(HttpStatusCode.OK, UserBTokens) : Json(HttpStatusCode.NoContent, string.Empty);
+        };
+
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            await Navigation(new DeviceTokenService(CreateApi())).SignOutAsync();
+            await afterSignOut();
+            release.SetResult();
+            await Task.Delay(300);
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Get);
+        Assert.DoesNotContain(_handler.Requests, r => r.Method == HttpMethod.Delete);
+    }
+
+    [Fact]
+    public Task SignOut_DevicesListAfterLimit_NobodyLoggedIn_NoDelete() =>
+        AssertSignOutDevicesListAfterLimit_NoDeleteAsync(() => Task.CompletedTask);
+
+    [Fact]
+    public Task SignOut_DevicesListAfterLimit_NextUserLoggedIn_NoDelete() =>
+        AssertSignOutDevicesListAfterLimit_NoDeleteAsync(async () => Assert.True(await _auth.LoginWithCredentialsAsync("b@b.pl", "x")));
 
     [Fact]
     public async Task RestoreInvalidGrant_DoesNotRaiseSessionEnded()

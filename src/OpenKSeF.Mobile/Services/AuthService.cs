@@ -28,6 +28,7 @@ public class AuthService : IAuthService
     private readonly object _refreshGate = new();
     private Task<SessionRestoreResult>? _refreshInFlight;
     private bool _restorePending;
+    private int _sessionGeneration;
 
     public event Action? SessionEnded;
 
@@ -36,6 +37,17 @@ public class AuthService : IAuthService
     public bool LogoutUnderway { get; set; }
 
     public bool IsAuthenticated => _accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow;
+
+    public bool HasSession => _refreshToken is not null;
+
+    public int SessionGeneration
+    {
+        get
+        {
+            EnsureConfiguration();
+            return Volatile.Read(ref _sessionGeneration);
+        }
+    }
 
     public AuthService(AuthOptions options, OidcBrowser browser, IServerSettingsService serverSettings, HttpClient httpClient)
     {
@@ -73,6 +85,7 @@ public class AuthService : IAuthService
             if (tokenResponse?.AccessToken is null)
                 return false;
 
+            Interlocked.Increment(ref _sessionGeneration);
             _accessToken = tokenResponse.AccessToken;
             _refreshToken = tokenResponse.RefreshToken;
             _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
@@ -99,6 +112,7 @@ public class AuthService : IAuthService
             if (result.IsError)
                 return false;
 
+            Interlocked.Increment(ref _sessionGeneration);
             _accessToken = result.AccessToken;
             _refreshToken = result.RefreshToken;
             _tokenExpiry = result.AccessTokenExpiration;
@@ -219,6 +233,7 @@ public class AuthService : IAuthService
 
     private void ClearTokens()
     {
+        Interlocked.Increment(ref _sessionGeneration);
         _accessToken = null;
         _refreshToken = null;
         _tokenExpiry = DateTimeOffset.MinValue;
@@ -269,6 +284,7 @@ public class AuthService : IAuthService
 
             EnsureConfiguration();
 
+            Interlocked.Increment(ref _sessionGeneration);
             _accessToken = result.AccessToken;
             _refreshToken = result.RefreshToken;
             _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(result.ExpiresIn);
@@ -383,6 +399,7 @@ public class AuthService : IAuthService
             return;
         }
 
+        Interlocked.Increment(ref _sessionGeneration);
         _authority = authority;
         _storagePrefix = BuildStoragePrefix(authority);
         _oidcClient = CreateOidcClient(authority);
