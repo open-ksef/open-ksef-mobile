@@ -33,6 +33,6 @@ public partial class AccountPage : ContentPage
         if (_isLoadingSettings)
             return;
 
-        _viewModel.ToggleNotificationsCommand.Execute(null);
+        _viewModel.ToggleNotificationsCommand.Execute(e.Value);
     }
 }

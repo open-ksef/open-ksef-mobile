@@ -11,7 +11,7 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 public sealed class SettingsNotificationFlowTests : AndroidTestBase
 {
     [Test]
-    public void AccountPage_NotificationToggle_RequestsPermissionAndUpdates()
+    public void AccountPage_NotificationToggle_FlipsSwitchAndStatusBothWays()
     {
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
         authFlow.LoginWithKeycloakFromEnvironment();
@@ -26,9 +26,16 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
         var notificationSection = wait.UntilVisible(ByAutoId("AccountPageSectionNotifications"));
         Assert.That(notificationSection.Displayed, Is.True, "Notification settings section should be visible");
 
-        // Tap notification toggle
-        var toggle = wait.UntilVisible(ByAutoId("AccountPageToggleNotifications"));
-        toggle.Click();
+        var startedOn = IsToggleOn(wait);
+
+        // Two taps cover both directions and leave the install as it was, because noReset keeps the opt-out key
+        TapToggleAndAssert(wait, expectOn: !startedOn);
+        TapToggleAndAssert(wait, expectOn: startedOn);
+    }
+
+    private void TapToggleAndAssert(WaitHelper wait, bool expectOn)
+    {
+        wait.UntilVisible(ByAutoId("AccountPageToggleNotifications")).Click();
 
         // Handle Android notification permission dialog (API 33+)
         try
@@ -46,10 +53,14 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
             // Permission dialog may not appear if already granted or API < 33
         }
 
-        // Verify status text updated
-        var statusLabel = wait.UntilVisible(ByAutoId("AccountPageLabelNotificationStatus"));
-        Assert.That(statusLabel.Displayed, Is.True, "Notification status label should be visible");
+        var expectedStatus = expectOn ? "Powiadomienia push są włączone." : "Powiadomienia push są wyłączone.";
+        new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(20)).Until(d =>
+            d.FindElement(ByAutoId("AccountPageLabelNotificationStatus")).Text.StartsWith(expectedStatus, StringComparison.Ordinal));
+        Assert.That(IsToggleOn(wait), Is.EqualTo(expectOn), "Switch should match the status text");
     }
+
+    private static bool IsToggleOn(WaitHelper wait) =>
+        wait.UntilVisible(ByAutoId("AccountPageToggleNotifications")).GetAttribute("checked") == "true";
 
     [Test]
     public void AccountPage_NotificationToggle_ShowsDeniedMessage_WhenPermissionDenied()
@@ -79,10 +90,12 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
         }
         catch (WebDriverTimeoutException)
         {
-            // Permission dialog may not appear
+            // autoGrantPermissions in AndroidDriverFactory grants the permission, so this path needs a session without it
+            Assert.Inconclusive("No permission dialog: the tap only changed the push state, denial was not exercised.");
         }
 
-        var statusLabel = wait.UntilVisible(ByAutoId("AccountPageLabelNotificationStatus"));
-        Assert.That(statusLabel.Displayed, Is.True, "Notification status label should be visible after denial");
+        new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(20)).Until(d =>
+            d.FindElement(ByAutoId("AccountPageLabelNotificationStatus")).Text.StartsWith("Brak uprawnień", StringComparison.Ordinal));
+        Assert.That(toggle.GetAttribute("checked"), Is.EqualTo("false"), "Switch should stay off after denial");
     }
 }

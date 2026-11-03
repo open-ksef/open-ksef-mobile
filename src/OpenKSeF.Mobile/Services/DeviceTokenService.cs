@@ -9,6 +9,7 @@ public class DeviceTokenService : IDeviceTokenService
     private const string PermissionRequestedKey = "push_permission_requested";
     private const string DeviceRegisteredKey = "device_registered";
     private const string DeviceIdKey = "device_stable_id";
+    private const string PushDisabledKey = "push_disabled_by_user";
 
     private readonly IApiService _apiService;
 
@@ -17,8 +18,16 @@ public class DeviceTokenService : IDeviceTokenService
         _apiService = apiService;
     }
 
+    public bool PushDisabledByUser => Preferences.Default.Get(PushDisabledKey, false);
+
+    public bool PushRemovalPending =>
+        PushDisabledByUser && !string.IsNullOrEmpty(Preferences.Default.Get(TokenStorageKey, string.Empty));
+
     public async Task RegisterTokenAsync(string token, string platform)
     {
+        if (PushDisabledByUser)
+            return;
+
         var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
         if (storedToken == token && await ServerHasTokenAsync(token))
         {
@@ -77,6 +86,12 @@ public class DeviceTokenService : IDeviceTokenService
 
     public async Task EnsureDeviceRegisteredAsync()
     {
+        if (PushDisabledByUser)
+        {
+            await DisableNotificationsAsync();
+            return;
+        }
+
         try
         {
             var nativeToken = await TryGetNativePushTokenAsync();
@@ -124,71 +139,94 @@ public class DeviceTokenService : IDeviceTokenService
         if (status != PermissionStatus.Granted)
             return false;
 
-        var registered = false;
-        try
+        var platformInt = GetCurrentPlatform();
+
+        var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
+        var nativeToken = await TryGetNativePushTokenAsync();
+        var token = !string.IsNullOrWhiteSpace(nativeToken)
+            ? nativeToken
+            : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
+
+        await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
         {
-            var platformInt = GetCurrentPlatform();
+            Token = token,
+            Platform = platformInt,
+            TenantId = null
+        });
 
-            var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-            var nativeToken = await TryGetNativePushTokenAsync();
-            var token = !string.IsNullOrWhiteSpace(nativeToken)
-                ? nativeToken
-                : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
-
-            await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
-            {
-                Token = token,
-                Platform = platformInt,
-                TenantId = null
-            });
-
-            Preferences.Default.Set(TokenStorageKey, token);
-            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
-            Preferences.Default.Set(DeviceRegisteredKey, true);
-            registered = true;
-        }
-        catch
-        {
-        }
-
-        return registered;
+        Preferences.Default.Set(TokenStorageKey, token);
+        Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
+        Preferences.Default.Set(DeviceRegisteredKey, true);
+        Preferences.Default.Remove(PushDisabledKey);
+        return true;
     }
 
     public async Task<bool> AreNotificationsEnabledAsync()
     {
+        if (PushDisabledByUser)
+            return false;
+
         var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
         return status == PermissionStatus.Granted;
     }
 
+    public async Task<bool> DisableNotificationsAsync()
+    {
+        Preferences.Default.Set(PushDisabledKey, true);
+
+        if (!await TryDeleteServerDevicesAsync(StoredTokens()))
+            return false;
+
+        RemoveTokenKeys();
+        return true;
+    }
+
     public async Task UnregisterCurrentDeviceAsync()
     {
-        var tokens = new HashSet<string>
-        {
-            Preferences.Default.Get(TokenStorageKey, string.Empty),
-            Preferences.Default.Get(DeviceIdKey, string.Empty)
-        };
+        var tokens = StoredTokens();
+        RemoveTokenKeys();
+        await TryDeleteServerDevicesAsync(tokens);
+    }
 
+    private static HashSet<string> StoredTokens() =>
+    [
+        Preferences.Default.Get(TokenStorageKey, string.Empty),
+        Preferences.Default.Get(DeviceIdKey, string.Empty)
+    ];
+
+    private static void RemoveTokenKeys()
+    {
         Preferences.Default.Remove(TokenStorageKey);
         Preferences.Default.Remove(PlatformStorageKey);
         Preferences.Default.Remove(DeviceRegisteredKey);
+    }
 
+    private async Task<bool> TryDeleteServerDevicesAsync(HashSet<string> tokens)
+    {
         try
         {
-            var nativeToken = await TryGetNativePushTokenAsync();
-            if (!string.IsNullOrEmpty(nativeToken))
-                tokens.Add(nativeToken);
-
-            tokens.Remove(string.Empty);
-            if (tokens.Count == 0)
-                return;
-
-            var devices = await _apiService.GetDevicesAsync();
-            foreach (var device in devices.Where(d => tokens.Contains(d.Token)))
-                await _apiService.UnregisterDeviceAsync(device.Id);
+            await DeleteServerDevicesAsync(tokens).WaitAsync(TimeSpan.FromSeconds(15));
+            return true;
         }
         catch
         {
+            return false;
         }
+    }
+
+    private async Task DeleteServerDevicesAsync(HashSet<string> tokens)
+    {
+        var nativeToken = await TryGetNativePushTokenAsync();
+        if (!string.IsNullOrEmpty(nativeToken))
+            tokens.Add(nativeToken);
+
+        tokens.Remove(string.Empty);
+        if (tokens.Count == 0)
+            return;
+
+        var devices = await _apiService.GetDevicesAsync();
+        foreach (var device in devices.Where(d => tokens.Contains(d.Token)))
+            await _apiService.UnregisterDeviceAsync(device.Id);
     }
 
     private static int GetCurrentPlatform()

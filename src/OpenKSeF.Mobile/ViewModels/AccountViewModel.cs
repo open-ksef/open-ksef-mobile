@@ -1,11 +1,18 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
 
 namespace OpenKSeF.Mobile.ViewModels;
 
 public partial class AccountViewModel : ObservableObject
 {
+    private const string PushOffText = "Powiadomienia push są wyłączone.";
+    private const string PushOffPendingText =
+        "Powiadomienia wyłączone, ale serwer jeszcze o tym nie wie. Powiadomienie może dotrzeć, dopóki nie uruchomisz aplikacji ponownie z dostępem do sieci.";
+    private const string EnableNoConnectionText =
+        "Nie udało się włączyć powiadomień: brak połączenia z serwerem. Spróbuj ponownie po powrocie sieci.";
+
     private readonly IServerSettingsService _serverSettings;
     private readonly IDeviceTokenService _deviceTokenService;
     private readonly INotificationHubService _notificationHub;
@@ -50,7 +57,7 @@ public partial class AccountViewModel : ObservableObject
             var hubStatus = _notificationHub.IsConnected ? " (SignalR połączony)" : "";
             NotificationStatusText = NotificationsEnabled
                 ? $"Powiadomienia push są włączone.{hubStatus}"
-                : "Powiadomienia push są wyłączone.";
+                : _deviceTokenService.PushRemovalPending ? PushOffPendingText : PushOffText;
         }
         catch
         {
@@ -59,7 +66,7 @@ public partial class AccountViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task ToggleNotificationsAsync()
+    public async Task ToggleNotificationsAsync(bool turnOn)
     {
         if (IsBusy) return;
 
@@ -67,35 +74,43 @@ public partial class AccountViewModel : ObservableObject
         {
             IsBusy = true;
 
-            var alreadyEnabled = await _deviceTokenService.AreNotificationsEnabledAsync();
-
-            if (alreadyEnabled)
+            if (!turnOn)
             {
-                var refreshed = await _deviceTokenService.EnableNotificationsAsync();
-                NotificationsEnabled = refreshed;
-                NotificationStatusText = refreshed
-                    ? "Powiadomienia push są włączone."
-                    : "Nie udało się odnowić rejestracji powiadomień.";
+                var disable = _deviceTokenService.DisableNotificationsAsync();
+                try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+                var unregistered = await disable;
+                NotificationsEnabled = false;
+                NotificationStatusText = unregistered ? PushOffText : PushOffPendingText;
                 return;
             }
 
             var granted = await _deviceTokenService.EnableNotificationsAsync();
+            if (granted)
+                _ = _notificationHub.StartAsync();
 
             NotificationsEnabled = granted;
             NotificationStatusText = granted
                 ? "Powiadomienia push są włączone."
-                : "Brak uprawnień. Włącz powiadomienia w ustawieniach systemu.";
+                : WithPendingWarning("Brak uprawnień. Włącz powiadomienia w ustawieniach systemu.");
+        }
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
+        {
+            NotificationsEnabled = false;
+            NotificationStatusText = WithPendingWarning(EnableNoConnectionText);
         }
         catch
         {
             NotificationsEnabled = false;
-            NotificationStatusText = "Wystąpił błąd podczas włączania powiadomień.";
+            NotificationStatusText = WithPendingWarning("Wystąpił błąd podczas włączania powiadomień.");
         }
         finally
         {
             IsBusy = false;
         }
     }
+
+    private string WithPendingWarning(string text) =>
+        _deviceTokenService.PushRemovalPending ? $"{text} {PushOffPendingText}" : text;
 
     [RelayCommand]
     private async Task LogoutAsync()

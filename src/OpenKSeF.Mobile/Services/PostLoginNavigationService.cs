@@ -81,6 +81,9 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
     private async Task StartHubAsync()
     {
+        if (_deviceTokenService.PushDisabledByUser)
+            return;
+
         try { await _notificationHub.StartAsync(); } catch { }
     }
 
