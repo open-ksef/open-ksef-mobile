@@ -4,6 +4,8 @@ namespace OpenKSeF.Mobile.Services;
 
 public class DeviceTokenService : IDeviceTokenService
 {
+    internal static readonly TimeSpan ServerRemovalLimit = TimeSpan.FromSeconds(15);
+
     private const string TokenStorageKey = "device_push_token";
     private const string PlatformStorageKey = "device_push_platform";
     private const string PermissionRequestedKey = "push_permission_requested";
@@ -205,7 +207,7 @@ public class DeviceTokenService : IDeviceTokenService
     {
         try
         {
-            await DeleteServerDevicesAsync(tokens).WaitAsync(TimeSpan.FromSeconds(15));
+            await DeleteServerDevicesAsync(tokens).WaitAsync(ServerRemovalLimit);
             return true;
         }
         catch

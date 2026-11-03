@@ -1,5 +1,12 @@
 using System.Net;
+using System.Reflection;
+using System.Security.Claims;
 using System.Text;
+using System.Text.RegularExpressions;
+using IdentityModel.Jwk;
+using IdentityModel.OidcClient;
+using IdentityModel.OidcClient.Browser;
+using IdentityModel.OidcClient.Results;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using OpenKSeF.Mobile.Models;
@@ -18,6 +25,7 @@ public class AuthServiceRestoreTests
     private readonly StubHandler _handler = new();
     private readonly AuthService _auth;
     private readonly IServerSettingsService _settings = Substitute.For<IServerSettingsService>();
+    private readonly OidcBrowser _browser = Substitute.For<OidcBrowser>();
 
     public AuthServiceRestoreTests()
     {
@@ -29,7 +37,7 @@ public class AuthServiceRestoreTests
 
         _auth = new AuthService(
             new AuthOptions { Authority = _settings.Authority, ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
-            Substitute.For<OidcBrowser>(),
+            _browser,
             _settings,
             new HttpClient(_handler));
     }
@@ -669,29 +677,174 @@ public class AuthServiceRestoreTests
     }
 
     [Fact]
-    public async Task ServerSwitch_FirstRequestStillGoesOut_Late401NotRetriedOnNewServer()
+    public async Task ServerSwitch_NewServerTokensLoaded_Late401NotRefreshedNorRetried()
     {
         await LoginAsync();
+        UseServer("other.example.com");
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, UserBTokens));
+        Assert.True(await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+        UseServer("ksef.example.com");
+
+        var sent = new TaskCompletionSource();
         var release = new TaskCompletionSource();
-        _handler.Respond = async _ =>
+        _handler.Respond = async request =>
         {
+            if (request.Headers.Authorization?.Parameter == "b-access")
+                return Json(HttpStatusCode.OK, "[]");
+            sent.SetResult();
             await release.Task;
             return Json(HttpStatusCode.Unauthorized, string.Empty);
         };
         var api = CreateApi();
         var delete = api.DeleteTenantAsync(Guid.NewGuid());
-        await Task.Delay(50);
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        _settings.ServerUrl.Returns("https://other.example.com");
-        _settings.Authority.Returns("https://other.example.com/auth/realms/openksef");
+        UseServer("other.example.com");
+        Assert.Equal("b-access", await _auth.GetAccessTokenAsync());
+        _handler.Requests.Clear();
+        _handler.Bodies.Clear();
         release.SetResult();
 
-        await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.Single(_handler.Requests);
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Empty(_handler.Requests);
 
-        await Assert.ThrowsAsync<ApiException>(api.GetTenantsAsync);
-        Assert.Equal("other.example.com", _handler.Requests[1].RequestUri!.Host);
-        Assert.Null(_handler.Requests[1].Headers.Authorization);
+        Assert.Empty(await api.GetTenantsAsync());
+        Assert.Equal("other.example.com", Assert.Single(_handler.Requests).RequestUri!.Host);
+        Assert.Equal("b-access", _handler.Requests[0].Headers.Authorization?.Parameter);
+    }
+
+    private void UseServer(string host)
+    {
+        _settings.ServerUrl.Returns($"https://{host}");
+        _settings.Authority.Returns($"https://{host}/auth/realms/openksef");
+    }
+
+    private async Task AssertNoBearerRequestNotRetriedAcrossLoginAsync(Func<Task<bool>> login, string tokens = UserBTokens)
+    {
+        var sent = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (request.Method != HttpMethod.Delete)
+                return Json(HttpStatusCode.OK, tokens);
+            sent.SetResult();
+            await release.Task;
+            return Json(HttpStatusCode.Unauthorized, string.Empty);
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await sent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(await login());
+        _handler.Bodies.Clear();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Null(Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Delete).Headers.Authorization);
+        Assert.Empty(_handler.Bodies);
+    }
+
+    [Fact]
+    public Task FirstPasswordLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
+        AssertNoBearerRequestNotRetriedAcrossLoginAsync(() => _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+
+    [Fact]
+    public Task SetupTokenRedeem_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
+        AssertNoBearerRequestNotRetriedAcrossLoginAsync(
+            () => _auth.RedeemSetupTokenAsync("https://ksef.example.com", "setup"),
+            """{"accessToken":"b-access","refreshToken":"b-refresh","expiresIn":300}""");
+
+    [Fact]
+    public Task GoogleLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser()
+    {
+        const string authority = "https://ksef.example.com/auth/realms/openksef";
+        typeof(AuthService).GetField("_oidcClient", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_auth, new OidcClient(new OidcClientOptions
+        {
+            Authority = authority,
+            ClientId = "openksef-mobile",
+            Scope = "openid",
+            RedirectUri = "openksef://auth/callback",
+            Browser = _browser,
+            BackchannelHandler = _handler,
+            LoadProfile = false,
+            DisablePushedAuthorization = true,
+            IdentityTokenValidator = new AcceptAnyIdentityToken(),
+            ProviderInformation = new ProviderInformation
+            {
+                IssuerName = authority,
+                AuthorizeEndpoint = $"{authority}/protocol/openid-connect/auth",
+                TokenEndpoint = $"{authority}/protocol/openid-connect/token",
+                KeySet = new JsonWebKeySet()
+            }
+        }));
+        _browser.InvokeAsync(Arg.Any<BrowserOptions>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            var state = Regex.Match(call.Arg<BrowserOptions>().StartUrl, "state=([^&]+)").Groups[1].Value;
+            return new BrowserResult { ResultType = BrowserResultType.Success, Response = $"openksef://auth/callback?code=c&state={state}" };
+        });
+
+        return AssertNoBearerRequestNotRetriedAcrossLoginAsync(
+            _auth.LoginWithGoogleAsync,
+            """{"access_token":"b-access","refresh_token":"b-refresh","id_token":"i","token_type":"Bearer","expires_in":300}""");
+    }
+
+    private sealed class AcceptAnyIdentityToken : IIdentityTokenValidator
+    {
+        public Task<IdentityTokenValidationResult> ValidateAsync(string identityToken, OidcClientOptions options, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new IdentityTokenValidationResult { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", "b")], "test")) });
+    }
+
+    [Fact]
+    public async Task LogoutWhileWaitingForToken_RequestNeverGoesOut()
+    {
+        await LoginExpiringAsync();
+        var refreshSent = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _handler.Respond = async request =>
+        {
+            if (IsLogoutRequest(request))
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            if (request.RequestUri!.AbsolutePath.StartsWith("/api/"))
+                return Json(HttpStatusCode.Unauthorized, string.Empty);
+            refreshSent.SetResult();
+            await release.Task;
+            return Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""");
+        };
+
+        var delete = CreateApi().DeleteTenantAsync(Guid.NewGuid());
+        await refreshSent.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _auth.LogoutAsync();
+        release.SetResult();
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => delete.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Empty(ApiRequests);
+    }
+
+    [Fact]
+    public async Task SignOut_DevicesListSlowerThanFiveSeconds_DeleteStillCarriesBearer()
+    {
+        await LoginAsync();
+        Preferences.Default.Clear();
+        Preferences.Default.Set("device_push_token", "fcm-token");
+        var deviceId = Guid.NewGuid();
+        _handler.Respond = async request =>
+        {
+            if (request.Method == HttpMethod.Get)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(6));
+                return Json(HttpStatusCode.OK, $$"""[{"id":"{{deviceId}}","token":"fcm-token"}]""");
+            }
+
+            return Json(request.Method == HttpMethod.Delete && request.Headers.Authorization is null ? HttpStatusCode.Unauthorized : HttpStatusCode.NoContent, string.Empty);
+        };
+
+        await Navigation(new DeviceTokenService(CreateApi())).SignOutAsync();
+
+        var delete = Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Delete);
+        Assert.EndsWith($"/api/devices/{deviceId}", delete.RequestUri!.AbsolutePath);
+        Assert.Equal("new-access", delete.Headers.Authorization?.Parameter);
     }
 
     [Fact]
