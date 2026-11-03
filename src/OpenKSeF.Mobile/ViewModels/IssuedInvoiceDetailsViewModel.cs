@@ -80,10 +80,10 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
 
     public IReadOnlyList<IssuedLineRow> Lines => Invoice?.Lines.Select(l => new IssuedLineRow(
         l.Name,
-        $"{IssuingFormat.Number(l.Quantity)} × {IssuingFormat.Money(l.UnitNetPrice)} netto · VAT {IssuingFormat.VatRateLabel(l.VatRate)}",
+        $"{IssuingFormat.Quantity(l.Quantity)} × {IssuingFormat.Money(l.UnitNetPrice)} netto · VAT {IssuingFormat.VatRateLabel(l.VatRate)}",
         IssuingFormat.Money(l.NetAmount + l.VatAmount, Invoice.Currency))).ToList() ?? [];
 
-    public string AcceptedText => Invoice?.Ksef.AcceptedAt is { } at ? $"Przyjęta {at.ToLocalTime():dd.MM.yyyy, HH:mm}" : string.Empty;
+    public string AcceptedText => Invoice?.Ksef.AcceptedAt is { } at ? $"Przyjęta {IssuingFormat.DateAndTime(at.ToLocalTime())}" : string.Empty;
 
     public string RejectionText => Invoice is null ? string.Empty
         : $"Kod KSeF {Invoice.Ksef.StatusCode}: {RejectionMessage}{(RejectionDetails is { } details ? $"\n{details}" : string.Empty)}\n{RejectionAdvice}";

@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using OpenKSeF.Mobile.ViewModels;
+
 namespace OpenKSeF.Mobile.Models;
 
 public class InvoiceDto
@@ -6,6 +9,7 @@ public class InvoiceDto
     public string KSeFInvoiceNumber { get; set; } = string.Empty;
     public string KSeFReferenceNumber { get; set; } = string.Empty;
     public string? InvoiceNumber { get; set; }
+    [JsonIgnore]
     public string DisplayNumber => InvoiceNumber ?? KSeFInvoiceNumber;
     public string VendorName { get; set; } = string.Empty;
     public string VendorNip { get; set; } = string.Empty;
@@ -22,4 +26,12 @@ public class InvoiceDto
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }
     public List<InvoiceLineDto> Lines { get; set; } = new();
+    [JsonIgnore]
+    public string GrossText => IssuingFormat.Money(AmountGross, Currency);
+    [JsonIgnore]
+    public string GrossAmountText => IssuingFormat.Amount(AmountGross);
+    [JsonIgnore]
+    public string IssueDateText => IssuingFormat.Date(IssueDate);
+    [JsonIgnore]
+    public string AcquisitionDateText => IssuingFormat.Date(AcquisitionDate);
 }

@@ -12,7 +12,19 @@ public static class IssuingFormat
 
     public static string Money(decimal amount, string currency = "PLN") => $"{amount.ToString("N2", Pl)} {currency}";
 
+    public static string Amount(decimal? amount) => amount?.ToString("N2", Pl) ?? "—";
+
+    public static string Quantity(decimal? quantity) => quantity?.ToString("#,0.######", Pl) ?? "—";
+
+    public static string UnitPrice(decimal? price) => price?.ToString("#,0.00####", Pl) ?? "—";
+
     public static string Date(DateOnly date) => date.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture);
+
+    public static string Date(DateTime? date) => date?.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture) ?? "—";
+
+    public static string DateAndTime(DateTime at) => at.ToString("dd.MM.yyyy, HH:mm", CultureInfo.InvariantCulture);
+
+    public static string Time(DateTime at) => at.ToString("HH:mm", CultureInfo.InvariantCulture);
 
     public static string VatRateLabel(string rate) => rate switch
     {
@@ -133,8 +145,8 @@ public static class IssuingFormat
             .Replace("{RRRR}", date.ToString("yyyy", CultureInfo.InvariantCulture));
 
     public static string LookupStatus(NipLookupDto result, DateTime at) => result.VatStatus == "Czynny"
-        ? $"Czynny podatnik VAT · biała lista {at:dd.MM.yyyy, HH:mm}"
-        : $"{result.VatStatus} · biała lista {at:dd.MM.yyyy, HH:mm}";
+        ? $"Czynny podatnik VAT · biała lista {DateAndTime(at)}"
+        : $"{result.VatStatus} · biała lista {DateAndTime(at)}";
 
     private static readonly Regex KsefDetailsNoise = new(@"\s*\(traceId:[^)]*\)|\s*\([^()]*:\s*[{\[].*?[}\]]\)|(?<=^|;\s)[a-z]+(?:-[a-z]+)+:\s*");
 

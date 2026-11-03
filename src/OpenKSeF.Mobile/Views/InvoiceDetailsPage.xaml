@@ -43,7 +43,7 @@
                         Padding="20"
                         Margin="0">
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="5">
-                        <Label Text="{Binding Invoice.AmountGross, StringFormat='{0:N2}'}"
+                        <Label Text="{Binding Invoice.GrossAmountText}"
                                AutomationId="InvoiceDetailsPageLabelAmount"
                                FontSize="36"
                                FontAttributes="Bold"
@@ -73,11 +73,11 @@
                     <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="8">
                         <Label Text="Data wystawienia" Style="{StaticResource LabelCaption}" />
                         <Label Grid.Row="1"
-                               Text="{Binding Invoice.IssueDate, StringFormat='{0:dd.MM.yyyy}'}"
+                               Text="{Binding Invoice.IssueDateText}"
                                FontSize="16" />
                         <Label Grid.Column="1" Text="Data nabycia" Style="{StaticResource LabelCaption}" />
                         <Label Grid.Row="1" Grid.Column="1"
-                               Text="{Binding Invoice.AcquisitionDate, StringFormat='{0:dd.MM.yyyy}'}"
+                               Text="{Binding Invoice.AcquisitionDateText}"
                                FontSize="16" />
                     </Grid>
                 </Border>
@@ -128,11 +128,11 @@
                                                    TextColor="{StaticResource TextMuted}">
                                                 <Label.FormattedText>
                                                     <FormattedString>
-                                                        <Span Text="{Binding Quantity, StringFormat='{0:N4}'}" />
+                                                        <Span Text="{Binding QuantityText}" />
                                                         <Span Text=" " />
                                                         <Span Text="{Binding Unit}" />
                                                         <Span Text="  ×  " TextColor="{StaticResource TextMuted}" />
-                                                        <Span Text="{Binding UnitPriceNet, StringFormat='{0:N2}'}" />
+                                                        <Span Text="{Binding UnitPriceNetText}" />
                                                         <Span Text=" netto" TextColor="{StaticResource TextMuted}" />
                                                     </FormattedString>
                                                 </Label.FormattedText>
@@ -144,11 +144,11 @@
                                                 <Label.FormattedText>
                                                     <FormattedString>
                                                         <Span Text="Netto: " TextColor="{StaticResource TextMuted}" FontSize="11" />
-                                                        <Span Text="{Binding AmountNet, StringFormat='{0:N2}'}" />
+                                                        <Span Text="{Binding AmountNetText}" />
                                                         <Span Text="   Brutto: " TextColor="{StaticResource TextMuted}" FontSize="11" />
-                                                        <Span Text="{Binding AmountGross, StringFormat='{0:N2}'}" />
+                                                        <Span Text="{Binding AmountGrossText}" />
                                                         <Span Text="   VAT: " TextColor="{StaticResource TextMuted}" FontSize="11" />
-                                                        <Span Text="{Binding VatRate}" />
+                                                        <Span Text="{Binding VatRateText}" />
                                                     </FormattedString>
                                                 </Label.FormattedText>
                                             </Label>
