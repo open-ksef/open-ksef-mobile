@@ -750,12 +750,6 @@ public class AuthServiceRestoreTests
         AssertNoBearerRequestNotRetriedAcrossLoginAsync(() => _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
 
     [Fact]
-    public Task SetupTokenRedeem_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
-        AssertNoBearerRequestNotRetriedAcrossLoginAsync(
-            () => _auth.RedeemSetupTokenAsync("https://ksef.example.com", "setup"),
-            """{"accessToken":"b-access","refreshToken":"b-refresh","expiresIn":300}""");
-
-    [Fact]
     public Task GoogleLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser()
     {
         const string authority = "https://ksef.example.com/auth/realms/openksef";

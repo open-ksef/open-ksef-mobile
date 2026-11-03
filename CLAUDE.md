@@ -48,7 +48,7 @@ Each service has a single, clear responsibility:
 | Service | Responsibility |
 |---------|----------------|
 | `ApiService` | HTTP calls to the backend REST API |
-| `AuthService` | OIDC tokens (login, refresh, redeem) |
+| `AuthService` | OIDC tokens (login, refresh) |
 | `LocalDbService` | SQLite cache (read/write cached invoices) |
 | `ServerSettingsService` | Base URL and server configuration |
 | `NotificationHubService` | SignalR connection for live events |

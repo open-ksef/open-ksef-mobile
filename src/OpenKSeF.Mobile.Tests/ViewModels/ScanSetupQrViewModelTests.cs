@@ -10,14 +10,12 @@ namespace OpenKSeF.Mobile.Tests.ViewModels;
 public class ScanSetupQrViewModelTests
 {
     private readonly IServerSettingsService _serverSettings;
-    private readonly IAuthService _authService;
     private readonly IPostLoginNavigationService _postLoginNav;
 
     public ScanSetupQrViewModelTests()
     {
         Shell.Current.Reset();
         _serverSettings = Substitute.For<IServerSettingsService>();
-        _authService = Substitute.For<IAuthService>();
         _postLoginNav = Substitute.For<IPostLoginNavigationService>();
 
         _serverSettings.ServerUrl.Returns("https://example.com");
@@ -36,7 +34,7 @@ public class ScanSetupQrViewModelTests
             });
     }
 
-    private ScanSetupQrViewModel CreateVm() => new(_serverSettings, _authService, _postLoginNav);
+    private ScanSetupQrViewModel CreateVm() => new(_serverSettings, _postLoginNav);
 
     private static string BuildQrPayload(string serverUrl, string? setupToken = null) =>
         JsonSerializer.Serialize(new
@@ -48,31 +46,19 @@ public class ScanSetupQrViewModelTests
         });
 
     [Fact]
-    public async Task ProcessBarcode_AutoLogin_CallsPostLoginNavigation()
+    public async Task ProcessBarcode_StaleSetupToken_SetsServerWithoutApiCallAndNavigatesToLogin()
     {
-        _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
-            .Returns(true);
-
         var vm = CreateVm();
-        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "valid-token"));
+        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "stale-token"));
 
-        await _postLoginNav.Received(1).NavigateAsync();
-        Assert.Equal("Zalogowano automatycznie!", vm.StatusText);
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task ProcessBarcode_RedeemFails_ShowsErrorAndNavigatesToLogin()
-    {
-        _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
-            .Returns(false);
-
-        var vm = CreateVm();
-        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "expired-token"));
-
+        _serverSettings.Received(1).TryUpdateServerUrl("https://example.com", out Arg.Any<string>(), out Arg.Any<string?>());
         Assert.Equal("//login", Shell.Current.LastRoute);
-        Assert.Contains("Token wygasł", vm.ErrorMessage);
-        await _postLoginNav.DidNotReceive().NavigateAsync();
+        Assert.Contains("Serwer ustawiony", vm.StatusText);
+        Assert.Null(vm.ErrorMessage);
+        Assert.Empty(_postLoginNav.ReceivedCalls());
+        Assert.DoesNotContain(
+            typeof(ScanSetupQrViewModel).GetConstructors().Single().GetParameters(),
+            p => p.ParameterType == typeof(IAuthService) || p.ParameterType == typeof(IApiService));
     }
 
     [Fact]
@@ -83,7 +69,6 @@ public class ScanSetupQrViewModelTests
 
         Assert.Equal("//login", Shell.Current.LastRoute);
         Assert.Contains("Serwer ustawiony", vm.StatusText);
-        await _authService.DidNotReceive().RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>());
     }
 
     [Fact]
@@ -131,7 +116,6 @@ public class ScanSetupQrViewModelTests
         Assert.Equal("Serwer nie został zmieniony.", vm.StatusText);
         _serverSettings.DidNotReceiveWithAnyArgs().TryUpdateServerUrl(default!, out _, out _);
         await _postLoginNav.DidNotReceive().SignOutAsync();
-        await _authService.DidNotReceiveWithAnyArgs().RedeemSetupTokenAsync(default!, default!);
     }
 
     [Fact]
@@ -178,19 +162,15 @@ public class ScanSetupQrViewModelTests
     [Fact]
     public async Task ProcessBarcode_DuplicateCall_IgnoredWhileBusy()
     {
-        _authService.RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>())
-            .Returns(async _ =>
-            {
-                await Task.Delay(100);
-                return true;
-            });
+        ConfigureDefaultServerSettings("https://other.example.org");
+        _postLoginNav.SignOutAsync().Returns(_ => Task.Delay(100));
 
         var vm = CreateVm();
-        var first = vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "token1"));
-        var second = vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com", "token2"));
+        var first = vm.ProcessBarcodeAsync(BuildQrPayload("https://other.example.org"));
+        var second = vm.ProcessBarcodeAsync(BuildQrPayload("https://other.example.org"));
 
         await Task.WhenAll(first, second);
 
-        await _authService.Received(1).RedeemSetupTokenAsync(Arg.Any<string>(), Arg.Any<string>());
+        await _postLoginNav.Received(1).SignOutAsync();
     }
 }
