@@ -1,0 +1,167 @@
+name: Play publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: Existing versionCode to release. Nothing is built or uploaded.
+        required: true
+        type: string
+      track:
+        description: closed is the API track alpha
+        required: true
+        type: choice
+        options:
+          - closed
+          - production
+      release_notes:
+        description: Polish release notes, max 500 characters
+        required: true
+        type: string
+      listing:
+        description: Also replace the pl-PL listing and images from this commit
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: Validate the edit and delete it instead of committing
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: play-publish
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish to Google Play
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: google-play
+    permissions:
+      contents: read
+    steps:
+      - name: Edit, release and commit
+        shell: python3 {0}
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          REPO_TOKEN: ${{ github.token }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          TRACK: ${{ inputs.track }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          LISTING: ${{ inputs.listing }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          import base64, json, os, re, subprocess, sys, tempfile, time, urllib.error, urllib.parse, urllib.request
+
+          PACKAGE = 'com.openksef.mobile'
+          LANGUAGE = 'pl-PL'
+          TRACKS = {'closed': 'alpha', 'production': 'production'}
+          LISTING_FIELDS = [('title', 'Title', 30), ('shortDescription', 'Short description', 80), ('fullDescription', 'Full description', 4000)]
+          IMAGES = f'store/{LANGUAGE}'
+          APP = f'https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE}'
+          UPLOAD = f'https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/{PACKAGE}'
+          CONTENTS = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/contents"
+
+
+          def request(method, url, headers, body=b''):
+              req = urllib.request.Request(url, data=None if method == 'GET' else body, headers=headers, method=method)
+              try:
+                  with urllib.request.urlopen(req, timeout=300) as response:
+                      return response.read()
+              except urllib.error.HTTPError as error:
+                  sys.exit(f'{method} {url}: HTTP {error.code}: {error.read().decode(errors="replace")}')
+
+
+          def repo(path, accept='application/vnd.github.raw+json'):
+              headers = {'Authorization': f"Bearer {os.environ['REPO_TOKEN']}", 'Accept': accept, 'User-Agent': 'play-publish'}
+              return request('GET', f"{CONTENTS}/{path}?ref={os.environ['GITHUB_SHA']}", headers)
+
+
+          def read_listing():
+              text = repo('STORE_LISTING.md').decode('utf-8').replace('\r\n', '\n')
+              listing = {'language': LANGUAGE}
+              for field, heading, limit in LISTING_FIELDS:
+                  match = re.search(rf'^## {heading} \(max {limit} characters\)\n\n```\n(.+?)\n```$', text, re.M | re.S)
+                  if not match:
+                      sys.exit(f'STORE_LISTING.md: no block for {heading}')
+                  if len(match.group(1)) > limit:
+                      sys.exit(f'STORE_LISTING.md: {heading} has {len(match.group(1))} characters, limit {limit}')
+                  listing[field] = match.group(1)
+              return listing
+
+
+          def read_images():
+              entries = json.loads(repo(f'{IMAGES}/phoneScreenshots', 'application/vnd.github+json'))
+              shots = sorted(entry['name'] for entry in entries if entry['name'].endswith('.png'))
+              return {
+                  'icon': [repo(f'{IMAGES}/icon.png')],
+                  'featureGraphic': [repo(f'{IMAGES}/featureGraphic.png')],
+                  'phoneScreenshots': [repo(f'{IMAGES}/phoneScreenshots/{name}') for name in shots],
+              }
+
+
+          def b64url(data):
+              return base64.urlsafe_b64encode(data).rstrip(b'=')
+
+
+          def access_token():
+              account = json.loads(os.environ['SERVICE_ACCOUNT'])
+              token_url = 'https://oauth2.googleapis.com/token'
+              now = int(time.time())
+              claims = {'iss': account['client_email'], 'scope': 'https://www.googleapis.com/auth/androidpublisher', 'aud': token_url, 'iat': now, 'exp': now + 3600}
+              unsigned = b64url(b'{"alg":"RS256","typ":"JWT"}') + b'.' + b64url(json.dumps(claims).encode())
+              handle, key_path = tempfile.mkstemp()
+              try:
+                  with os.fdopen(handle, 'w') as key:
+                      key.write(account['private_key'])
+                  signature = subprocess.run(['openssl', 'dgst', '-sha256', '-sign', key_path], input=unsigned, capture_output=True, check=True).stdout
+              finally:
+                  os.remove(key_path)
+              form = urllib.parse.urlencode({'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer', 'assertion': (unsigned + b'.' + b64url(signature)).decode()})
+              return json.loads(request('POST', token_url, {'Content-Type': 'application/x-www-form-urlencoded'}, form.encode()))['access_token']
+
+
+          version_code = os.environ['VERSION_CODE'].strip()
+          notes = os.environ['RELEASE_NOTES'].strip()
+          track = TRACKS[os.environ['TRACK']]
+          dry_run = os.environ['DRY_RUN'] == 'true'
+          if not re.fullmatch(r'[1-9][0-9]*', version_code):
+              sys.exit(f'version_code is not a number: {version_code}')
+          if not notes or len(notes) > 500:
+              sys.exit(f'release_notes has {len(notes)} characters, allowed 1 to 500')
+
+          listing = read_listing() if os.environ['LISTING'] == 'true' else None
+          images = read_images() if listing else {}
+
+          auth = {'Authorization': f'Bearer {access_token()}', 'Content-Type': 'application/json'}
+          edit = f"{APP}/edits/{json.loads(request('POST', f'{APP}/edits', auth))['id']}"
+
+          bundles = json.loads(request('GET', f'{edit}/bundles', auth)).get('bundles', [])
+          if int(version_code) not in [bundle['versionCode'] for bundle in bundles]:
+              sys.exit(f'versionCode {version_code} is not an uploaded bundle')
+
+          if listing:
+              request('PUT', f'{edit}/listings/{LANGUAGE}', auth, json.dumps(listing).encode())
+              for image_type, files in images.items():
+                  request('DELETE', f'{edit}/listings/{LANGUAGE}/{image_type}', auth)
+                  upload = edit.replace(APP, UPLOAD) + f'/listings/{LANGUAGE}/{image_type}?uploadType=media'
+                  for content in files:
+                      request('POST', upload, {**auth, 'Content-Type': 'image/png'}, content)
+
+          release = {'versionCodes': [version_code], 'status': 'completed', 'releaseNotes': [{'language': LANGUAGE, 'text': notes}]}
+          request('PUT', f'{edit}/tracks/{track}', auth, json.dumps({'track': track, 'releases': [release]}).encode())
+
+          if dry_run:
+              request('POST', f'{edit}:validate', auth)
+              print('Tracks:', [entry['track'] for entry in json.loads(request('GET', f'{edit}/tracks', auth)).get('tracks', [])])
+              request('DELETE', edit, auth)
+              print(f'Dry run: {version_code} to {track} validated, edit deleted, nothing committed')
+              sys.exit(0)
+
+          request('POST', f'{edit}:commit?changesInReviewBehavior=ERROR_IF_IN_REVIEW', auth)
+          print(f'Committed: {version_code} to {track}')
