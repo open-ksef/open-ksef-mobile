@@ -490,7 +490,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private async Task<IssuedInvoiceDto?> SaveAsync()
     {
-        if (_portalOnly || !Guid.TryParse(TenantId, out var tenantId))
+        if (_portalOnly || !_loaded && Guid.TryParse(InvoiceId, out _) || !Guid.TryParse(TenantId, out var tenantId))
             return null;
 
         ClearErrors();

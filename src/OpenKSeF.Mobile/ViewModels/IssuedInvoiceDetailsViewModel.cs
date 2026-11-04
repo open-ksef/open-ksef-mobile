@@ -174,13 +174,24 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [RelayCommand]
     private async Task EditAsync()
     {
-        try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}"); } catch { }
+        try
+        {
+            Invoice = await _apiService.GetIssuedInvoiceAsync(Guid.Parse(TenantId!), Invoice!.Id);
+            if (IsPortalOnly)
+                return;
+
+            await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Nie udało się załadować faktury: {ex.Message}";
+        }
     }
 
     [RelayCommand]
     private async Task DeleteAsync()
     {
-        if (Invoice is null || !await Shell.Current.DisplayAlertAsync("Usuń szkic", "Usunąć szkic faktury?", "Usuń", "Anuluj"))
+        if (!IsEditableDraft || !await Shell.Current.DisplayAlertAsync("Usuń szkic", "Usunąć szkic faktury?", "Usuń", "Anuluj"))
             return;
 
         try

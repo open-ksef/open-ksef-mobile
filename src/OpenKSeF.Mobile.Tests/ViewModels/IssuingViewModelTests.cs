@@ -1251,6 +1251,67 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Draft_LoadFailure_SaveSendsNothing()
+    {
+        var vm = Draft(Profile());
+        vm.InvoiceId = InvoiceId.ToString();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Task.FromException<IssuedInvoiceDto>(new HttpRequestException("down")));
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.DidNotReceiveWithAnyArgs().UpdateIssuedInvoiceAsync(default, default, default!);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+        Assert.NotNull(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Details_Edit_InvoiceBecameForeign_StaysOnDetails()
+    {
+        var vm = await DetailsOf(Invoice());
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(ForeignInvoice());
+
+        await vm.EditCommand.ExecuteAsync(null);
+
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.True(vm.CanOpenInPortal);
+    }
+
+    [Fact]
+    public async Task Details_Edit_RefreshFails_StaysOnDetailsWithError()
+    {
+        var vm = await DetailsOf(Invoice());
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Task.FromException<IssuedInvoiceDto>(new HttpRequestException("down")));
+
+        await vm.EditCommand.ExecuteAsync(null);
+
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.StartsWith("Nie udało się załadować faktury", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Details_Delete_DomesticDraft_Deletes()
+    {
+        var vm = await DetailsOf(Invoice());
+        Shell.Current.AlertAnswer = true;
+
+        await vm.DeleteCommand.ExecuteAsync(null);
+
+        await _api.Received(1).DeleteIssuedInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Fact]
+    public async Task Details_Delete_ForeignDraft_DeletesNothing()
+    {
+        var vm = await DetailsOf(ForeignInvoice());
+
+        await vm.DeleteCommand.ExecuteAsync(null);
+
+        await _api.DidNotReceiveWithAnyArgs().DeleteIssuedInvoiceAsync(default, default);
+    }
+
+    [Fact]
     public async Task Draft_Domestic_LoadsAndSaves_WithoutForeignKeysOnTheWire()
     {
         var vm = Draft(Profile());
