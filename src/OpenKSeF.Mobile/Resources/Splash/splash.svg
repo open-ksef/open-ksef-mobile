@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 456 456">
-  <text x="228" y="300" font-family="sans-serif" font-size="200" font-weight="bold" fill="#1E88E5" text-anchor="middle">K</text>
+  <path transform="translate(36 36) scale(12)" fill="#4f46e5" d="M20 2H10a8 8 0 0 0-8 8v12a8 8 0 0 0 8 8h12a8 8 0 0 0 8-8V12h-6v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h10zM22 2v8h8z"/>
 </svg>
