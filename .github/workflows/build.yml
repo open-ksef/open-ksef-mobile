@@ -14,9 +14,14 @@ jobs:
   build:
     name: Build & Unit Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Play publish script and listing limits
+        run: python3 scripts/play_publish_test.py
 
       - uses: actions/setup-dotnet@v4
         with:

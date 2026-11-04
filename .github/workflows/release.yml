@@ -181,12 +181,31 @@ jobs:
             ${{ steps.artifacts.outputs.aab }}
             ${{ steps.artifacts.outputs.apk }}
 
+      - name: Hand AAB to the Play upload job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: play-aab
+          path: ${{ steps.artifacts.outputs.aab }}
+          retention-days: 1
+          if-no-files-found: error
+
+  play-upload:
+    name: Google Play internal track
+    needs: android
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Download AAB
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: play-aab
+
       - name: Upload AAB to Google Play internal track
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: com.openksef.mobile
-          releaseFiles: ${{ steps.artifacts.outputs.aab }}
+          releaseFiles: openksef-${{ github.ref_name }}.aab
           tracks: internal
           status: completed
 
@@ -303,8 +322,8 @@ jobs:
   # ─────────────────────────────────────────────
   publish-release:
     name: Publish Release
-    needs: [android, ios]
-    if: ${{ !cancelled() && needs.android.result == 'success' }}
+    needs: [android, play-upload, ios]
+    if: ${{ !cancelled() && needs.android.result == 'success' && needs.play-upload.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

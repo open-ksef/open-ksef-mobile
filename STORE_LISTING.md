@@ -1,6 +1,6 @@
 # Google Play Store Listing
 
-Reference document for the Google Play Console submission. Copy-paste these values when creating the app listing.
+Source of the pl-PL Google Play listing. `.github/workflows/play-publish.yml` reads the title, short and full blocks from this file at the dispatched commit; `scripts/play_publish_test.py` checks the limits. Keep the headings and fences as they are.
 
 ---
 
@@ -8,7 +8,7 @@ Reference document for the Google Play Console submission. Copy-paste these valu
 
 | Field            | Value                |
 |------------------|----------------------|
-| App name         | OpenKSeF             |
+| App name         | See Title            |
 | Default language | Polish (pl-PL)       |
 | App or game      | App                  |
 | Free or paid     | Free                 |
@@ -18,10 +18,18 @@ Reference document for the Google Play Console submission. Copy-paste these valu
 
 ---
 
+## Title (max 30 characters)
+
+```
+OpenKSeF: faktury z KSeF
+```
+
+---
+
 ## Short description (max 80 characters)
 
 ```
-Wystawiaj i przeglądaj faktury w KSeF na telefonie — powiadomienia i kody QR.
+Faktury z KSeF na telefonie. Łączy się z Twoją instancją OpenKSeF.
 ```
 
 ---
@@ -29,53 +37,33 @@ Wystawiaj i przeglądaj faktury w KSeF na telefonie — powiadomienia i kody QR.
 ## Full description (max 4000 characters)
 
 ```
-OpenKSeF to darmowa aplikacja mobilna z publicznie dostępnym kodem źródłowym do wystawiania, przeglądania i synchronizacji faktur w Krajowym Systemie e-Faktur (KSeF).
-
-Aplikacja łączy się z Twoją instancją OpenKSeF i pozwala szybko wystawiać i sprawdzać faktury, kopiować dane do przelewu i generować kody QR — bez potrzeby logowania do portalu KSeF na komputerze.
+OpenKSeF to aplikacja dla właścicieli małych firm i księgowych, którzy mają własną instancję OpenKSeF albo dostęp do instancji udostępnionej przez jej właściciela. Aplikacja nie działa bez serwera: łączy się z instancją, której adres podajesz. Nie prowadzimy wersji hostowanej dla firm.
 
 OpenKSeF to niezależny projekt, niepowiązany z Ministerstwem Finansów. Z KSeF łączy się przez jego publiczne API.
 
-GŁÓWNE FUNKCJE:
+CO MOŻESZ ZROBIĆ
 
-• Przegląd faktur – lista faktur z KSeF z wyszukiwaniem i filtrami. Szczegóły faktury: kwoty, daty, dane kontrahenta.
+• Faktury otrzymane: lista i szczegóły z kwotami, datami i danymi kontrahenta.
+• Wystawianie: faktura dla firmy lub osoby prywatnej, dane nabywcy pobrane po NIP, wysyłka do KSeF, status, PDF, XML i UPO.
+• Faktury zagraniczne: podgląd w aplikacji, wystawianie w portalu.
+• Płatność: kod QR i dane przelewu, gdy faktura je zawiera.
+• Powiadomienia o nowych fakturach, które można wyłączyć na ekranie Konto. Serwer sprawdza KSeF okresowo, więc powiadomienie nie przychodzi od razu.
+• Wiele firm (NIP-ów) na jednym koncie.
+• Offline: ostatnie faktury otrzymane są dostępne bez internetu. Wystawianie wymaga połączenia.
 
-• Wystawianie faktur – utwórz fakturę dla firmy lub osoby prywatnej, pobierz dane nabywcy po NIP i wyślij fakturę do KSeF. Sprawdzaj jej status, udostępniaj PDF, XML i UPO.
+JAK ZACZĄĆ
 
-• Synchronizacja w tle – nowe faktury pojawiają się automatycznie dzięki synchronizacji z KSeF przez backend OpenKSeF.
+1. Uruchom OpenKSeF na swoim serwerze (Docker). Instrukcja: open-ksef.pl
+2. Dodaj firmę i token KSeF w portalu albo w aplikacji.
+3. W aplikacji podaj adres serwera lub zeskanuj kod QR z portalu i zaloguj się.
 
-• Powiadomienia push – powiadomienia o nowych fakturach.
+DANE
 
-• Kody QR i dane przelewu – skopiuj dane przelewu jednym kliknięciem lub wygeneruj kod QR do szybkiej płatności.
+Dane firm i faktur są na instancji, z którą łączy się aplikacja. Powiadomienia domyślnie przechodzą przez usługę relay OpenKSeF i Firebase Cloud Messaging. Wystawione faktury trafiają do KSeF. Sprawdzenie NIP-u korzysta z białej listy Ministerstwa Finansów. Połączenie szyfruje HTTPS.
 
-• Tryb offline – ostatnie faktury otrzymane są zapisywane lokalnie na urządzeniu, więc możesz je przeglądać bez połączenia z internetem. Wystawianie faktur wymaga połączenia.
+Kod źródłowy jest publicznie dostępny: github.com/open-ksef. Licencja: Elastic License 2.0.
 
-• Wiele firm – obsługuj kilka firm (NIP-ów) w jednej aplikacji. Szybkie przełączanie między firmami.
-
-• Onboarding – prosty kreator konfiguracji: dodaj firmę, podaj token KSeF i gotowe.
-
-• Bezpieczeństwo – logowanie przez OpenID Connect (Keycloak), szyfrowanie tokenów KSeF w bazie, komunikacja HTTPS.
-
-• Self-hosted – OpenKSeF możesz uruchomić na własnym serwerze. Dane firm i faktur są przechowywane na instancji, z którą łączy się aplikacja. Powiadomienia push domyślnie przechodzą przez usługę relay OpenKSeF i Firebase Cloud Messaging, wystawione faktury trafiają do KSeF, a sprawdzenie NIP-u korzysta z białej listy Ministerstwa Finansów.
-
-• Kod źródłowy – kod jest publicznie dostępny na GitHub (github.com/open-ksef). Licencja Elastic License 2.0.
-
-JAK ZACZĄĆ:
-
-1. Zainstaluj OpenKSeF na swoim serwerze (Docker / docker-compose) — instrukcja na open-ksef.pl
-2. Uruchom kreator konfiguracji w portalu webowym
-3. Pobierz aplikację mobilną i zeskanuj kod QR z portalu lub wpisz adres serwera ręcznie
-4. Gotowe — Twoje faktury z KSeF pojawią się automatycznie
-
-WYMAGANIA:
-
-• Dostęp do instancji OpenKSeF: własnej (self-hosted) lub udostępnionej przez jej właściciela
-• Android 7.0 (API 24) lub nowszy
-
-WSPARCIE I KONTAKT:
-
-• Dokumentacja: open-ksef.pl
-• GitHub: github.com/open-ksef
-• Zgłaszanie błędów: github.com/open-ksef/open-ksef-mobile/issues
+Wymagany Android 7.0 lub nowszy. Błędy: github.com/open-ksef/open-ksef-mobile/issues
 ```
 
 ---
@@ -164,26 +152,31 @@ Not collected: Diagnostics, Location, Contacts, Browsing History, Search History
 
 ---
 
-## Graphics checklist
+## Graphics
 
-| Asset                    | Spec              | Source                                         |
-|--------------------------|-------------------|------------------------------------------------|
-| App icon (Play Store)    | 512x512 PNG       | Export from `Resources/AppIcon/appicon.svg` + `appiconfg.svg` |
-| Feature graphic          | 1024x500 PNG      | Create with OpenKSeF branding (#1E88E5 blue)   |
-| Phone screenshots (min 2)| 16:9 or 9:16      | Capture from emulator or device                |
+`play-publish.yml` with `listing: true` replaces all three image types from these committed files, and fails before any Play call if one is missing. Fake data only: NIP `1111111111` or `2222222222`. Never production data.
 
-### Recommended screenshots
+| Asset             | Spec                                    | File                              | Source                                                                 |
+|-------------------|-----------------------------------------|-----------------------------------|------------------------------------------------------------------------|
+| App icon          | 512x512, 32-bit PNG, opaque, max 1024 KB | `store/pl-PL/icon.png`            | `production/design/brand/app-icon/appicon-1024.png` exported RGBA      |
+| Feature graphic   | 1024x500, 24-bit PNG                    | `store/pl-PL/featureGraphic.png`  | `production/design/brand/source/og-image.html`, white mark on `#4f46e5`, no price or Beta claim |
+| Phone screenshots | 1080x1920, 24-bit PNG, no alpha         | `store/pl-PL/phoneScreenshots/`   | Release build on a 1080x1920 AVD; file name order is listing order      |
 
-1. Invoice list (Faktury tab)
-2. Invoice details with amounts
-3. QR code / transfer data screen
-4. Tenant list (Firmy tab)
-5. Login / onboarding screen
+### Screenshots
+
+1. `InvoiceListPage`: received invoices
+2. `InvoiceDetailsPage`: amounts, `Zapłać`
+3. `QrCodePage`: payment QR, `Kopiuj dane przelewu`
+4. `InvoiceDraftPage`: company buyer, one line, VAT
+5. `IssuedInvoiceListPage`: statuses
+6. `LoginPage`: server field with `https://twoj-serwer.example`
+
+No taglines, device frames or calls to action.
 
 ---
 
-## Release track recommendation
+## Release tracks
 
-1. **Internal testing** — upload first AAB, add team emails as testers
-2. **Closed testing** — invite beta users
-3. **Production** — after testing passes, promote to production
+1. **Internal**: a `v*` tag uploads the bundle (`release.yml`)
+2. **Closed**: `play-publish.yml`, `track: closed`, an uploaded versionCode
+3. **Production**: `play-publish.yml`, `track: production`, the same versionCode
