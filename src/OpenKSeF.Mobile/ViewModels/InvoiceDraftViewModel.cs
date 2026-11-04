@@ -88,6 +88,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
     private SellerProfileDto? _profile;
     private string? _invoiceNumber;
     private bool _loaded;
+    private bool _portalOnly;
 
     [ObservableProperty]
     private string? _tenantId;
@@ -254,7 +255,19 @@ public partial class InvoiceDraftViewModel : ObservableObject
             OnPropertyChanged(nameof(NumberPreview));
 
             if (Guid.TryParse(InvoiceId, out var invoiceId))
-                Fill(await _apiService.GetIssuedInvoiceAsync(tenantId, invoiceId));
+            {
+                var invoice = await _apiService.GetIssuedInvoiceAsync(tenantId, invoiceId);
+                if (IssuingFormat.IsPortalOnly(invoice))
+                {
+                    _loaded = _portalOnly = true;
+                    ErrorMessage = "Tę fakturę edytujesz w portalu.";
+                    try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={invoiceId}"); } catch { }
+                    return;
+                }
+
+                Fill(invoice);
+            }
+
             _loaded = true;
         }
         catch (Exception ex)
@@ -477,7 +490,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private async Task<IssuedInvoiceDto?> SaveAsync()
     {
-        if (!Guid.TryParse(TenantId, out var tenantId))
+        if (_portalOnly || !Guid.TryParse(TenantId, out var tenantId))
             return null;
 
         ClearErrors();

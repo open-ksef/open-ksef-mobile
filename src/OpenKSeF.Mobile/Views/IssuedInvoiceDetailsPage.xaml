@@ -31,7 +31,7 @@
                             <controls:KsefBadge Environment="{Binding Environment}" />
                         </HorizontalStackLayout>
 
-                        <VerticalStackLayout Spacing="8" IsVisible="{Binding IsDraft}">
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding IsEditableDraft}">
                             <Label Text="Bez numeru. Możesz edytować i usunąć." Style="{StaticResource UiMutedText}" />
                             <Button Text="Wystaw i wyślij" Style="{StaticResource UiButtonPrimary}"
                                     Command="{Binding IssueCommand}" AutomationId="IssuedInvoiceDetailsPageButtonIssue" />
@@ -97,8 +97,15 @@
                                     IsVisible="{Binding CanFixRejection}"
                                     Command="{Binding EditCommand}" AutomationId="IssuedInvoiceDetailsPageButtonFix" />
                             <Button Text="Kopiuj jako nową" Style="{StaticResource UiButtonPrimary}"
-                                    IsVisible="{Binding IsDuplicateNumberRejection}"
+                                    IsVisible="{Binding CanCopyRejected}"
                                     Command="{Binding CopyAsNewCommand}" AutomationId="IssuedInvoiceDetailsPageButtonCopyRejected" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding CanOpenInPortal}">
+                            <Label Text="W aplikacji ta faktura jest tylko do podglądu." Style="{StaticResource UiMutedText}"
+                                   AutomationId="IssuedInvoiceDetailsPageLabelViewOnly" />
+                            <Button Text="{Binding PortalButtonText}" Style="{StaticResource UiButtonPrimary}"
+                                    Command="{Binding OpenInPortalCommand}" AutomationId="IssuedInvoiceDetailsPageButtonOpenPortal" />
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
@@ -107,6 +114,9 @@
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Do zapłaty" Style="{StaticResource UiCaption}" />
                         <Label Text="{Binding GrossText}" Style="{StaticResource UiDisplay}" AutomationId="IssuedInvoiceDetailsPageLabelTotal" />
+                        <Label Text="{Binding ForeignVatText}" Style="{StaticResource UiBody}"
+                               AutomationId="IssuedInvoiceDetailsPageLabelForeignVat"
+                               IsVisible="{Binding ForeignVatText, Converter={StaticResource IsNotNullConverter}}" />
                         <Label Text="{Binding DatesText}" Style="{StaticResource UiMutedText}" />
                     </VerticalStackLayout>
                 </Border>

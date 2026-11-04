@@ -57,6 +57,27 @@ public class IssuedInvoiceContractTests
           "createdAt": "2026-11-03T10:00:00Z", "updatedAt": "2026-11-03T10:00:00Z", "issuedAt": null }
         """;
 
+    public const string ForeignInvoiceResponseJson = """
+        { "id": "0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a", "status": "Accepted", "number": "FV/1/11/2026",
+          "seller": { "nip": "1234567890", "name": "OpenKSeF Test A sp. z o.o.", "addressLine1": "ul. Prosta 1", "addressLine2": "00-001 Warszawa", "bankAccount": null, "cashAccounting": false, "iban": "GB82WEST12345698765432", "swift": "TESTGB2L", "bankName": "Test Bank" },
+          "buyer": { "kind": "Foreign", "nip": null, "name": "Test Client Ltd", "addressLine1": "1 Test Street", "addressLine2": "London", "countryCode": "GB", "idType": "Other", "foreignId": "GB-TEST-1" },
+          "issueDate": "2026-11-03", "saleDate": "2026-11-03", "dueDate": "2026-11-17",
+          "paymentMethod": "Transfer", "splitPayment": false, "exemptionBasis": null,
+          "lines": [ { "lineNo": 1, "name": "Service", "unit": "szt.", "quantity": 1, "unitNetPrice": 3000.00, "vatRate": "np I", "netAmount": 3000.00, "vatAmount": 0.00 } ],
+          "vatSummary": [ { "vatRate": "np I", "net": 3000.00, "vat": 0.00 } ],
+          "totalNet": 3000.00, "totalVat": 0.00, "totalGross": 3000.00, "currency": "GBP",
+          "ksef": { "environment": "test", "ksefNumber": "1234567890-20261103-0100A0B0C0D0-E1", "acceptedAt": "2026-11-03T10:05:00Z", "statusCode": 200, "statusMessage": "Sukces", "statusDetails": null,
+                    "lastError": null, "verificationUrl": "https://qr-test.ksef.mf.gov.pl/invoice/1234567890/03-11-2026/abc", "hasUpo": true, "duplicateKsefNumber": null },
+          "warnings": [],
+          "createdAt": "2026-11-03T10:00:00Z", "updatedAt": "2026-11-03T10:00:00Z", "issuedAt": "2026-11-03T10:01:00Z", "exchangeRate": 5.2133, "exchangeRateDate": "2026-11-02" }
+        """;
+
+    public const string ForeignListItemJson = """
+        { "id": "0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a", "status": "Accepted", "number": "FV/1/11/2026", "buyerName": "Test Client Ltd", "buyerNip": null,
+          "issueDate": "2026-11-03", "dueDate": "2026-11-17", "totalNet": 3000.00, "totalGross": 3000.00, "currency": "GBP", "ksefNumber": "1234567890-20261103-0100A0B0C0D0-E1",
+          "buyerCountryCode": "GB", "buyerIdType": "Other", "buyerForeignId": "GB-TEST-1" }
+        """;
+
     public const string AcceptedKsefJson = """
         { "environment": "test", "ksefNumber": "1234567890-20261103-0100A0B0C0D0-E1", "acceptedAt": "2026-11-03T10:05:00Z", "statusCode": 200,
           "statusMessage": "Sukces", "statusDetails": null, "lastError": null, "verificationUrl": "https://qr-test.ksef.mf.gov.pl/invoice/1234567890/03-11-2026/abc", "hasUpo": true, "duplicateKsefNumber": null }
@@ -79,6 +100,8 @@ public class IssuedInvoiceContractTests
         { DraftRequestJson, typeof(IssuedInvoiceDraftRequest) },
         { PersonDraftRequestJson, typeof(IssuedInvoiceDraftRequest) },
         { InvoiceResponseJson, typeof(IssuedInvoiceDto) },
+        { ForeignInvoiceResponseJson, typeof(IssuedInvoiceDto) },
+        { ForeignListItemJson, typeof(IssuedInvoiceListItemDto) },
         { AcceptedKsefJson, typeof(KsefSubmissionDto) },
         { ListItemJson, typeof(IssuedInvoiceListItemDto) },
         { ValidationEnvelopeJson, typeof(ValidationEnvelope) },
@@ -92,6 +115,17 @@ public class IssuedInvoiceContractTests
         var reserialized = JsonSerializer.Serialize(model, type, Web);
 
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(json), JsonNode.Parse(reserialized)), reserialized);
+    }
+
+    [Fact]
+    public void ForeignResponse_MapsNewFields()
+    {
+        var invoice = JsonSerializer.Deserialize<IssuedInvoiceDto>(ForeignInvoiceResponseJson, Web)!;
+
+        Assert.Equal(("Foreign", "GB", "Other", "GB-TEST-1"), (invoice.Buyer.Kind, invoice.Buyer.CountryCode, invoice.Buyer.IdType, invoice.Buyer.ForeignId));
+        Assert.Equal(("GB82WEST12345698765432", "TESTGB2L", "Test Bank"), (invoice.Seller.Iban, invoice.Seller.Swift, invoice.Seller.BankName));
+        Assert.Equal((5.2133m, new DateOnly(2026, 11, 2)), (invoice.ExchangeRate!.Value, invoice.ExchangeRateDate!.Value));
+        Assert.Equal("np I", Assert.Single(invoice.Lines).VatRate);
     }
 
     [Fact]

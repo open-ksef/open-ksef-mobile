@@ -15,6 +15,7 @@ public class IssuingViewModelTests : IDisposable
     private static readonly Guid InvoiceId = Guid.Parse("0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a");
 
     private readonly IApiService _api = Substitute.For<IApiService>();
+    private readonly IServerSettingsService _serverSettings = Substitute.For<IServerSettingsService>();
 
     public IssuingViewModelTests()
     {
@@ -690,7 +691,7 @@ public class IssuingViewModelTests : IDisposable
         _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
     }
 
-    private IssuedInvoiceDetailsViewModel Details(List<TimeSpan> delays) => new(_api)
+    private IssuedInvoiceDetailsViewModel Details(List<TimeSpan> delays) => new(_api, _serverSettings)
     {
         TenantId = TenantId.ToString(),
         InvoiceId = InvoiceId.ToString(),
@@ -901,7 +902,7 @@ public class IssuingViewModelTests : IDisposable
     private async Task<IssuedInvoiceDetailsViewModel> DetailsOf(IssuedInvoiceDto invoice)
     {
         _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(invoice);
-        var vm = new IssuedInvoiceDetailsViewModel(_api) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
+        var vm = new IssuedInvoiceDetailsViewModel(_api, _serverSettings) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
         await vm.LoadCommand.ExecuteAsync(null);
         return vm;
     }
@@ -1109,5 +1110,178 @@ public class IssuingViewModelTests : IDisposable
         await vm.CopyAsNewCommand.ExecuteAsync(null);
 
         Assert.Equal($"../invoiceDraft?tenantId={TenantId}&invoiceId={copyId}", Shell.Current.LastRoute);
+    }
+
+    private static IssuedInvoiceDto ForeignInvoice(string status = "Draft") => new()
+    {
+        Id = InvoiceId, Status = status, Number = status == "Draft" ? null : "FV/12/11/2026", Currency = "GBP",
+        Buyer = new PartyDto { Kind = "Foreign", Name = "Test Client Ltd", AddressLine1 = "1 Test Street", CountryCode = "GB", IdType = "Other", ForeignId = "GB-TEST-1" },
+        IssueDate = new DateOnly(2026, 11, 3), SaleDate = new DateOnly(2026, 11, 3), DueDate = new DateOnly(2026, 11, 17),
+        Lines = [new() { LineNo = 1, Name = "Service", Quantity = 2, UnitNetPrice = 1500m, VatRate = "np I", NetAmount = 3000m, VatAmount = 0m }],
+        VatSummary = [new() { VatRate = "np I", Net = 3000m, Vat = 0m }],
+        TotalNet = 3000m, TotalVat = 0m, TotalGross = 3000m,
+        Ksef = new KsefSubmissionDto { Environment = "test" }
+    };
+
+    [Fact]
+    public async Task Details_ForeignDraft_IsViewOnly_WithEditInPortal()
+    {
+        _serverSettings.ServerUrl.Returns("https://portal.example.test");
+        var vm = await DetailsOf(ForeignInvoice());
+
+        Assert.True(vm.CanOpenInPortal);
+        Assert.Equal("Edytuj w portalu", vm.PortalButtonText);
+        Assert.False(vm.IsEditableDraft);
+        Assert.False(vm.CanCopyAsNew);
+
+        await vm.OpenInPortalCommand.ExecuteAsync(null);
+
+        Assert.Equal($"https://portal.example.test/issued/{InvoiceId}/edit?tenantId={TenantId}", Browser.Default.LastUri);
+    }
+
+    [Fact]
+    public async Task Details_ForeignDraft_IssueSendsNothing()
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        var vm = await DetailsOf(ForeignInvoice());
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+    }
+
+    [Fact]
+    public async Task Details_ForeignRejected_OnlyPortalCanFix()
+    {
+        var rejected = ForeignInvoice("Rejected");
+        rejected.Ksef.StatusCode = 450;
+        var vm = await DetailsOf(rejected);
+
+        Assert.False(vm.CanFixRejection);
+        Assert.True(vm.CanOpenInPortal);
+        Assert.Equal("Edytuj w portalu", vm.PortalButtonText);
+
+        rejected.Ksef.StatusCode = 440;
+        vm = await DetailsOf(rejected);
+
+        Assert.False(vm.CanCopyRejected);
+        Assert.Equal("Otwórz w portalu", vm.PortalButtonText);
+        Assert.Contains("„Kopiuj jako nową” w portalu", vm.RejectionText);
+    }
+
+    [Fact]
+    public async Task Details_ForeignAccepted_ShowsCurrencyCountryAndNpRate()
+    {
+        var vm = await DetailsOf(ForeignInvoice("Accepted"));
+
+        Assert.Equal("3 000,00 GBP", vm.GrossText.Replace(' ', ' '));
+        Assert.Equal("Stawka np I · VAT 0,00 GBP", vm.ForeignVatText);
+        Assert.Contains("Kraj GB", vm.BuyerText);
+        Assert.Contains("Nr podatkowy GB-TEST-1", vm.BuyerText);
+        var line = Assert.Single(vm.Lines);
+        Assert.Equal("2 × 1 500,00 GBP netto · VAT np I", line.Detail.Replace(' ', ' '));
+        Assert.Equal("3 000,00 GBP", line.Gross.Replace(' ', ' '));
+        Assert.False(vm.CanOpenInPortal);
+    }
+
+    [Fact]
+    public async Task Details_Domestic_StaysEditable()
+    {
+        var vm = await DetailsOf(Invoice());
+
+        Assert.True(vm.IsEditableDraft);
+        Assert.False(vm.CanOpenInPortal);
+        Assert.True(vm.CanCopyAsNew);
+        Assert.Null(vm.ForeignVatText);
+        Assert.DoesNotContain("Kraj", vm.BuyerText);
+    }
+
+    [Theory]
+    [InlineData("Accepted", "Other", "GB", "GB · np I · VAT 0,00 GBP")]
+    [InlineData("Accepted", "None", "GB", "GB · np I · VAT 0,00 GBP")]
+    [InlineData("Sending", "VatUe", "DE", "DE · np II · VAT 0,00 GBP")]
+    [InlineData("Draft", "VatUe", "DE", "DE")]
+    [InlineData("Rejected", "Other", "GB", "GB")]
+    [InlineData("Accepted", null, null, null)]
+    public void List_ForeignRow_ShowsCountryAndRate(string status, string? idType, string? country, string? expected)
+    {
+        var row = new IssuedInvoiceRow(new IssuedInvoiceListItemDto { Status = status, Currency = "GBP", BuyerIdType = idType, BuyerCountryCode = country, TotalGross = 3000m });
+
+        Assert.Equal(expected, row.ForeignText);
+        Assert.Equal("3 000,00 GBP", row.Gross.Replace(' ', ' '));
+    }
+
+    [Theory]
+    [InlineData("Foreign", "PLN")]
+    [InlineData("Foreign", "GBP")]
+    [InlineData("Person", "GBP")]
+    [InlineData("FutureKind", "PLN")]
+    public async Task Draft_PortalOnlyInvoice_NeverSaves_AndReturnsToDetails(string kind, string currency)
+    {
+        var vm = Draft(Profile());
+        vm.InvoiceId = InvoiceId.ToString();
+        var invoice = ForeignInvoice();
+        invoice.Buyer.Kind = kind;
+        invoice.Currency = currency;
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(invoice);
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+        await _api.DidNotReceiveWithAnyArgs().UpdateIssuedInvoiceAsync(default, default, default!);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+    }
+
+    [Fact]
+    public async Task Draft_LoadFailure_LoadsAgainOnNextAppear()
+    {
+        var vm = Draft(Profile());
+        vm.InvoiceId = InvoiceId.ToString();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(
+            _ => Task.FromException<IssuedInvoiceDto>(new HttpRequestException("down")),
+            _ => Task.FromResult(Invoice()));
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await _api.Received(2).GetIssuedInvoiceAsync(TenantId, InvoiceId);
+        Assert.Equal("ul. Długa 2", vm.BuyerAddressLine1);
+    }
+
+    [Fact]
+    public async Task Draft_Domestic_LoadsAndSaves_WithoutForeignKeysOnTheWire()
+    {
+        var vm = Draft(Profile());
+        vm.InvoiceId = InvoiceId.ToString();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>());
+        var json = System.Text.Json.JsonSerializer.Serialize(vm.BuildRequest(), new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.DoesNotContain("countryCode", json);
+        Assert.DoesNotContain("foreignId", json);
+        Assert.DoesNotContain("idType", json);
+    }
+
+    [Theory]
+    [InlineData("np I", "np I")]
+    [InlineData("np II", "np II")]
+    [InlineData("23", "23%")]
+    public void VatRateLabel_NpHasNoPercent(string code, string label)
+    {
+        Assert.Equal(label, IssuingFormat.VatRateLabel(code));
+        Assert.DoesNotContain("np I", DraftLineViewModel.VatRateLabels);
+    }
+
+    [Fact]
+    public void Totals_NpRate_HasNoVat()
+    {
+        var totals = IssuedInvoiceTotals.Compute([new IssuedInvoiceLineRequest { Name = "Service", Quantity = 2, UnitNetPrice = 1500m, VatRate = "np I" }]);
+
+        Assert.Equal((3000m, 0m, 3000m), (totals.TotalNet, totals.TotalVat, totals.TotalGross));
     }
 }

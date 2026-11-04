@@ -38,7 +38,7 @@ public class IssuedInvoiceShareTests
             Number = "FV/12/11/2026",
             Ksef = new KsefSubmissionDto { Environment = "test", KsefNumber = KsefNumber, VerificationUrl = url, HasUpo = hasUpo }
         });
-        var vm = new IssuedInvoiceDetailsViewModel(_api) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
+        var vm = new IssuedInvoiceDetailsViewModel(_api, Substitute.For<IServerSettingsService>()) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
         await vm.LoadCommand.ExecuteAsync(null);
         return vm;
     }
