@@ -23,11 +23,11 @@ We will acknowledge your report within **48 hours** and aim to provide a fix or 
 
 ## Scope
 
-This policy applies to the OpenKSeF Mobile codebase (Android and iOS apps). It does not cover:
+This policy applies to the OpenKSeF Mobile codebase (Android app). It does not cover:
 
 - Third-party dependencies (report to their respective maintainers)
 - The KSeF test environment operated by the Polish Ministry of Finance
-- The backend API (see the [open-ksef](https://github.com/OpenKSeF/open-ksef) repository)
+- The backend API (see the [open-ksef](https://github.com/open-ksef/open-ksef) repository)
 
 ## Security Best Practices for Users
 

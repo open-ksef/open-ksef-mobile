@@ -89,7 +89,7 @@ You sign by replying to the comment with a specific phrase. Your signature is
 recorded in this repository.
 
 The CLA grants the copyright holder the right to dual-license your
-contributions (open source + commercial), while you retain full copyright
+contributions (Elastic License 2.0 and commercial), while you retain full copyright
 ownership of your work.
 
 ## License
