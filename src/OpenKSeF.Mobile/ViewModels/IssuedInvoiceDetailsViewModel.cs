@@ -17,6 +17,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public static readonly TimeSpan FastPollWindow = TimeSpan.FromMinutes(2);
 
     private readonly IApiService _apiService;
+    private readonly IServerSettingsService _serverSettings;
     private const string NoConnection = "Brak połączenia z serwerem. Status faktury pojawi się tu po powrocie sieci. Nie wystawiaj jej drugi raz.";
 
     private CancellationTokenSource? _polling;
@@ -36,7 +37,8 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Status), nameof(Title), nameof(IsDraft), nameof(IsSending), nameof(IsAccepted), nameof(IsRejected),
         nameof(GrossText), nameof(BuyerText), nameof(Lines), nameof(KsefNumber), nameof(AcceptedText), nameof(RejectionText),
-        nameof(SendingProblemText), nameof(CanCopyAsNew), nameof(IsDuplicateNumberRejection), nameof(CanFixRejection), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink))]
+        nameof(SendingProblemText), nameof(CanCopyAsNew), nameof(IsDuplicateNumberRejection), nameof(CanFixRejection), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink),
+        nameof(IsPortalOnly), nameof(IsEditableDraft), nameof(CanCopyRejected), nameof(CanOpenInPortal), nameof(PortalButtonText), nameof(ForeignVatText))]
     private IssuedInvoiceDto? _invoice;
 
     [ObservableProperty]
@@ -51,9 +53,10 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
-    public IssuedInvoiceDetailsViewModel(IApiService apiService)
+    public IssuedInvoiceDetailsViewModel(IApiService apiService, IServerSettingsService serverSettings)
     {
         _apiService = apiService;
+        _serverSettings = serverSettings;
     }
 
     public string? Status => Invoice?.Status;
@@ -62,9 +65,14 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public bool IsSending => IssuingFormat.IsSending(Status);
     public bool IsAccepted => Status == "Accepted";
     public bool IsRejected => Status == "Rejected";
-    public bool CanCopyAsNew => Invoice is not null && !IsSending;
+    public bool IsPortalOnly => Invoice is not null && IssuingFormat.IsPortalOnly(Invoice);
+    public bool IsEditableDraft => IsDraft && !IsPortalOnly;
+    public bool CanCopyAsNew => Invoice is not null && !IsSending && !IsPortalOnly;
+    public bool CanCopyRejected => IsDuplicateNumberRejection && !IsPortalOnly;
+    public bool CanOpenInPortal => IsPortalOnly && (IsDraft || IsRejected);
+    public string PortalButtonText => IsDuplicateNumberRejection ? "Otwórz w portalu" : "Edytuj w portalu";
     public bool IsDuplicateNumberRejection => IsRejected && Invoice!.Ksef.StatusCode == 440;
-    public bool CanFixRejection => IsRejected && !IsDuplicateNumberRejection;
+    public bool CanFixRejection => IsRejected && !IsDuplicateNumberRejection && !IsPortalOnly;
     public bool HasUpo => IsAccepted && Invoice!.Ksef.HasUpo;
     public bool HasVerificationLink => Uri.TryCreate(Invoice?.Ksef.VerificationUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
     public string? Environment => Invoice?.Ksef.Environment;
@@ -72,15 +80,19 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public string KsefNumber => Invoice?.Ksef.KsefNumber ?? string.Empty;
 
     public string BuyerText => Invoice is null ? string.Empty
-        : string.Join("\n", new[] { Invoice.Buyer.Name, Invoice.Buyer.Nip is { Length: > 0 } nip ? $"NIP {nip}" : null, Invoice.Buyer.AddressLine1, Invoice.Buyer.AddressLine2 }
+        : string.Join("\n", new[] { Invoice.Buyer.Name, Invoice.Buyer.Nip is { Length: > 0 } nip ? $"NIP {nip}" : null, Invoice.Buyer.ForeignId is { Length: > 0 } id ? $"Nr podatkowy {id}" : null, Invoice.Buyer.AddressLine1, Invoice.Buyer.AddressLine2, Invoice.Buyer.CountryCode is { Length: > 0 } country ? $"Kraj {country}" : null }
             .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    public string? ForeignVatText => Invoice is { Buyer.Kind: "Foreign", VatSummary.Count: > 0 }
+        ? $"Stawka {string.Join(", ", Invoice.VatSummary.Select(s => IssuingFormat.VatRateLabel(s.VatRate)))} · VAT {IssuingFormat.Money(Invoice.TotalVat, Invoice.Currency)}"
+        : null;
 
     public string DatesText => Invoice is null ? string.Empty
         : $"Wystawiona {IssuingFormat.Date(Invoice.IssueDate)} · termin {IssuingFormat.Date(Invoice.DueDate)}";
 
     public IReadOnlyList<IssuedLineRow> Lines => Invoice?.Lines.Select(l => new IssuedLineRow(
         l.Name,
-        $"{IssuingFormat.Quantity(l.Quantity)} × {IssuingFormat.Money(l.UnitNetPrice)} netto · VAT {IssuingFormat.VatRateLabel(l.VatRate)}",
+        $"{IssuingFormat.Quantity(l.Quantity)} × {IssuingFormat.Money(l.UnitNetPrice, Invoice.Currency)} netto · VAT {IssuingFormat.VatRateLabel(l.VatRate)}",
         IssuingFormat.Money(l.NetAmount + l.VatAmount, Invoice.Currency))).ToList() ?? [];
 
     public string AcceptedText => Invoice?.Ksef.AcceptedAt is { } at ? $"Przyjęta {IssuingFormat.DateAndTime(at.ToLocalTime())}" : string.Empty;
@@ -96,7 +108,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
 
     private string RejectionAdvice => !IsDuplicateNumberRejection
         ? $"Numer {Invoice!.Number} zostaje — po poprawce wyślemy fakturę z tym samym numerem."
-        : $"Numer {Invoice!.Number} jest już zajęty w KSeF, więc tej faktury nie wyślemy ponownie. Użyj „Kopiuj jako nową”."
+        : $"Numer {Invoice!.Number} jest już zajęty w KSeF, więc tej faktury nie wyślemy ponownie. Użyj „Kopiuj jako nową”{(IsPortalOnly ? " w portalu" : string.Empty)}."
             + (Invoice.Ksef.DuplicateKsefNumber is { Length: > 0 } duplicate ? $"\nNumer KSeF istniejącego dokumentu: {duplicate}" : string.Empty);
 
     public string? SendingProblemText => IsSending && Invoice?.Ksef.LastError is { Length: > 0 } lastError
@@ -162,13 +174,24 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [RelayCommand]
     private async Task EditAsync()
     {
-        try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}"); } catch { }
+        try
+        {
+            Invoice = await _apiService.GetIssuedInvoiceAsync(Guid.Parse(TenantId!), Invoice!.Id);
+            if (IsPortalOnly)
+                return;
+
+            await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Nie udało się załadować faktury: {ex.Message}";
+        }
     }
 
     [RelayCommand]
     private async Task DeleteAsync()
     {
-        if (Invoice is null || !await Shell.Current.DisplayAlertAsync("Usuń szkic", "Usunąć szkic faktury?", "Usuń", "Anuluj"))
+        if (!IsEditableDraft || !await Shell.Current.DisplayAlertAsync("Usuń szkic", "Usunąć szkic faktury?", "Usuń", "Anuluj"))
             return;
 
         try
@@ -192,7 +215,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         {
             var profile = await _apiService.GetSellerProfileAsync(tenantId);
             Invoice = await _apiService.GetIssuedInvoiceAsync(tenantId, Invoice.Id);
-            if (!IsDraft && !CanFixRejection)
+            if (IsPortalOnly || !IsDraft && !CanFixRejection)
             {
                 if (IsSending)
                     Start();
@@ -291,6 +314,15 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     {
         if (HasVerificationLink)
             await Browser.Default.OpenAsync(Invoice!.Ksef.VerificationUrl!, BrowserLaunchMode.SystemPreferred);
+    }
+
+    [RelayCommand]
+    private async Task OpenInPortalAsync()
+    {
+        if (CanOpenInPortal)
+            await Browser.Default.OpenAsync(
+                $"{_serverSettings.ServerUrl}/issued/{Invoice!.Id}{(IsDuplicateNumberRejection ? string.Empty : "/edit")}?tenantId={TenantId}",
+                BrowserLaunchMode.SystemPreferred);
     }
 
     private async Task<byte[]?> TryRenderPdfAsync(byte[] xml)

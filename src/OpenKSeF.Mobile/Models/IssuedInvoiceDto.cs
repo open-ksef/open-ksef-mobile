@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace OpenKSeF.Mobile.Models;
 
 public class IssuedInvoiceDto
@@ -24,4 +26,8 @@ public class IssuedInvoiceDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public DateTime? IssuedAt { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? ExchangeRate { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateOnly? ExchangeRateDate { get; set; }
 }

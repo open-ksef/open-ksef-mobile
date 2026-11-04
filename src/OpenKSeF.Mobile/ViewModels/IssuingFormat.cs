@@ -29,11 +29,13 @@ public static class IssuingFormat
     public static string VatRateLabel(string rate) => rate switch
     {
         "0 KR" => "0% (kraj)",
-        "zw" => "zw",
+        "zw" or "np I" or "np II" => rate,
         _ => $"{rate}%"
     };
 
     public static string VatRateCode(string label) => IssuedInvoiceTotals.VatRates.FirstOrDefault(r => VatRateLabel(r) == label) ?? label;
+
+    public static bool IsPortalOnly(IssuedInvoiceDto invoice) => invoice.Buyer.Kind is not ("Company" or "Person") || invoice.Currency != "PLN";
 
     public static string StatusLabel(string? status, bool shortForm = false) => status switch
     {

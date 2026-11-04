@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace OpenKSeF.Mobile.Models;
 
 public class IssuedInvoiceListItemDto
@@ -13,4 +15,10 @@ public class IssuedInvoiceListItemDto
     public decimal TotalGross { get; set; }
     public string Currency { get; set; } = "PLN";
     public string? KsefNumber { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuyerCountryCode { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuyerIdType { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BuyerForeignId { get; set; }
 }

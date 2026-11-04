@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace OpenKSeF.Mobile.Models;
 
 public class SellerPartyDto
@@ -8,4 +10,10 @@ public class SellerPartyDto
     public string? AddressLine2 { get; set; }
     public string? BankAccount { get; set; }
     public bool CashAccounting { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Iban { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Swift { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BankName { get; set; }
 }

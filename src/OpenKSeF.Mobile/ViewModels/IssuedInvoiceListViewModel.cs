@@ -12,6 +12,11 @@ public sealed record IssuedInvoiceRow(IssuedInvoiceListItemDto Invoice)
     public string Gross => IssuingFormat.Money(Invoice.TotalGross, Invoice.Currency);
     public string Subtitle => $"{Invoice.Number ?? "— (szkic)"} · {IssuingFormat.Date(Invoice.IssueDate)}";
     public string Status => Invoice.Status;
+
+    public string? ForeignText => Invoice.BuyerCountryCode is not { Length: > 0 } country ? null
+        : Invoice.Status == "Accepted" || IssuingFormat.IsSending(Invoice.Status)
+            ? $"{country} · {(Invoice.BuyerIdType == "VatUe" ? "np II" : "np I")} · VAT {IssuingFormat.Money(0, Invoice.Currency)}"
+            : country;
 }
 
 public sealed record StatusFilter(string Label, string Value);
