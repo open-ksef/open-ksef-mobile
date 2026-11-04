@@ -1,4 +1,5 @@
 name: Play publish
+run-name: Play ${{ inputs.track }} ${{ inputs.version_code }} dry_run=${{ inputs.dry_run }} listing=${{ inputs.listing }}
 
 on:
   workflow_dispatch:
@@ -129,9 +130,11 @@ jobs:
           version_code = os.environ['VERSION_CODE'].strip()
           notes = os.environ['RELEASE_NOTES'].strip()
           track = TRACKS[os.environ['TRACK']]
-          dry_run = os.environ['DRY_RUN'] == 'true'
+          dry_run = os.environ['DRY_RUN'] != 'false'
           if not re.fullmatch(r'[1-9][0-9]*', version_code):
               sys.exit(f'version_code is not a number: {version_code}')
+          if track == 'production' and int(version_code) <= 10:
+              sys.exit(f'versionCode {version_code} is not allowed on production: v1.0.5 and older have no Usuń konto row')
           if not notes or len(notes) > 500:
               sys.exit(f'release_notes has {len(notes)} characters, allowed 1 to 500')
 

@@ -60,7 +60,7 @@ class Fake(http.server.BaseHTTPRequestHandler):
         if path.endswith('/edits'):
             return 200, b'{"id": "e1"}'
         if path.endswith('/bundles'):
-            return 200, b'{"bundles": [{"versionCode": 11}]}'
+            return 200, b'{"bundles": [{"versionCode": 10}, {"versionCode": 11}]}'
         if self.command == 'GET' and path.endswith('/tracks'):
             return 200, b'{"tracks": [{"track": "alpha"}, {"track": "production"}]}'
         if path.endswith(':commit') and self.server.in_review:
@@ -83,7 +83,7 @@ def run(listing=False, dry_run=False, in_review=False, version='11', track='prod
         env = {**os.environ, 'SERVICE_ACCOUNT': json.dumps({'client_email': 'sa@example.invalid', 'private_key': KEY}),
                'REPO_TOKEN': 'repo-token', 'GITHUB_REPOSITORY': 'open-ksef/open-ksef-mobile', 'GITHUB_SHA': REF,
                'VERSION_CODE': version, 'TRACK': track, 'RELEASE_NOTES': notes,
-               'LISTING': str(listing).lower(), 'DRY_RUN': str(dry_run).lower(), 'PYTHONIOENCODING': 'utf-8'}
+               'LISTING': str(listing).lower(), 'DRY_RUN': dry_run if isinstance(dry_run, str) else str(dry_run).lower(),'PYTHONIOENCODING': 'utf-8'}
         result = subprocess.run([sys.executable, script], env=env, capture_output=True, text=True, encoding='utf-8')
     server.shutdown()
     return result, server.calls
@@ -107,6 +107,15 @@ def test_workflow_shape():
     assert 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON' not in RELEASE.replace('\r\n', '\n').split('  play-upload:\n')[0]
     for action in re.findall(r'uses:\s*(\S+)', upload):
         assert re.search(r'@[0-9a-f]{40}$', action), action
+
+
+def test_run_name_and_build_permissions():
+    run_name = next(line for line in WORKFLOW.splitlines() if line.startswith('run-name:'))
+    for name in ('track', 'version_code', 'dry_run', 'listing'):
+        assert f'inputs.{name} ' in run_name + ' '
+    assert 'release_notes' not in run_name
+    build = (ROOT / '.github/workflows/build.yml').read_text(encoding='utf-8').replace('\r\n', '\n')
+    assert '    permissions:\n      contents: read\n' in build and not re.search(r':\s*write\b', build)
 
 
 def test_listing_limits():
@@ -141,6 +150,26 @@ def test_dry_run_stops_before_commit():
     assert not any(call[1].endswith(':commit') for call in calls)
     assert has(calls, 'POST', ':validate') and calls[-1][0] == 'DELETE' and calls[-1][1].endswith('/edits/e1')
     assert "'alpha', 'production'" in result.stdout
+
+
+def test_dry_run_fails_closed():
+    for value in ('', 'False', 'no'):
+        result, calls = run(dry_run=value)
+        assert result.returncode == 0, result.stderr
+        assert not any(call[1].endswith(':commit') for call in calls), value
+        assert has(calls, 'POST', ':validate')
+
+
+def test_production_refuses_version_code_10_and_older():
+    for version in ('1', '10'):
+        result, calls = run(version=version)
+        assert result.returncode != 0 and 'not allowed on production' in result.stderr
+        assert not google(calls), calls
+    result, calls = run(version='10', track='closed')
+    assert result.returncode == 0, result.stderr
+    assert any(call[1].endswith('/tracks/alpha') for call in calls)
+    result, calls = run(version='11')
+    assert result.returncode == 0 and any(call[1].endswith(':commit') for call in calls), result.stderr
 
 
 def test_listing_and_images_come_from_the_commit():
