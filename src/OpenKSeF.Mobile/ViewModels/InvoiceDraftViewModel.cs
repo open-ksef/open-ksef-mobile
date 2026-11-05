@@ -87,6 +87,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private readonly IApiService _apiService;
     private SellerProfileDto? _profile;
+    private string? _routeOnReturn;
 
     public bool IsShown { get; set; } = true;
     private string? _invoiceNumber;
@@ -247,6 +248,13 @@ public partial class InvoiceDraftViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync()
     {
+        if (_routeOnReturn is { } route)
+        {
+            _routeOnReturn = null;
+            try { await Shell.Current.GoToAsync(route); } catch { }
+            return;
+        }
+
         if (_loaded || IsBusy || !Guid.TryParse(TenantId, out var tenantId))
             return;
 
@@ -416,8 +424,13 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
 
         var saved = await SaveAsync();
-        if (saved is null || !IsShown)
+        if (saved is null)
             return;
+        if (!IsShown)
+        {
+            ErrorMessage = "Zapisano szkic. Faktura nie została wystawiona.";
+            return;
+        }
 
         try
         {
@@ -428,6 +441,8 @@ public partial class InvoiceDraftViewModel : ObservableObject
             var issued = await _apiService.IssueInvoiceAsync(tenantId, saved.Id, saved.Version);
             if (IsShown)
                 try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}"); } catch { }
+            else
+                _routeOnReturn = $"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}";
         }
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
         {
@@ -439,6 +454,8 @@ public partial class InvoiceDraftViewModel : ObservableObject
             if (IsShown)
                 try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); }
                 catch { await ShowErrorAsync(ex is ApiException { StatusCode: < HttpStatusCode.MultipleChoices } ? ex.Message : NoConnection); }
+            else
+                _routeOnReturn = $"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}";
         }
         catch (Exception ex)
         {

@@ -1843,6 +1843,39 @@ public class IssuingViewModelTests : IDisposable
 
         Assert.Empty(Shell.Current.Alerts);
         await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+        Assert.Equal("Zapisano szkic. Faktura nie została wystawiona.", vm.ErrorMessage);
+    }
+
+    public static TheoryData<Exception?> IssueEndingsAway => new()
+    {
+        null,
+        new HttpRequestException("no route to host"),
+        new ApiException(HttpStatusCode.OK, UnreadableText),
+    };
+
+    [Theory]
+    [MemberData(nameof(IssueEndingsAway))]
+    public async Task Draft_IssueEndsOnAnotherTab_ReturnOpensDetailsOnce(Exception? failure)
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).Returns(_ =>
+        {
+            vm.IsShown = false;
+            return failure is null ? Task.FromResult(Invoice("Sending")) : Task.FromException<IssuedInvoiceDto>(failure);
+        });
+
+        await vm.IssueCommand.ExecuteAsync(null);
+        Assert.Null(Shell.Current.LastRoute);
+
+        vm.IsShown = true;
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+        Assert.Empty(Shell.Current.Alerts);
+        Shell.Current.Reset();
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Null(Shell.Current.LastRoute);
     }
 
     [Fact]
