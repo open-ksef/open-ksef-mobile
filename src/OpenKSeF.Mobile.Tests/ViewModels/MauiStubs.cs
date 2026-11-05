@@ -28,18 +28,22 @@ namespace Microsoft.Maui.Controls
         public static Shell Current { get; } = new();
 
         public bool AlertAnswer { get; set; } = true;
+        public string? LastAlertTitle { get; private set; }
         public string? LastAlertMessage { get; private set; }
         public string? LastRoute { get; private set; }
         public Exception? GoToFailure { get; set; }
         public Func<Task>? WhileConfirming { get; set; }
+        public Action? OnAlert { get; set; }
 
         public void Reset()
         {
             AlertAnswer = true;
+            LastAlertTitle = null;
             LastAlertMessage = null;
             LastRoute = null;
             GoToFailure = null;
             WhileConfirming = null;
+            OnAlert = null;
         }
 
         public Task GoToAsync(string state)
@@ -60,7 +64,9 @@ namespace Microsoft.Maui.Controls
 
         public Task DisplayAlertAsync(string title, string message, string cancel)
         {
+            LastAlertTitle = title;
             LastAlertMessage = message;
+            OnAlert?.Invoke();
             return Task.CompletedTask;
         }
     }

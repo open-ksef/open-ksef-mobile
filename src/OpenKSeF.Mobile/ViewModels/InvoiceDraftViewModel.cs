@@ -497,8 +497,11 @@ public partial class InvoiceDraftViewModel : ObservableObject
             return null;
 
         ClearErrors();
-        if (!Lines.All(l => l.Validate()))
+        if (Lines.FirstOrDefault(l => !l.Validate()) is { } invalid)
+        {
+            await Shell.Current.DisplayAlertAsync("Popraw fakturę", $"Pozycja {Lines.IndexOf(invalid) + 1}: {invalid.Error}", "OK");
             return null;
+        }
 
         try
         {

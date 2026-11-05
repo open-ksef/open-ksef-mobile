@@ -1543,26 +1543,185 @@ public class IssuingViewModelTests : IDisposable
         await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
     }
 
-    [Fact]
-    public async Task Details_ChangedWhileIssueConfirmOpen_ShowsServerMessage_NothingSent()
+    private async Task<IssuedInvoiceDetailsViewModel> DetailsOnProduction(uint version)
     {
-        var shown = Versioned(8);
-        shown.Ksef.Environment = "production";
-        var vm = await DetailsOf(shown);
+        var vm = await DetailsOf(OnProduction(version));
         _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
+        return vm;
+    }
+
+    private static IssuedInvoiceDto OnProduction(uint version, string buyerName = "Nabywca", string status = "Draft")
+    {
+        var invoice = Versioned(version, buyerName);
+        invoice.Status = status;
+        invoice.Ksef.Environment = "production";
+        return invoice;
+    }
+
+    [Fact]
+    public async Task Details_ChangedWhileIssueConfirmOpen_ShowsChangedAlertOnCurrentContent_NothingSent()
+    {
+        var vm = await DetailsOnProduction(8);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        string? buyerAtAlert = null;
+        Shell.Current.WhileConfirming = () =>
+        {
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(OnProduction(9, "Zmieniony nabywca"));
+            return Task.CompletedTask;
+        };
+        Shell.Current.OnAlert = () => buyerAtAlert = vm.Invoice!.Buyer.Name;
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Faktura zmieniona", Shell.Current.LastAlertTitle);
+        Assert.Contains("zmieniona w innym miejscu", Shell.Current.LastAlertMessage);
+        Assert.Equal("Zmieniony nabywca", buyerAtAlert);
+        Assert.Equal("Zmieniony nabywca", vm.Invoice!.Buyer.Name);
+        Assert.Equal("Draft", vm.Status);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
+        await _api.DidNotReceive().IssueInvoiceAsync(TenantId, InvoiceId, 9u);
+    }
+
+    [Fact]
+    public async Task Details_NextTapAfterIssueConflict_OpensConfirmationOnCurrentContent()
+    {
+        var vm = await DetailsOnProduction(8);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 9u).Returns(Invoice("Accepted"));
+        Shell.Current.WhileConfirming = () =>
+        {
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(OnProduction(9, "Zmieniony nabywca"));
+            return Task.CompletedTask;
+        };
+        await vm.IssueCommand.ExecuteAsync(null);
+        Shell.Current.Reset();
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.StartsWith("Faktura trafi do KSeF", Shell.Current.LastAlertMessage);
+        Assert.Contains("Zmieniony nabywca", Shell.Current.LastAlertMessage);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 9u);
+    }
+
+    [Fact]
+    public async Task Details_IssueConflictWithoutChange_ShowsServerMessage()
+    {
+        var vm = await DetailsOnProduction(8);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, "Numer jest już użyty"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Błąd", Shell.Current.LastAlertTitle);
+        Assert.Equal("Numer jest już użyty", Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public async Task Details_IssueConflict_IssuedElsewhere_ShowsServerMessageAndPolls()
+    {
+        var vm = await DetailsOnProduction(8);
         _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
         Shell.Current.WhileConfirming = () =>
         {
-            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(9));
-            return vm.LoadCommand.ExecuteAsync(null);
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(OnProduction(9, status: "Sending"));
+            return Task.CompletedTask;
+        };
+        var polled = new TaskCompletionSource();
+        vm.Delay = (_, ct) => { polled.TrySetResult(); return Task.Delay(Timeout.Infinite, ct); };
+
+        await vm.IssueCommand.ExecuteAsync(null);
+        await polled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        vm.Stop();
+
+        Assert.Equal("Sending", vm.Status);
+        Assert.Equal("Błąd", Shell.Current.LastAlertTitle);
+        Assert.Equal(StaleMessage, Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public async Task Details_IssueConflict_OfflineReload_KeepsShownVersion_NextTapSendsNothing()
+    {
+        var vm = await DetailsOnProduction(8);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        Shell.Current.WhileConfirming = () =>
+        {
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new HttpRequestException("offline"));
+            return Task.CompletedTask;
         };
 
         await vm.IssueCommand.ExecuteAsync(null);
 
+        Assert.Equal("Błąd", Shell.Current.LastAlertTitle);
         Assert.Equal(StaleMessage, Shell.Current.LastAlertMessage);
-        Assert.Equal("Draft", vm.Status);
+        Assert.Equal(8u, vm.Invoice!.Version);
+
+        Shell.Current.Reset();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(OnProduction(9, "Zmieniony nabywca"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Faktura zmieniona", Shell.Current.LastAlertTitle);
+        Assert.Equal("Zmieniony nabywca", vm.Invoice!.Buyer.Name);
         await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
         await _api.DidNotReceive().IssueInvoiceAsync(TenantId, InvoiceId, 9u);
+    }
+
+    [Fact]
+    public async Task Details_IssueConflict_NowPortalOnly_ShowsServerMessage()
+    {
+        var vm = await DetailsOnProduction(8);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        Shell.Current.WhileConfirming = () =>
+        {
+            var changed = OnProduction(9);
+            changed.Currency = "EUR";
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(changed);
+            return Task.CompletedTask;
+        };
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Błąd", Shell.Current.LastAlertTitle);
+        Assert.Equal(StaleMessage, Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public async Task Draft_InvalidLineBelowTheFold_SaveShowsAlertNamingTheLine_NoRequest()
+    {
+        var vm = Draft(Profile());
+        vm.AddLineCommand.Execute(null);
+        vm.Lines[1].Name = "Druga";
+        vm.Lines[1].UnitNetPrice = string.Empty;
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Equal("Popraw fakturę", Shell.Current.LastAlertTitle);
+        Assert.Equal("Pozycja 2: Podaj cenę netto, np. 1 200,00", Shell.Current.LastAlertMessage);
+        Assert.Equal("Podaj cenę netto, np. 1 200,00", vm.Lines[1].Error);
+        await _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
+    }
+
+    [Fact]
+    public async Task Draft_InvalidLine_IssueShowsAlert_NothingSent()
+    {
+        var vm = Draft(Profile());
+        vm.Lines[0].Quantity = "1,5,5";
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Pozycja 1: Podaj ilość, np. 1 lub 0,5", Shell.Current.LastAlertMessage);
+        await _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task Draft_ValidLines_SaveShowsNoAlert()
+    {
+        var vm = Draft(Profile());
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Null(Shell.Current.LastAlertMessage);
+        await _api.Received(1).CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>());
     }
 
     [Fact]
