@@ -53,16 +53,16 @@
                             <SwipeView.RightItems>
                                 <!-- Same fill in both themes: SwipeItem picks white text by luminosity, unreadable on the dark primary. -->
                                 <SwipeItems>
-                                    <SwipeItem Text="Edytuj"
-                                               BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimary}}"
+                                    <SwipeItem BackgroundColor="{StaticResource UiPrimary}"
+                                               Text="Edytuj"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=EditTenantCommand}"
                                                CommandParameter="{Binding .}" />
-                                    <SwipeItem Text="Dane do faktur"
-                                               BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimaryHover}, Dark={StaticResource UiPrimaryHover}}"
+                                    <SwipeItem BackgroundColor="{StaticResource UiPrimaryHover}"
+                                               Text="Dane do faktur"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=OpenSellerProfileCommand}"
                                                CommandParameter="{Binding .}" />
-                                    <SwipeItem Text="Usuń"
-                                               BackgroundColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiError}}"
+                                    <SwipeItem BackgroundColor="{StaticResource UiError}"
+                                               Text="Usuń"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=DeleteTenantCommand}"
                                                CommandParameter="{Binding .}" />
                                 </SwipeItems>

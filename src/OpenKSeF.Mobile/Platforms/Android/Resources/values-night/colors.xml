@@ -3,4 +3,5 @@
     <color name="colorPrimary">#a5b4fc</color>
     <color name="colorPrimaryDark">#151827</color>
     <color name="colorAccent">#a5b4fc</color>
+    <color name="maui_splash_color">#0b0d17</color>
 </resources>

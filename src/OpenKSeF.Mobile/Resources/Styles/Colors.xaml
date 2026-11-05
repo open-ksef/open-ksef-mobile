@@ -9,7 +9,6 @@
     <Color x:Key="GradientMid">#312e81</Color>
     <Color x:Key="GradientEnd">#4338ca</Color>
 
-    <!-- Design tokens, same values as portal ui.css -->
     <Color x:Key="UiBg">#f4f6f9</Color>
     <Color x:Key="UiBgDark">#0b0d17</Color>
     <Color x:Key="UiSurface">#ffffff</Color>
