@@ -1311,6 +1311,239 @@ public class IssuingViewModelTests : IDisposable
         await _api.DidNotReceiveWithAnyArgs().DeleteIssuedInvoiceAsync(default, default);
     }
 
+    private const string StaleMessage = "Faktura została równocześnie zmieniona, odśwież stronę";
+
+    private static IssuedInvoiceDto Versioned(uint? version, string buyer = "Nabywca sp. z o.o.")
+    {
+        var invoice = Invoice();
+        invoice.Version = version;
+        invoice.Buyer.Name = buyer;
+        return invoice;
+    }
+
+    private async Task<InvoiceDraftViewModel> LoadedDraft(uint? version)
+    {
+        var vm = Draft(Profile());
+        vm.InvoiceId = InvoiceId.ToString();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(version));
+        await vm.LoadCommand.ExecuteAsync(null);
+        return vm;
+    }
+
+    [Fact]
+    public async Task Draft_Save_SendsVersionFromLoad_ThenFromOwnSave()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u).Returns(Versioned(8));
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 8u).Returns(Versioned(9));
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u);
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 8u);
+    }
+
+    [Fact]
+    public async Task Draft_Refetch_DoesNotMoveVersion()
+    {
+        var vm = await LoadedDraft(7);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(8));
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u);
+    }
+
+    [Fact]
+    public async Task Draft_StaleSave_ShowsServerMessage_KeepsTypedData_SameVersionOnRetry()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u)
+            .ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        vm.BuyerName = "Wpisane przez użytkownika";
+        vm.Lines[0].Name = "Wpisana pozycja";
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Equal(StaleMessage, vm.ErrorMessage);
+        Assert.Equal("Wpisane przez użytkownika", vm.BuyerName);
+        Assert.Equal("Wpisana pozycja", vm.Lines[0].Name);
+        await _api.Received(2).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u);
+    }
+
+    [Fact]
+    public async Task Draft_StaleSave_Issue_SendsNothing()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u)
+            .ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(StaleMessage, vm.ErrorMessage);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+    }
+
+    [Fact]
+    public async Task Draft_Issue_SendsVersionFromTheSaveJustMade()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u).Returns(Versioned(8));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).Returns(Invoice("Sending"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
+    }
+
+    [Fact]
+    public async Task Draft_ChangedWhileIssueConfirmOpen_ShowsServerMessage_StaysOnForm()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u).Returns(Versioned(8));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        vm.BuyerName = "Wpisane przez użytkownika";
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(StaleMessage, vm.ErrorMessage);
+        Assert.Equal("Wpisane przez użytkownika", vm.BuyerName);
+        Assert.Null(Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Draft_NewInvoice_FirstSaveCreates_SecondSendsItsVersion()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Versioned(5));
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 5u);
+    }
+
+    [Fact]
+    public async Task Draft_CopyAsNew_UsesVersionOfTheCopy()
+    {
+        var vm = await LoadedDraft(7);
+        var copyId = Guid.NewGuid();
+        var copy = Versioned(50);
+        copy.Id = copyId;
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).Returns(copy);
+        _api.UpdateIssuedInvoiceAsync(TenantId, copyId, Arg.Any<IssuedInvoiceDraftRequest>(), 50u).Returns(copy);
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, copyId, Arg.Any<IssuedInvoiceDraftRequest>(), 50u);
+    }
+
+    [Fact]
+    public async Task Draft_ReleasedApiWithoutVersion_SavesAndIssuesWithoutVersion()
+    {
+        var vm = await LoadedDraft(null);
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(2).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), null);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, null);
+    }
+
+    [Fact]
+    public async Task Details_Delete_SendsDisplayedVersion()
+    {
+        var vm = await DetailsOf(Versioned(7));
+
+        await vm.DeleteCommand.ExecuteAsync(null);
+
+        await _api.Received(1).DeleteIssuedInvoiceAsync(TenantId, InvoiceId, 7u);
+        Assert.Equal("..", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Details_StaleDelete_ShowsServerMessage_StaysAndShowsCurrentState()
+    {
+        var vm = await DetailsOf(Versioned(7));
+        _api.DeleteIssuedInvoiceAsync(TenantId, InvoiceId, 7u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(8, "Zmieniony nabywca"));
+
+        await vm.DeleteCommand.ExecuteAsync(null);
+
+        Assert.Equal(StaleMessage, vm.ErrorMessage);
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.Equal("Zmieniony nabywca", vm.Invoice!.Buyer.Name);
+    }
+
+    [Fact]
+    public async Task Details_DeleteConfirmOpen_RefetchDoesNotMoveVersion()
+    {
+        var vm = await DetailsOf(Versioned(7));
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(8));
+        Shell.Current.WhileConfirming = () => vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.DeleteCommand.ExecuteAsync(null);
+
+        await _api.Received(1).DeleteIssuedInvoiceAsync(TenantId, InvoiceId, 7u);
+    }
+
+    [Fact]
+    public async Task Details_Issue_SendsVersionShownInConfirm()
+    {
+        var vm = await DetailsOf(Versioned(7));
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
+        var shown = Versioned(8);
+        shown.Ksef.Environment = "production";
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(shown);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).Returns(Invoice("Accepted"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
+    }
+
+    [Fact]
+    public async Task Details_ChangedWhileIssueConfirmOpen_ShowsServerMessage_NothingSent()
+    {
+        var vm = await DetailsOf(Versioned(7));
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
+        var shown = Versioned(8);
+        shown.Ksef.Environment = "production";
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(shown);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        Shell.Current.WhileConfirming = () =>
+        {
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(9));
+            return vm.LoadCommand.ExecuteAsync(null);
+        };
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(StaleMessage, Shell.Current.LastAlertMessage);
+        Assert.Equal("Draft", vm.Status);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
+        await _api.DidNotReceive().IssueInvoiceAsync(TenantId, InvoiceId, 9u);
+    }
+
+    [Fact]
+    public async Task Details_ReleasedApiWithoutVersion_DeletesAndIssuesWithoutVersion()
+    {
+        var vm = await DetailsOf(Versioned(null));
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, null).Returns(Invoice("Accepted"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, null);
+
+        vm = await DetailsOf(Versioned(null));
+        await vm.DeleteCommand.ExecuteAsync(null);
+        await _api.Received(1).DeleteIssuedInvoiceAsync(TenantId, InvoiceId, null);
+    }
+
     [Fact]
     public async Task Draft_Domestic_LoadsAndSaves_WithoutForeignKeysOnTheWire()
     {

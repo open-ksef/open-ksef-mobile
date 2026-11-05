@@ -24,9 +24,9 @@ public interface IApiService
     Task<PagedResult<IssuedInvoiceListItemDto>> GetIssuedInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20, string? status = null, string? month = null, string? q = null);
     Task<IssuedInvoiceDto> GetIssuedInvoiceAsync(Guid tenantId, Guid invoiceId);
     Task<IssuedInvoiceDto> CreateIssuedInvoiceAsync(Guid tenantId, IssuedInvoiceDraftRequest request);
-    Task<IssuedInvoiceDto> UpdateIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, IssuedInvoiceDraftRequest request);
-    Task DeleteIssuedInvoiceAsync(Guid tenantId, Guid invoiceId);
-    Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId);
+    Task<IssuedInvoiceDto> UpdateIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, IssuedInvoiceDraftRequest request, uint? version = null);
+    Task DeleteIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null);
+    Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null);
     Task<IssuedInvoiceDto> CopyIssuedInvoiceAsync(Guid tenantId, Guid invoiceId);
     Task<byte[]> GetIssuedInvoiceXmlAsync(Guid tenantId, Guid invoiceId);
     Task<byte[]> GetIssuedInvoiceUpoAsync(Guid tenantId, Guid invoiceId);

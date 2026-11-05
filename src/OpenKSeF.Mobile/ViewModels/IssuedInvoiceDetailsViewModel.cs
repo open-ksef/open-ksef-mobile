@@ -191,16 +191,18 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteAsync()
     {
+        var shown = Invoice;
         if (!IsEditableDraft || !await Shell.Current.DisplayAlertAsync("Usuń szkic", "Usunąć szkic faktury?", "Usuń", "Anuluj"))
             return;
 
         try
         {
-            await _apiService.DeleteIssuedInvoiceAsync(Guid.Parse(TenantId!), Invoice.Id);
+            await _apiService.DeleteIssuedInvoiceAsync(Guid.Parse(TenantId!), shown!.Id, shown.Version);
             try { await Shell.Current.GoToAsync(".."); } catch { }
         }
         catch (Exception ex)
         {
+            await LoadAsync();
             ErrorMessage = ex.Message;
         }
     }
@@ -214,7 +216,8 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         try
         {
             var profile = await _apiService.GetSellerProfileAsync(tenantId);
-            Invoice = await _apiService.GetIssuedInvoiceAsync(tenantId, Invoice.Id);
+            var shown = await _apiService.GetIssuedInvoiceAsync(tenantId, Invoice.Id);
+            Invoice = shown;
             if (IsPortalOnly || !IsDraft && !CanFixRejection)
             {
                 if (IsSending)
@@ -222,10 +225,10 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
                 return;
             }
 
-            if (!await InvoiceDraftViewModel.ConfirmIssueAsync(profile?.NextNumberPreview, Invoice))
+            if (!await InvoiceDraftViewModel.ConfirmIssueAsync(profile?.NextNumberPreview, shown))
                 return;
 
-            Invoice = await _apiService.IssueInvoiceAsync(tenantId, Invoice.Id);
+            Invoice = await _apiService.IssueInvoiceAsync(tenantId, shown.Id, shown.Version);
             Start();
         }
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)

@@ -57,6 +57,8 @@ public class IssuedInvoiceContractTests
           "createdAt": "2026-11-03T10:00:00Z", "updatedAt": "2026-11-03T10:00:00Z", "issuedAt": null }
         """;
 
+    public static readonly string VersionedInvoiceResponseJson = InvoiceResponseJson.TrimEnd()[..^1] + ", \"version\": 4000000000 }";
+
     public const string ForeignInvoiceResponseJson = """
         { "id": "0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a", "status": "Accepted", "number": "FV/1/11/2026",
           "seller": { "nip": "1234567890", "name": "OpenKSeF Test A sp. z o.o.", "addressLine1": "ul. Prosta 1", "addressLine2": "00-001 Warszawa", "bankAccount": null, "cashAccounting": false, "iban": "GB82WEST12345698765432", "swift": "TESTGB2L", "bankName": "Test Bank" },
@@ -101,6 +103,7 @@ public class IssuedInvoiceContractTests
         { PersonDraftRequestJson, typeof(IssuedInvoiceDraftRequest) },
         { InvoiceResponseJson, typeof(IssuedInvoiceDto) },
         { ForeignInvoiceResponseJson, typeof(IssuedInvoiceDto) },
+        { VersionedInvoiceResponseJson, typeof(IssuedInvoiceDto) },
         { ForeignListItemJson, typeof(IssuedInvoiceListItemDto) },
         { AcceptedKsefJson, typeof(KsefSubmissionDto) },
         { ListItemJson, typeof(IssuedInvoiceListItemDto) },
@@ -115,6 +118,18 @@ public class IssuedInvoiceContractTests
         var reserialized = JsonSerializer.Serialize(model, type, Web);
 
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(json), JsonNode.Parse(reserialized)), reserialized);
+    }
+
+    [Fact]
+    public void Response_MapsVersion_AboveInt32()
+    {
+        Assert.Equal(4000000000u, JsonSerializer.Deserialize<IssuedInvoiceDto>(VersionedInvoiceResponseJson, Web)!.Version);
+    }
+
+    [Fact]
+    public void ResponseFromReleasedApi_HasNoVersion()
+    {
+        Assert.Null(JsonSerializer.Deserialize<IssuedInvoiceDto>(InvoiceResponseJson, Web)!.Version);
     }
 
     [Fact]

@@ -159,19 +159,19 @@ public class ApiService : IApiService
         return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices", request);
     }
 
-    public async Task<IssuedInvoiceDto> UpdateIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, IssuedInvoiceDraftRequest request)
+    public async Task<IssuedInvoiceDto> UpdateIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, IssuedInvoiceDraftRequest request, uint? version = null)
     {
-        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Put, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}", request);
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Put, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}{VersionQuery(version)}", request);
     }
 
-    public async Task DeleteIssuedInvoiceAsync(Guid tenantId, Guid invoiceId)
+    public async Task DeleteIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null)
     {
-        await SendNoContentAsync(HttpMethod.Delete, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}");
+        await SendNoContentAsync(HttpMethod.Delete, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}{VersionQuery(version)}");
     }
 
-    public async Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId)
+    public async Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null)
     {
-        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue");
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{VersionQuery(version)}");
     }
 
     public async Task<IssuedInvoiceDto> CopyIssuedInvoiceAsync(Guid tenantId, Guid invoiceId)
@@ -188,6 +188,8 @@ public class ApiService : IApiService
     {
         return await SendBytesAsync($"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/upo");
     }
+
+    private static string VersionQuery(uint? version) => version is null ? string.Empty : $"?version={version}";
 
     private async Task<byte[]> SendBytesAsync(string path)
     {
