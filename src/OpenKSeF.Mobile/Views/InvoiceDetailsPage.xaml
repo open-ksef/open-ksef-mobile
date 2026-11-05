@@ -128,12 +128,12 @@
                                                    TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}">
                                                 <Label.FormattedText>
                                                     <FormattedString>
-                                                        <Span Text="{Binding QuantityText}" />
-                                                        <Span Text=" " />
-                                                        <Span Text="{Binding Unit}" />
-                                                        <Span Text="  ×  " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
-                                                        <Span Text="{Binding UnitPriceNetText}" />
-                                                        <Span Text=" netto" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+                                                        <Span FontFamily="Inter" Text="{Binding QuantityText}" />
+                                                        <Span FontFamily="Inter" Text=" " />
+                                                        <Span FontFamily="Inter" Text="{Binding Unit}" />
+                                                        <Span FontFamily="Inter" Text="  ×  " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+                                                        <Span FontFamily="Inter" Text="{Binding UnitPriceNetText}" />
+                                                        <Span FontFamily="Inter" Text=" netto" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                                     </FormattedString>
                                                 </Label.FormattedText>
                                             </Label>
@@ -143,12 +143,12 @@
                                                    FontFamily="InterBold">
                                                 <Label.FormattedText>
                                                     <FormattedString>
-                                                        <Span Text="Netto: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
-                                                        <Span Text="{Binding AmountNetText}" />
-                                                        <Span Text="   Brutto: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
-                                                        <Span Text="{Binding AmountGrossText}" />
-                                                        <Span Text="   VAT: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
-                                                        <Span Text="{Binding VatRateText}" />
+                                                        <Span FontFamily="Inter" Text="Netto: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
+                                                        <Span FontFamily="Inter" Text="{Binding AmountNetText}" />
+                                                        <Span FontFamily="Inter" Text="   Brutto: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
+                                                        <Span FontFamily="Inter" Text="{Binding AmountGrossText}" />
+                                                        <Span FontFamily="Inter" Text="   VAT: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
+                                                        <Span FontFamily="Inter" Text="{Binding VatRateText}" />
                                                     </FormattedString>
                                                 </Label.FormattedText>
                                             </Label>

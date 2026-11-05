@@ -19,8 +19,8 @@
         <Frame Style="{StaticResource CardFrame}"
                Padding="28,32"
                Margin="24"
-               HorizontalOptions="Center"
-               WidthRequest="400">
+               HorizontalOptions="Fill"
+               MaximumWidthRequest="400">
 
             <VerticalStackLayout Spacing="16">
 
@@ -83,8 +83,8 @@
                         <Label Style="{StaticResource LabelFormLabel}">
                             <Label.FormattedText>
                                 <FormattedString>
-                                    <Span Text="Nazwa wyświetlana " />
-                                    <Span Text="(opcjonalnie)" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+                                    <Span FontFamily="Inter" Text="Nazwa wyświetlana " />
+                                    <Span FontFamily="Inter" Text="(opcjonalnie)" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
@@ -96,8 +96,8 @@
                         <Label Style="{StaticResource LabelFormLabel}">
                             <Label.FormattedText>
                                 <FormattedString>
-                                    <Span Text="E-mail do powiadomień " />
-                                    <Span Text="(opcjonalnie)" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+                                    <Span FontFamily="Inter" Text="E-mail do powiadomień " />
+                                    <Span FontFamily="Inter" Text="(opcjonalnie)" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
@@ -121,11 +121,11 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Jak uzyskać token KSeF:" FontFamily="InterBold" />
-                                    <Span Text="&#10;1. Przejdź na ksef-test.mf.gov.pl" />
-                                    <Span Text="&#10;2. Zaloguj się danymi firmy" />
-                                    <Span Text="&#10;3. Sekcja Tokeny autoryzacyjne" />
-                                    <Span Text="&#10;4. Wygeneruj token z uprawnieniami" />
-                                    <Span Text="&#10;5. Skopiuj i wklej poniżej" />
+                                    <Span FontFamily="Inter" Text="&#10;1. Przejdź na ksef-test.mf.gov.pl" />
+                                    <Span FontFamily="Inter" Text="&#10;2. Zaloguj się danymi firmy" />
+                                    <Span FontFamily="Inter" Text="&#10;3. Sekcja Tokeny autoryzacyjne" />
+                                    <Span FontFamily="Inter" Text="&#10;4. Wygeneruj token z uprawnieniami" />
+                                    <Span FontFamily="Inter" Text="&#10;5. Skopiuj i wklej poniżej" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>

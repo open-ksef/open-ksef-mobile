@@ -193,7 +193,7 @@
                                AutomationId="LoginPageLabelServerHost">
                             <Label.FormattedText>
                                 <FormattedString>
-                                    <Span Text="Serwer: " />
+                                    <Span FontFamily="Inter" Text="Serwer: " />
                                     <Span Text="{Binding ActiveServerHost}" FontFamily="InterBold" />
                                 </FormattedString>
                             </Label.FormattedText>
