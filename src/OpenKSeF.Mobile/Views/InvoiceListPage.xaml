@@ -5,15 +5,15 @@
              xmlns:models="clr-namespace:OpenKSeF.Mobile.Models"
              x:Class="OpenKSeF.Mobile.Views.InvoiceListPage"
              x:DataType="vm:InvoiceListViewModel"
-             Title="Faktury">
+             Title="Otrzymane">
 
     <Shell.TitleView>
         <Grid ColumnDefinitions="*,Auto" Padding="0,0,10,0">
             <VerticalStackLayout VerticalOptions="Center">
-                <Label Text="Faktury" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource TextInverse}"
+                <Label Text="Otrzymane" FontSize="18" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}"
                        AutomationId="InvoiceListPageLabelTitle" />
                 <Label Text="{Binding TenantNip, StringFormat='NIP: {0}'}"
-                       FontSize="12" TextColor="{StaticResource TextInverse}"
+                       FontSize="12" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                        IsVisible="{Binding TenantNip, Converter={StaticResource IsNotNullConverter}}" />
             </VerticalStackLayout>
         </Grid>

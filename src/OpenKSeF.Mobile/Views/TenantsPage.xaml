@@ -10,12 +10,12 @@
     <Shell.TitleView>
         <Grid ColumnDefinitions="*,Auto" Padding="0,0,10,0">
             <Label Text="Firmy" FontSize="18" FontAttributes="Bold"
-                   VerticalOptions="Center" TextColor="{StaticResource TextInverse}" />
+                   VerticalOptions="Center" TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
             <Button Grid.Column="1" Text="+ Dodaj"
                     AutomationId="TenantsPageButtonAdd"
                     Command="{Binding AddTenantCommand}"
                     BackgroundColor="Transparent"
-                    TextColor="{StaticResource TextInverse}"
+                    TextColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}"
                     FontSize="14"
                     HeightRequest="-1" />
         </Grid>

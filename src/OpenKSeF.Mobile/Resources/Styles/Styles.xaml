@@ -16,20 +16,13 @@
 
     <!-- ─── Shell ────────────────────────────────────────────── -->
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.BackgroundColor"
-                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource Gray950}}" />
-        <Setter Property="Shell.ForegroundColor"
-                Value="{StaticResource White}" />
-        <Setter Property="Shell.TitleColor"
-                Value="{StaticResource White}" />
-        <Setter Property="Shell.TabBarBackgroundColor"
-                Value="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray950}}" />
-        <Setter Property="Shell.TabBarForegroundColor"
-                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-        <Setter Property="Shell.TabBarUnselectedColor"
-                Value="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}" />
-        <Setter Property="Shell.TabBarTitleColor"
-                Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
+        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
     </Style>
 
     <!-- ─── Label (implicit) ─────────────────────────────────── -->
@@ -149,9 +142,6 @@
     <!-- ─── Design system v1 (issuing pages) ─────────────────── -->
     <Style x:Key="UiPage" TargetType="ContentPage">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiBg}, Dark={StaticResource UiBgDark}}" />
-        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
-        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
-        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
     </Style>
 
     <Style x:Key="UiCard" TargetType="Border">

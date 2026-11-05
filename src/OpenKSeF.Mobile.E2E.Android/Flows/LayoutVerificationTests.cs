@@ -159,7 +159,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
 
         var titleLabel = AndroidDriver.FindElement(ByAutoId("InvoiceListPageLabelTitle"));
         Assert.That(titleLabel.Displayed, Is.True, "Invoice list title should be visible");
-        Assert.That(titleLabel.Text, Does.Contain("Faktury"), "Title should contain 'Faktury'");
+        Assert.That(titleLabel.Text, Does.Contain("Otrzymane"), "Title should contain 'Otrzymane'");
 
         CaptureLayoutScreenshot("InvoiceListPage");
     }

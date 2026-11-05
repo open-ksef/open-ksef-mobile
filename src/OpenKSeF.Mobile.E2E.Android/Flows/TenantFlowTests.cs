@@ -32,7 +32,7 @@ public sealed class TenantFlowTests : AndroidTestBase
         invoiceWait.Until(driver => driver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0);
 
         var invoiceTitle = AndroidDriver.FindElement(ByAutoId("InvoiceListPageLabelTitle"));
-        Assert.That(invoiceTitle.Text, Does.Contain("Faktury"));
+        Assert.That(invoiceTitle.Text, Does.Contain("Otrzymane"));
 
         AndroidDriver.Navigate().Back();
 
