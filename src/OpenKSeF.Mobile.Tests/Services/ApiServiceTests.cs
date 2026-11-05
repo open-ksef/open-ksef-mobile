@@ -457,6 +457,19 @@ public class ApiServiceTests
         Assert.Empty(ex.Validation?.Errors ?? []);
     }
 
+    [Theory]
+    [InlineData("application/json", "{\"id\":")]
+    [InlineData("text/html", "<html>proxy</html>")]
+    public async Task Unreadable2xxBody_ThrowsApiExceptionWithPolishText(string mediaType, string body)
+    {
+        _handler.Enqueue(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body, System.Text.Encoding.UTF8, mediaType) });
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().IssueInvoiceAsync(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.OK, ex.StatusCode);
+        Assert.Equal("Serwer przyjął żądanie, ale jego odpowiedź jest nieczytelna. Odśwież widok, aby zobaczyć aktualny stan.", ex.Message);
+    }
+
     private sealed class RecordingLogger : ILogger<ApiService>
     {
         public List<string> Lines { get; } = [];

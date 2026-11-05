@@ -15,6 +15,7 @@ public partial class InvoiceDraftPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _viewModel.IsShown = true;
 #if ANDROID
         var display = DeviceDisplay.Current.MainDisplayInfo;
         Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.UseWindowSoftInputModeAdjust(
@@ -25,13 +26,14 @@ public partial class InvoiceDraftPage : ContentPage
         _viewModel.LoadCommand.Execute(null);
     }
 
-#if ANDROID
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        _viewModel.IsShown = false;
+#if ANDROID
         Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.UseWindowSoftInputModeAdjust(
             Microsoft.Maui.Controls.Application.Current!.On<Microsoft.Maui.Controls.PlatformConfiguration.Android>(),
             Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Pan);
-    }
 #endif
+    }
 }
