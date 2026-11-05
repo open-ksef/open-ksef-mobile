@@ -406,7 +406,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
             BuyerNameError = string.IsNullOrWhiteSpace(BuyerName) ? "Uzupełnij nazwę nabywcy" : null;
             BuyerAddressError = string.IsNullOrWhiteSpace(BuyerAddressLine1) ? "Uzupełnij adres nabywcy" : null;
             if (BuyerNameError is not null || BuyerAddressError is not null)
+            {
+                await AlertInvalidFormAsync(string.Join("\n", new[] { BuyerNameError, BuyerAddressError }.OfType<string>()));
                 return;
+            }
         }
 
         var saved = await SaveAsync();
@@ -425,15 +428,16 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
         {
             ApplyValidation(validation);
+            await AlertInvalidFormAsync(ValidationSummary(validation));
         }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
         {
             try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); }
-            catch { ErrorMessage = NoConnection; }
+            catch { await ShowErrorAsync(NoConnection); }
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            await ShowErrorAsync(ex.Message);
         }
         finally
         {
@@ -499,7 +503,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
         ClearErrors();
         if (Lines.FirstOrDefault(l => !l.Validate()) is { } invalid)
         {
-            await Shell.Current.DisplayAlertAsync("Popraw fakturę", $"Pozycja {Lines.IndexOf(invalid) + 1}: {invalid.Error}", "OK");
+            await AlertInvalidFormAsync($"Pozycja {Lines.IndexOf(invalid) + 1}: {invalid.Error}");
             return null;
         }
 
@@ -519,6 +523,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
         {
             ApplyValidation(validation);
+            await AlertInvalidFormAsync(ValidationSummary(validation));
             return null;
         }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
@@ -535,12 +540,12 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
         {
-            ErrorMessage = NoConnection;
+            await ShowErrorAsync(NoConnection);
             return null;
         }
         catch (Exception ex)
         {
-            ErrorMessage = ex.Message;
+            await ShowErrorAsync(ex.Message);
             return null;
         }
         finally
@@ -606,6 +611,17 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
         ErrorMessage = string.Join("\n", ["Popraw błędy zaznaczone w formularzu.", .. unplaced]);
     }
+
+    private static Task AlertInvalidFormAsync(string message) => Shell.Current.DisplayAlertAsync("Popraw fakturę", message, "OK");
+
+    private Task ShowErrorAsync(string message)
+    {
+        ErrorMessage = message;
+        return Shell.Current.DisplayAlertAsync("Błąd", message, "OK");
+    }
+
+    private static string ValidationSummary(ValidationEnvelope validation) =>
+        string.Join("\n", validation.Errors.Select(e => LineIndex(e.Field ?? string.Empty) is { } i ? $"Pozycja {i + 1}: {e.Message}" : e.Message));
 
     private static int? LineIndex(string field) =>
         field.StartsWith("lines[") && field.IndexOf(']') is var end and > 6 && int.TryParse(field[6..end], out var i) ? i : null;

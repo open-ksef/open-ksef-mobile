@@ -106,6 +106,18 @@ public static class MauiProgram
             handler.PlatformView.KeyListener = Android.Text.Method.TextKeyListener.GetInstance(false, Android.Text.Method.TextKeyListener.Capitalize.None);
             handler.PlatformView.SetRawInputType(Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal);
         });
+
+        // Runs once per handler. The IsChecked mapping below runs on every change, and setting the state description makes TalkBack announce it.
+        Microsoft.Maui.Handlers.RadioButtonHandler.Mapper.AppendToMapping("CheckableAccessibility", (handler, radio) =>
+        {
+            if (handler.PlatformView is not Android.Widget.CompoundButton)
+                AndroidX.Core.View.ViewCompat.SetAccessibilityDelegate(handler.PlatformView, new CheckableRadioAccessibilityDelegate(AndroidX.Core.View.ViewCompat.GetAccessibilityDelegate(handler.PlatformView), radio));
+        });
+        Microsoft.Maui.Handlers.RadioButtonHandler.Mapper.AppendToMapping(nameof(IRadioButton.IsChecked), (handler, radio) =>
+        {
+            if (handler.PlatformView is not Android.Widget.CompoundButton)
+                AndroidX.Core.View.ViewCompat.SetStateDescription(handler.PlatformView, radio.IsChecked ? "Wybrany" : "Niewybrany");
+        });
 #endif
 
 #if DEBUG

@@ -1714,6 +1714,83 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Draft_PersonWithoutNameAndAddress_IssueShowsAlertNamingBoth_NothingSent()
+    {
+        var vm = Draft(Profile());
+        vm.BuyerKind = "Person";
+        vm.BuyerName = null;
+        vm.BuyerAddressLine1 = " ";
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Popraw fakturę", Shell.Current.LastAlertTitle);
+        Assert.Equal("Uzupełnij nazwę nabywcy\nUzupełnij adres nabywcy", Shell.Current.LastAlertMessage);
+        await _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task Draft_PersonWithoutAddress_IssueAlertNamesOnlyAddress()
+    {
+        var vm = Draft(Profile());
+        vm.BuyerKind = "Person";
+        vm.BuyerName = "Jan Testowy";
+        vm.BuyerAddressLine1 = null;
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Uzupełnij adres nabywcy", Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public async Task Draft_SaveServerValidation_ShowsAlertNamingFieldsAndLine()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new ApiException(HttpStatusCode.UnprocessableEntity, "422", new ValidationEnvelope
+        {
+            Errors =
+            [
+                new ValidationIssue { Code = "A", Field = "buyer.nip", Message = "Błędny NIP" },
+                new ValidationIssue { Code = "B", Field = "lines[0].unitNetPrice", Message = "Cena za niska" }
+            ]
+        }));
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Equal("Popraw fakturę", Shell.Current.LastAlertTitle);
+        Assert.Equal("Błędny NIP\nPozycja 1: Cena za niska", Shell.Current.LastAlertMessage);
+        Assert.Equal("Błędny NIP", vm.BuyerNipError);
+        Assert.Equal("Cena za niska", vm.Lines[0].Error);
+    }
+
+    [Fact]
+    public async Task Draft_SaveServerError_ShowsAlertWithServerMessage()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new ApiException(HttpStatusCode.InternalServerError, "Blad serwera (500)"));
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Equal("Błąd", Shell.Current.LastAlertTitle);
+        Assert.Equal("Blad serwera (500)", Shell.Current.LastAlertMessage);
+        Assert.Equal("Blad serwera (500)", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Draft_IssueServerValidation_ShowsAlert()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Invoice("Draft"));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).ThrowsAsync(new ApiException(HttpStatusCode.UnprocessableEntity, "422", Invalid("INV-VAL-0xx", "dueDate")));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Popraw fakturę", Shell.Current.LastAlertTitle);
+        Assert.Equal("INV-VAL-0xx", Shell.Current.LastAlertMessage);
+        Assert.Equal("INV-VAL-0xx", vm.DueDateError);
+    }
+
+    [Fact]
     public async Task Draft_ValidLines_SaveShowsNoAlert()
     {
         var vm = Draft(Profile());
