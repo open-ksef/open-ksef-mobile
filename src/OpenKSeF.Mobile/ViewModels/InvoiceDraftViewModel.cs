@@ -85,6 +85,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private const string NoConnection = "Brak połączenia z serwerem. Dane w formularzu zostały. Spróbuj ponownie po powrocie sieci, nie twórz nowej faktury.";
 
+    private const string CheckIssuedList = "Sprawdź listę wystawionych, zanim zapiszesz ponownie.";
+
+    private const string IssuedList = "//main/issued";
+
     private readonly IApiService _apiService;
     private SellerProfileDto? _profile;
     private string? _routeOnReturn;
@@ -251,7 +255,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
         if (_routeOnReturn is { } route)
         {
             _routeOnReturn = null;
-            try { await Shell.Current.GoToAsync(route); } catch { _routeOnReturn = route; }
+            if (route == IssuedList)
+                await OpenIssuedListAsync();
+            else
+                try { await Shell.Current.GoToAsync(route); } catch { _routeOnReturn = route; }
             return;
         }
 
@@ -529,16 +536,18 @@ public partial class InvoiceDraftViewModel : ObservableObject
             return null;
         }
 
+        var creating = !Guid.TryParse(InvoiceId, out var id);
         try
         {
             IsBusy = true;
             var request = BuildRequest();
-            var saved = Guid.TryParse(InvoiceId, out var id)
+            var saved = !creating
                 ? await _apiService.UpdateIssuedInvoiceAsync(tenantId, id, request, _version)
                 : await _apiService.CreateIssuedInvoiceAsync(tenantId, request);
             _loaded = true;
             _version = saved.Version;
             InvoiceId = saved.Id.ToString();
+            _routeOnReturn = null;
             SavedAt = $"Zapisano {IssuingFormat.Time(DateTime.Now)}";
             return saved;
         }
@@ -546,6 +555,15 @@ public partial class InvoiceDraftViewModel : ObservableObject
         {
             ApplyValidation(validation);
             await AlertInvalidFormAsync(ValidationSummary(validation));
+            return null;
+        }
+        catch (ApiException ex) when (creating && ex.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices)
+        {
+            ErrorMessage = CheckIssuedList;
+            if (IsShown)
+                await OpenIssuedListAsync();
+            else
+                _routeOnReturn = IssuedList;
             return null;
         }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
@@ -632,6 +650,12 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
 
         ErrorMessage = string.Join("\n", ["Popraw błędy zaznaczone w formularzu.", .. unplaced]);
+    }
+
+    private async Task OpenIssuedListAsync()
+    {
+        await Shell.Current.DisplayAlertAsync("Nie wiadomo, czy zapisano szkic", CheckIssuedList, "OK");
+        try { await Shell.Current.GoToAsync(IssuedList); } catch { _routeOnReturn = IssuedList; }
     }
 
     private Task AlertInvalidFormAsync(string message) => IsShown ? Shell.Current.DisplayAlertAsync("Popraw fakturę", message, "OK") : Task.CompletedTask;

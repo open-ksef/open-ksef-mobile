@@ -467,7 +467,7 @@ public class ApiServiceTests
         var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().IssueInvoiceAsync(Guid.NewGuid(), Guid.NewGuid()));
 
         Assert.Equal(HttpStatusCode.OK, ex.StatusCode);
-        Assert.Equal("Serwer przyjął żądanie, ale jego odpowiedź jest nieczytelna. Odśwież widok, aby zobaczyć aktualny stan.", ex.Message);
+        Assert.Equal("Odpowiedź serwera jest nieczytelna. Nie wiadomo, czy operacja się udała. Sprawdź aktualny stan, zanim spróbujesz ponownie.", ex.Message);
     }
 
     private sealed class RecordingLogger : ILogger<ApiService>
