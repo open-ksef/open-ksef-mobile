@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenKSeF.Mobile.Models;
@@ -87,6 +88,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
     private readonly IApiService _apiService;
     private SellerProfileDto? _profile;
     private string? _invoiceNumber;
+    private uint? _version;
     private bool _loaded;
     private bool _portalOnly;
 
@@ -283,6 +285,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
     private void Fill(IssuedInvoiceDto invoice)
     {
         _invoiceNumber = invoice.Number;
+        _version = invoice.Version;
         OnPropertyChanged(nameof(NumberPreview));
         BuyerKind = invoice.Buyer.Kind;
         BuyerNip = invoice.Buyer.Nip;
@@ -416,7 +419,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
             if (!await ConfirmIssueAsync(_profile?.NextNumberPreview, saved))
                 return;
 
-            var issued = await _apiService.IssueInvoiceAsync(tenantId, saved.Id);
+            var issued = await _apiService.IssueInvoiceAsync(tenantId, saved.Id, saved.Version);
             try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}"); } catch { }
         }
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
@@ -502,9 +505,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
             IsBusy = true;
             var request = BuildRequest();
             var saved = Guid.TryParse(InvoiceId, out var id)
-                ? await _apiService.UpdateIssuedInvoiceAsync(tenantId, id, request)
+                ? await _apiService.UpdateIssuedInvoiceAsync(tenantId, id, request, _version)
                 : await _apiService.CreateIssuedInvoiceAsync(tenantId, request);
             _loaded = true;
+            _version = saved.Version;
             InvoiceId = saved.Id.ToString();
             SavedAt = $"Zapisano {IssuingFormat.Time(DateTime.Now)}";
             return saved;
@@ -512,6 +516,18 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
         {
             ApplyValidation(validation);
+            return null;
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            ErrorMessage = ex.Message;
+            if (await Shell.Current.DisplayAlertAsync("Faktura zmieniona", "Ta faktura została zmieniona w innym miejscu. Wczytać aktualną wersję? Zmiany wpisane w tym formularzu przepadną.", "Wczytaj aktualną", "Zostaw formularz"))
+            {
+                ErrorMessage = null;
+                _loaded = false;
+                IsBusy = false;
+                await LoadAsync();
+            }
             return null;
         }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex))

@@ -400,6 +400,63 @@ public class ApiServiceTests
         Assert.Equal(bytes, await CreateService().GetIssuedInvoiceXmlAsync(Guid.NewGuid(), Guid.NewGuid()));
     }
 
+    public static TheoryData<uint?, string> VersionQueries => new() { { 4000000000u, "?version=4000000000" }, { null, "" } };
+
+    [Theory]
+    [MemberData(nameof(VersionQueries))]
+    public async Task UpdateIssuedInvoice_SendsVersionOnlyWhenKnown(uint? version, string query)
+    {
+        var (tenantId, invoiceId) = (Guid.NewGuid(), Guid.NewGuid());
+        _handler.RespondJson(HttpStatusCode.OK, IssuedInvoiceContractTests.InvoiceResponseJson);
+
+        await CreateService().UpdateIssuedInvoiceAsync(tenantId, invoiceId, new IssuedInvoiceDraftRequest(), version);
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Equal("PUT", request.Method);
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}{query}", request.Uri);
+        Assert.DoesNotContain("version", request.Body);
+    }
+
+    [Theory]
+    [MemberData(nameof(VersionQueries))]
+    public async Task DeleteIssuedInvoice_SendsVersionOnlyWhenKnown(uint? version, string query)
+    {
+        var (tenantId, invoiceId) = (Guid.NewGuid(), Guid.NewGuid());
+        _handler.Respond(HttpStatusCode.NoContent);
+
+        await CreateService().DeleteIssuedInvoiceAsync(tenantId, invoiceId, version);
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Equal("DELETE", request.Method);
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}{query}", request.Uri);
+    }
+
+    [Theory]
+    [MemberData(nameof(VersionQueries))]
+    public async Task IssueInvoice_SendsVersionOnlyWhenKnown(uint? version, string query)
+    {
+        var (tenantId, invoiceId) = (Guid.NewGuid(), Guid.NewGuid());
+        _handler.RespondJson(HttpStatusCode.Accepted, IssuedInvoiceContractTests.InvoiceResponseJson);
+
+        await CreateService().IssueInvoiceAsync(tenantId, invoiceId, version);
+
+        var request = Assert.Single(_handler.Requests);
+        Assert.Equal("POST", request.Method);
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{query}", request.Uri);
+    }
+
+    [Fact]
+    public async Task StaleVersion_ConflictShowsServerMessage()
+    {
+        _handler.RespondJson(HttpStatusCode.Conflict, "{\"message\":\"Faktura została równocześnie zmieniona, odśwież stronę\"}");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().DeleteIssuedInvoiceAsync(Guid.NewGuid(), Guid.NewGuid(), 7));
+
+        Assert.Equal(HttpStatusCode.Conflict, ex.StatusCode);
+        Assert.Equal("Faktura została równocześnie zmieniona, odśwież stronę", ex.Message);
+        Assert.Empty(ex.Validation?.Errors ?? []);
+    }
+
     private sealed class RecordingLogger : ILogger<ApiService>
     {
         public List<string> Lines { get; } = [];

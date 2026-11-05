@@ -30,4 +30,6 @@ public class IssuedInvoiceDto
     public decimal? ExchangeRate { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DateOnly? ExchangeRateDate { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public uint? Version { get; set; }
 }

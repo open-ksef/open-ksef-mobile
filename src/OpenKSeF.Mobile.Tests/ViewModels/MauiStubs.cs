@@ -31,6 +31,7 @@ namespace Microsoft.Maui.Controls
         public string? LastAlertMessage { get; private set; }
         public string? LastRoute { get; private set; }
         public Exception? GoToFailure { get; set; }
+        public Func<Task>? WhileConfirming { get; set; }
 
         public void Reset()
         {
@@ -38,6 +39,7 @@ namespace Microsoft.Maui.Controls
             LastAlertMessage = null;
             LastRoute = null;
             GoToFailure = null;
+            WhileConfirming = null;
         }
 
         public Task GoToAsync(string state)
@@ -48,10 +50,12 @@ namespace Microsoft.Maui.Controls
             return Task.CompletedTask;
         }
 
-        public Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel)
+        public async Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel)
         {
             LastAlertMessage = message;
-            return Task.FromResult(AlertAnswer);
+            if (WhileConfirming is not null)
+                await WhileConfirming();
+            return AlertAnswer;
         }
 
         public Task DisplayAlertAsync(string title, string message, string cancel)
