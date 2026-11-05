@@ -1364,6 +1364,7 @@ public class IssuingViewModelTests : IDisposable
             .ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
         vm.BuyerName = "Wpisane przez użytkownika";
         vm.Lines[0].Name = "Wpisana pozycja";
+        Shell.Current.AlertAnswer = false;
 
         await vm.SaveDraftCommand.ExecuteAsync(null);
         await vm.SaveDraftCommand.ExecuteAsync(null);
@@ -1380,11 +1381,48 @@ public class IssuingViewModelTests : IDisposable
         var vm = await LoadedDraft(7);
         _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u)
             .ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        Shell.Current.AlertAnswer = false;
 
         await vm.IssueCommand.ExecuteAsync(null);
 
         Assert.Equal(StaleMessage, vm.ErrorMessage);
         await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+    }
+
+    [Fact]
+    public async Task Draft_StaleSave_ReloadAccepted_ShowsServerState_NextSaveUsesItsVersion()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u)
+            .ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(8, "Zmieniony nabywca"));
+        vm.BuyerName = "Wpisane przez użytkownika";
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        Assert.Equal("Zmieniony nabywca", vm.BuyerName);
+        Assert.Null(vm.ErrorMessage);
+        Assert.False(vm.IsBusy);
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 8u);
+    }
+
+    [Fact]
+    public async Task Details_ChangedBeforeIssueTap_ShowsCurrentState_NothingSent_SecondTapIssues()
+    {
+        var vm = await DetailsOf(Versioned(7));
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Versioned(8, "Zmieniony nabywca"));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).Returns(Invoice("Accepted"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Zmieniony nabywca", vm.Invoice!.Buyer.Name);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
     }
 
     [Fact]
@@ -1494,11 +1532,10 @@ public class IssuingViewModelTests : IDisposable
     [Fact]
     public async Task Details_Issue_SendsVersionShownInConfirm()
     {
-        var vm = await DetailsOf(Versioned(7));
-        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
         var shown = Versioned(8);
         shown.Ksef.Environment = "production";
-        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(shown);
+        var vm = await DetailsOf(shown);
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
         _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).Returns(Invoice("Accepted"));
 
         await vm.IssueCommand.ExecuteAsync(null);
@@ -1509,11 +1546,10 @@ public class IssuingViewModelTests : IDisposable
     [Fact]
     public async Task Details_ChangedWhileIssueConfirmOpen_ShowsServerMessage_NothingSent()
     {
-        var vm = await DetailsOf(Versioned(7));
-        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
         var shown = Versioned(8);
         shown.Ksef.Environment = "production";
-        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(shown);
+        var vm = await DetailsOf(shown);
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile("production"));
         _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
         Shell.Current.WhileConfirming = () =>
         {

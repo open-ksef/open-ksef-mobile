@@ -213,6 +213,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         if (Invoice is null || !Guid.TryParse(TenantId, out var tenantId))
             return;
 
+        var displayed = Invoice.Version;
         try
         {
             var profile = await _apiService.GetSellerProfileAsync(tenantId);
@@ -222,6 +223,12 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
             {
                 if (IsSending)
                     Start();
+                return;
+            }
+
+            if (shown.Version != displayed)
+            {
+                await Shell.Current.DisplayAlertAsync("Faktura zmieniona", "Ta faktura została zmieniona w innym miejscu. Sprawdź aktualne dane i wybierz „Wystaw i wyślij” jeszcze raz.", "OK");
                 return;
             }
 

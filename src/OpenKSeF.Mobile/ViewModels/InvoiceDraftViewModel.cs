@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenKSeF.Mobile.Models;
@@ -515,6 +516,18 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
         {
             ApplyValidation(validation);
+            return null;
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            ErrorMessage = ex.Message;
+            if (await Shell.Current.DisplayAlertAsync("Faktura zmieniona", "Ta faktura została zmieniona w innym miejscu. Wczytać aktualną wersję? Zmiany wpisane w tym formularzu przepadną.", "Wczytaj aktualną", "Zostaw formularz"))
+            {
+                ErrorMessage = null;
+                _loaded = false;
+                IsBusy = false;
+                await LoadAsync();
+            }
             return null;
         }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
