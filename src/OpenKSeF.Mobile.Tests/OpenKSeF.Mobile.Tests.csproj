@@ -35,6 +35,7 @@
     <Compile Include="..\OpenKSeF.Mobile\Services\PostLoginNavigationService.cs" Link="Linked\Services\PostLoginNavigationService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ServerSettingsService.cs" Link="Linked\Services\ServerSettingsService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ServerUrlRules.cs" Link="Linked\Services\ServerUrlRules.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\ThemeSettings.cs" Link="Linked\Services\ThemeSettings.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\AccountViewModel.cs" Link="Linked\ViewModels\AccountViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\InvoiceDetailsViewModel.cs" Link="Linked\ViewModels\InvoiceDetailsViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\InvoiceDraftViewModel.cs" Link="Linked\ViewModels\InvoiceDraftViewModel.cs" />

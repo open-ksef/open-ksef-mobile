@@ -15,6 +15,23 @@ public partial class InvoiceDraftPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+#if ANDROID
+        var display = DeviceDisplay.Current.MainDisplayInfo;
+        Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.UseWindowSoftInputModeAdjust(
+            Microsoft.Maui.Controls.Application.Current!.On<Microsoft.Maui.Controls.PlatformConfiguration.Android>(),
+            // Below 720 dp the tab bar and action row above the keyboard leave no room for the focused field.
+            display.Height / display.Density >= 720 ? Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Resize : Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Pan);
+#endif
         _viewModel.LoadCommand.Execute(null);
     }
+
+#if ANDROID
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.UseWindowSoftInputModeAdjust(
+            Microsoft.Maui.Controls.Application.Current!.On<Microsoft.Maui.Controls.PlatformConfiguration.Android>(),
+            Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Pan);
+    }
+#endif
 }

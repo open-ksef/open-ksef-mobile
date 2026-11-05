@@ -33,6 +33,9 @@ public partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private bool _isBusy;
 
+    [ObservableProperty]
+    private string _themeChoice = ThemeSettings.Load();
+
     public AccountViewModel(
         IServerSettingsService serverSettings,
         IDeviceTokenService deviceTokenService,
@@ -45,6 +48,12 @@ public partial class AccountViewModel : ObservableObject
         _session = session;
         ServerHost = ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
         AppVersion = $"v{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
+    }
+
+    partial void OnThemeChoiceChanged(string value)
+    {
+        ThemeSettings.Save(value);
+        Application.Current!.UserAppTheme = ThemeSettings.ToAppTheme(value);
     }
 
     [RelayCommand]

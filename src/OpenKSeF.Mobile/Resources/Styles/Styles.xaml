@@ -110,14 +110,6 @@
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
-    <Style x:Key="ButtonDanger" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnError}, Dark={StaticResource UiOnErrorDark}}" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontFamily" Value="InterSemiBold" />
-        <Setter Property="HeightRequest" Value="48" />
-    </Style>
-
     <Style x:Key="ButtonGhost" TargetType="Button">
         <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="BackgroundColor" Value="Transparent" />
@@ -127,7 +119,7 @@
     </Style>
 
     <Style x:Key="ButtonSmall" TargetType="Button">
-        <Setter Property="FontFamily" Value="Inter" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnPrimary}, Dark={StaticResource UiOnPrimaryDark}}" />
         <Setter Property="CornerRadius" Value="8" />
@@ -300,14 +292,6 @@
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="HeightRequest" Value="48" />
-    </Style>
-
-    <Style x:Key="UiButtonDanger" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
-        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnError}, Dark={StaticResource UiOnErrorDark}}" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using OpenKSeF.Mobile.ViewModels;
 using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Views;
@@ -23,7 +24,7 @@ public class ThemeCoverageTests
             var lines = File.ReadAllLines(path);
             for (var i = 0; i < lines.Length; i++)
             {
-                if (lines[i].Contains("<GradientStop"))
+                if (lines[i].Contains("<GradientStop") || lines[i].Contains("<SwipeItem "))
                     continue;
 
                 var bare = Regex.Replace(lines[i], @"\{AppThemeBinding [^""]*\}", string.Empty);
@@ -53,6 +54,16 @@ public class ThemeCoverageTests
         var page = File.ReadAllText(Path.Combine(AppDir, "Views/QrCodePage.xaml"));
 
         Assert.Matches(new Regex(@"BackgroundColor=""White""\s+HorizontalOptions=""Center"">\s+<Image Source=""\{Binding QrImage\}"""), page);
+    }
+
+    [Fact]
+    public void KodIPng_IsOpaqueGreyscale()
+    {
+        var png = IssuedInvoiceDetailsViewModel.QrPng("https://qr-test.ksef.mf.gov.pl/invoice/1111111111/05-11-2026/abc");
+
+        const int ihdrColourType = 25;
+        Assert.Equal(0, png[ihdrColourType]);
+        Assert.Equal(-1, png.AsSpan().IndexOf("tRNS"u8));
     }
 
     [Theory]

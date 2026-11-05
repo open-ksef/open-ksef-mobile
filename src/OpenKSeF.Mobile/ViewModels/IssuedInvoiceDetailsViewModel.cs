@@ -369,7 +369,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         await Share.Default.RequestAsync(new ShareFileRequest { Title = title, File = new ShareFile(path, contentType) });
     }
 
-    private static byte[] QrPng(string url)
+    internal static byte[] QrPng(string url)
     {
         using var generator = new QRCodeGenerator();
         using var data = generator.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
