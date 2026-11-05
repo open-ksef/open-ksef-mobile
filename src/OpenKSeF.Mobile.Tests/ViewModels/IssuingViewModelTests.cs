@@ -1638,6 +1638,53 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Details_IssueConflict_OfflineReload_KeepsShownVersion_NextTapSendsNothing()
+    {
+        var vm = await DetailsOnProduction(8);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        Shell.Current.WhileConfirming = () =>
+        {
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new HttpRequestException("offline"));
+            return Task.CompletedTask;
+        };
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Błąd", Shell.Current.LastAlertTitle);
+        Assert.Equal(StaleMessage, Shell.Current.LastAlertMessage);
+        Assert.Equal(8u, vm.Invoice!.Version);
+
+        Shell.Current.Reset();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(OnProduction(9, "Zmieniony nabywca"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Faktura zmieniona", Shell.Current.LastAlertTitle);
+        Assert.Equal("Zmieniony nabywca", vm.Invoice!.Buyer.Name);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
+        await _api.DidNotReceive().IssueInvoiceAsync(TenantId, InvoiceId, 9u);
+    }
+
+    [Fact]
+    public async Task Details_IssueConflict_NowPortalOnly_ShowsServerMessage()
+    {
+        var vm = await DetailsOnProduction(8);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, StaleMessage));
+        Shell.Current.WhileConfirming = () =>
+        {
+            var changed = OnProduction(9);
+            changed.Currency = "EUR";
+            _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(changed);
+            return Task.CompletedTask;
+        };
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Błąd", Shell.Current.LastAlertTitle);
+        Assert.Equal(StaleMessage, Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
     public async Task Draft_InvalidLineBelowTheFold_SaveShowsAlertNamingTheLine_NoRequest()
     {
         var vm = Draft(Profile());

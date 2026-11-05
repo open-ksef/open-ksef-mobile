@@ -256,7 +256,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
             if (IsSending)
                 Start();
 
-            if (Invoice?.Version != displayed && (IsDraft || CanFixRejection))
+            if (Invoice?.Version != displayed && IsEditableDraft)
                 await Shell.Current.DisplayAlertAsync("Faktura zmieniona", ChangedMessage, "OK");
             else
                 await Shell.Current.DisplayAlertAsync("Błąd", ex.Message, "OK");
