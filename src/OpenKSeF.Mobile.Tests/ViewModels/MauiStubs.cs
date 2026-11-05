@@ -71,6 +71,8 @@ namespace Microsoft.Maui.Controls
         public static Application? Current { get; } = new();
 
         public List<Window> Windows { get; } = [new Window()];
+
+        public AppTheme UserAppTheme { get; set; }
     }
 }
 
@@ -127,6 +129,8 @@ namespace Microsoft.Maui.ApplicationModel.DataTransfer
 
 namespace Microsoft.Maui.ApplicationModel
 {
+    public enum AppTheme { Unspecified, Light, Dark }
+
     public enum PermissionStatus { Unknown, Denied, Disabled, Granted, Restricted, Limited }
 
     public static class Permissions

@@ -46,6 +46,26 @@
                 </VerticalStackLayout>
             </Border>
 
+            <!-- Theme -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12"
+                    AutomationId="AccountPageSectionTheme">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Motyw" Style="{StaticResource LabelCaption}" />
+                    <Border Style="{StaticResource UiSegmentTrack}">
+                        <Grid ColumnDefinitions="*,*,*"
+                              RadioButtonGroup.GroupName="appTheme"
+                              RadioButtonGroup.SelectedValue="{Binding ThemeChoice}">
+                            <RadioButton Style="{StaticResource UiSegment}" Content="System" Value="System"
+                                         AutomationId="AccountPageSegmentThemeSystem" />
+                            <RadioButton Grid.Column="1" Style="{StaticResource UiSegment}" Content="Jasny" Value="Light"
+                                         AutomationId="AccountPageSegmentThemeLight" />
+                            <RadioButton Grid.Column="2" Style="{StaticResource UiSegment}" Content="Ciemny" Value="Dark"
+                                         AutomationId="AccountPageSegmentThemeDark" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Server info -->
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                 <VerticalStackLayout Spacing="4">

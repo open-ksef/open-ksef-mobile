@@ -8,6 +8,7 @@ public partial class App : Application
     public App(IAuthService authService, IServiceProvider services)
     {
         InitializeComponent();
+        UserAppTheme = ThemeSettings.ToAppTheme(ThemeSettings.Load());
 
         authService.SessionEnded += () => MainThread.BeginInvokeOnMainThread(async () =>
             await services.GetRequiredService<IPostLoginNavigationService>().HandleSessionEndedAsync());
