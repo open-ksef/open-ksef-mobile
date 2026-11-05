@@ -22,7 +22,20 @@ public partial class InvoiceDraftPage : ContentPage
             // Below 720 dp the tab bar and action row above the keyboard leave no room for the focused field.
             display.Height / display.Density >= 720 ? Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Resize : Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Pan);
 #endif
+    }
+
+    // A Shell tab switch raises NavigatedFrom/To but not Disappearing/Appearing on the pushed draft page.
+    protected override void OnNavigatedTo(NavigatedToEventArgs args)
+    {
+        base.OnNavigatedTo(args);
+        _viewModel.IsShown = true;
         _viewModel.LoadCommand.Execute(null);
+    }
+
+    protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
+    {
+        base.OnNavigatedFrom(args);
+        _viewModel.IsShown = false;
     }
 
 #if ANDROID

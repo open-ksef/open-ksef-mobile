@@ -201,7 +201,15 @@ public class ApiService : IApiService
     {
         using var response = await ExecuteAsync(method, path, body);
 
-        var result = await response.Content.ReadFromJsonAsync<T>();
+        T? result;
+        try
+        {
+            result = await response.Content.ReadFromJsonAsync<T>();
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            throw new ApiException(response.StatusCode, "Serwer przyjął żądanie, ale jego odpowiedź jest nieczytelna. Odśwież widok, aby zobaczyć aktualny stan.");
+        }
         return result ?? throw new ApiException(HttpStatusCode.InternalServerError,
             "Otrzymano pusta odpowiedz z serwera.");
     }

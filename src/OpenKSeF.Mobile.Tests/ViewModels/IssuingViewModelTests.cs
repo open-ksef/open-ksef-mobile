@@ -1791,6 +1791,140 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Draft_IssueWith422OnSave_DoesNotIssue_ShowsOneAlert()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new ApiException(HttpStatusCode.UnprocessableEntity, "422", Invalid("Błędny NIP", "buyer.nip")));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Popraw fakturę", "Błędny NIP")], Shell.Current.Alerts);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+    }
+
+    public static TheoryData<string, Exception> FailuresAfterLeaving => new()
+    {
+        { "save", new ApiException(HttpStatusCode.UnprocessableEntity, "422", Invalid("Błędny NIP", "buyer.nip")) },
+        { "save", new ApiException(HttpStatusCode.InternalServerError, "Blad serwera (500)") },
+        { "save", new ApiException(HttpStatusCode.Conflict, "Konflikt") },
+        { "save", new HttpRequestException("no route to host") },
+        { "issue", new ApiException(HttpStatusCode.UnprocessableEntity, "422", Invalid("Błędny termin", "dueDate")) },
+        { "issue", new ApiException(HttpStatusCode.InternalServerError, "Blad serwera (500)") },
+        { "issue", new HttpRequestException("no route to host") },
+    };
+
+    [Theory]
+    [MemberData(nameof(FailuresAfterLeaving))]
+    public async Task Draft_UserLeftDuringRequest_FailureShowsNoAlertAndNoNavigation(string call, Exception failure)
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        if (call == "save")
+            _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(_ => { vm.IsShown = false; return Task.FromException<IssuedInvoiceDto>(failure); });
+        else
+            _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).Returns(_ => { vm.IsShown = false; return Task.FromException<IssuedInvoiceDto>(failure); });
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Empty(Shell.Current.Alerts);
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Draft_UserLeftDuringSave_DoesNotAskToIssue()
+    {
+        var vm = Draft(Profile("produkcja"));
+        var saved = Invoice();
+        saved.Ksef.Environment = "produkcja";
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(_ => { vm.IsShown = false; return saved; });
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Empty(Shell.Current.Alerts);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+        Assert.Equal("Zapisano szkic. Faktura nie została wystawiona.", vm.ErrorMessage);
+    }
+
+    public static TheoryData<Exception?> IssueEndingsAway => new()
+    {
+        null,
+        new HttpRequestException("no route to host"),
+        new ApiException(HttpStatusCode.OK, UnreadableText),
+    };
+
+    [Theory]
+    [MemberData(nameof(IssueEndingsAway))]
+    public async Task Draft_IssueEndsOnAnotherTab_ReturnOpensDetailsOnce(Exception? failure)
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).Returns(_ =>
+        {
+            vm.IsShown = false;
+            return failure is null ? Task.FromResult(Invoice("Sending")) : Task.FromException<IssuedInvoiceDto>(failure);
+        });
+
+        await vm.IssueCommand.ExecuteAsync(null);
+        Assert.Null(Shell.Current.LastRoute);
+
+        vm.IsShown = true;
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+        Assert.Empty(Shell.Current.Alerts);
+        Shell.Current.Reset();
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Null(Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Draft_IssueEndsOnAnotherTab_FailedReturnNavigationKeepsRoute()
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).Returns(_ => { vm.IsShown = false; return Invoice("Sending"); });
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        vm.IsShown = true;
+        Shell.Current.GoToFailure = new InvalidOperationException("no route");
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Null(Shell.Current.LastRoute);
+
+        Shell.Current.GoToFailure = null;
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Draft_SaveUnreadable2xx_ShowsPolishText()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new ApiException(HttpStatusCode.OK, UnreadableText));
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Błąd", UnreadableText)], Shell.Current.Alerts);
+    }
+
+    [Fact]
+    public async Task Draft_IssueUnreadable2xx_OpensDetailsOfSavedInvoice_NoAlert()
+    {
+        var vm = Draft(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).ThrowsAsync(new ApiException(HttpStatusCode.Accepted, UnreadableText));
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+        Assert.Empty(Shell.Current.Alerts);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    private const string UnreadableText = "Serwer przyjął żądanie, ale jego odpowiedź jest nieczytelna. Odśwież widok, aby zobaczyć aktualny stan.";
+
+    [Fact]
     public async Task Draft_ValidLines_SaveShowsNoAlert()
     {
         var vm = Draft(Profile());

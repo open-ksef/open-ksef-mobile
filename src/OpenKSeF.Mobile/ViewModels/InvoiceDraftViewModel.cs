@@ -87,6 +87,9 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private readonly IApiService _apiService;
     private SellerProfileDto? _profile;
+    private string? _routeOnReturn;
+
+    public bool IsShown { get; set; } = true;
     private string? _invoiceNumber;
     private uint? _version;
     private bool _loaded;
@@ -245,6 +248,13 @@ public partial class InvoiceDraftViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadAsync()
     {
+        if (_routeOnReturn is { } route)
+        {
+            _routeOnReturn = null;
+            try { await Shell.Current.GoToAsync(route); } catch { _routeOnReturn = route; }
+            return;
+        }
+
         if (_loaded || IsBusy || !Guid.TryParse(TenantId, out var tenantId))
             return;
 
@@ -263,7 +273,8 @@ public partial class InvoiceDraftViewModel : ObservableObject
                 {
                     _loaded = _portalOnly = true;
                     ErrorMessage = "Tę fakturę edytujesz w portalu.";
-                    try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={invoiceId}"); } catch { }
+                    if (IsShown)
+                        try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={invoiceId}"); } catch { }
                     return;
                 }
 
@@ -364,7 +375,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
             var typed = new[] { BuyerName, BuyerAddressLine1, BuyerAddressLine2 }.Any(v => !string.IsNullOrWhiteSpace(v));
             var differs = BuyerName != result.Name || BuyerAddressLine1 != result.AddressLine1 || BuyerAddressLine2 != result.AddressLine2;
-            if (!typed || !differs || await Shell.Current.DisplayAlertAsync(
+            if (!typed || !differs || IsShown && await Shell.Current.DisplayAlertAsync(
                     "Pobierz z NIP", "Zastąpić wpisane dane danymi z białej listy?", "Zastąp", "Zostaw moje"))
             {
                 BuyerName = result.Name;
@@ -415,6 +426,11 @@ public partial class InvoiceDraftViewModel : ObservableObject
         var saved = await SaveAsync();
         if (saved is null)
             return;
+        if (!IsShown)
+        {
+            ErrorMessage = "Zapisano szkic. Faktura nie została wystawiona.";
+            return;
+        }
 
         try
         {
@@ -423,17 +439,23 @@ public partial class InvoiceDraftViewModel : ObservableObject
                 return;
 
             var issued = await _apiService.IssueInvoiceAsync(tenantId, saved.Id, saved.Version);
-            try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}"); } catch { }
+            if (IsShown)
+                try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}"); } catch { }
+            else
+                _routeOnReturn = $"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}";
         }
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)
         {
             ApplyValidation(validation);
             await AlertInvalidFormAsync(ValidationSummary(validation));
         }
-        catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
         {
-            try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); }
-            catch { await ShowErrorAsync(NoConnection); }
+            if (IsShown)
+                try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); }
+                catch { await ShowErrorAsync(ex is ApiException { StatusCode: < HttpStatusCode.MultipleChoices } ? ex.Message : NoConnection); }
+            else
+                _routeOnReturn = $"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}";
         }
         catch (Exception ex)
         {
@@ -529,7 +551,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
         {
             ErrorMessage = ex.Message;
-            if (await Shell.Current.DisplayAlertAsync("Faktura zmieniona", "Ta faktura została zmieniona w innym miejscu. Wczytać aktualną wersję? Zmiany wpisane w tym formularzu przepadną.", "Wczytaj aktualną", "Zostaw formularz"))
+            if (IsShown && await Shell.Current.DisplayAlertAsync("Faktura zmieniona", "Ta faktura została zmieniona w innym miejscu. Wczytać aktualną wersję? Zmiany wpisane w tym formularzu przepadną.", "Wczytaj aktualną", "Zostaw formularz"))
             {
                 ErrorMessage = null;
                 _loaded = false;
@@ -612,12 +634,12 @@ public partial class InvoiceDraftViewModel : ObservableObject
         ErrorMessage = string.Join("\n", ["Popraw błędy zaznaczone w formularzu.", .. unplaced]);
     }
 
-    private static Task AlertInvalidFormAsync(string message) => Shell.Current.DisplayAlertAsync("Popraw fakturę", message, "OK");
+    private Task AlertInvalidFormAsync(string message) => IsShown ? Shell.Current.DisplayAlertAsync("Popraw fakturę", message, "OK") : Task.CompletedTask;
 
     private Task ShowErrorAsync(string message)
     {
         ErrorMessage = message;
-        return Shell.Current.DisplayAlertAsync("Błąd", message, "OK");
+        return IsShown ? Shell.Current.DisplayAlertAsync("Błąd", message, "OK") : Task.CompletedTask;
     }
 
     private static string ValidationSummary(ValidationEnvelope validation) =>
