@@ -104,7 +104,7 @@
                             <Label Text="Numeracja" Style="{StaticResource UiH2}" />
                             <Label Text="Wzór numeru" Style="{StaticResource UiFieldLabel}" />
                             <Entry Text="{Binding NumberingPattern}" Style="{StaticResource UiEntry}"
-                                   FontFamily="{OnPlatform Android=monospace, iOS=Menlo}"
+                                   FontFamily="JetBrainsMono"
                                    AutomationId="SellerProfilePageEntryPattern" />
                             <Label Style="{StaticResource UiMutedText}" FontSize="12" Text="Znaczniki: {nr} {MM} {RRRR}" />
                             <Label Text="{Binding NumberingPatternError}" Style="{StaticResource UiFieldError}"

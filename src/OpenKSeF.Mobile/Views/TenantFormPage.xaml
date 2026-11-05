@@ -7,7 +7,7 @@
              Title="{Binding Title}">
 
     <VerticalStackLayout Spacing="15" Padding="20">
-        <Label Text="NIP" FontSize="14" FontAttributes="Bold" />
+        <Label Text="NIP" FontSize="14" FontFamily="InterBold" />
         <Entry Text="{Binding Nip}"
                AutomationId="TenantFormPageEntryNip"
                Placeholder="Wpisz 10-cyfrowy NIP"
@@ -19,7 +19,7 @@
                TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                FontSize="12" />
 
-        <Label Text="Nazwa wyświetlana" FontSize="14" FontAttributes="Bold" />
+        <Label Text="Nazwa wyświetlana" FontSize="14" FontFamily="InterBold" />
         <Entry Text="{Binding DisplayName}"
                AutomationId="TenantFormPageEntryDisplayName"
                Placeholder="np. Moja firma Sp. z o.o."

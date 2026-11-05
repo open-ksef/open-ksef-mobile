@@ -14,7 +14,7 @@
             <Label Text="OpenKSeF"
                    AutomationId="ScanSetupQrPageTitle"
                    FontSize="28"
-                   FontAttributes="Bold"
+                   FontFamily="InterBold"
                    HorizontalOptions="Center" />
             <Label Text="Zeskanuj kod QR z portalu, aby skonfigurować aplikację"
                    Style="{StaticResource LabelMuted}"

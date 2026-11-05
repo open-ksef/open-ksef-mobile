@@ -68,8 +68,8 @@
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="6" ColumnSpacing="8">
-                                <Label Text="{Binding Buyer}" Style="{StaticResource UiBody}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontAttributes="Bold" />
+                                <Label Text="{Binding Buyer}" Style="{StaticResource UiBody}" FontFamily="InterBold" LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontFamily="InterBold" />
                                 <Label Grid.Row="1" Text="{Binding Subtitle}" Style="{StaticResource UiMutedText}" LineBreakMode="TailTruncation" />
                                 <controls:KsefBadge Grid.Row="1" Grid.Column="1" Status="{Binding Status}" Short="True" HorizontalOptions="End" />
                                 <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding ForeignText}" Style="{StaticResource UiMutedText}"

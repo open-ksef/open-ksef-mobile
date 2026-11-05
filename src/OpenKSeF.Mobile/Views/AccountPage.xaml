@@ -20,7 +20,7 @@
                        HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
             <Label Text="OpenKSeF"
-                   FontSize="22" FontAttributes="Bold"
+                   FontSize="22" FontFamily="InterBold"
                    HorizontalOptions="Center"
                    Margin="0,0,0,5" />
             <Label Text="{Binding AppVersion}"

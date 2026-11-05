@@ -10,7 +10,7 @@
     <Shell.TitleView>
         <Grid ColumnDefinitions="*,Auto" Padding="0,0,10,0">
             <VerticalStackLayout VerticalOptions="Center">
-                <Label Text="Otrzymane" FontSize="18" FontAttributes="Bold" TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}"
+                <Label Text="Otrzymane" FontSize="18" FontFamily="InterBold" TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}"
                        AutomationId="InvoiceListPageLabelTitle" />
                 <Label Text="{Binding TenantNip, StringFormat='NIP: {0}'}"
                        FontSize="12" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
@@ -105,12 +105,12 @@
                             <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto">
                                 <Label Text="{Binding VendorName}"
                                        FontSize="16"
-                                       FontAttributes="Bold"
+                                       FontFamily="InterBold"
                                        LineBreakMode="TailTruncation" />
                                 <Label Grid.Column="1"
                                        Text="{Binding GrossText}"
                                        FontSize="16"
-                                       FontAttributes="Bold"
+                                       FontFamily="InterBold"
                                        TextColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
                                 <Label Grid.Row="1"
                                        Text="{Binding DisplayNumber}"

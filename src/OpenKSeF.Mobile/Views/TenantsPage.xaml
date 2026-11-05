@@ -9,7 +9,7 @@
 
     <Shell.TitleView>
         <Grid ColumnDefinitions="*,Auto" Padding="0,0,10,0">
-            <Label Text="Firmy" FontSize="18" FontAttributes="Bold"
+            <Label Text="Firmy" FontSize="18" FontFamily="InterBold"
                    VerticalOptions="Center" TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
             <Button Grid.Column="1" Text="+ Dodaj"
                     AutomationId="TenantsPageButtonAdd"
@@ -78,7 +78,7 @@
                                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
                                     <Label Text="{Binding Nip}"
                                            FontSize="18"
-                                           FontAttributes="Bold" />
+                                           FontFamily="InterBold" />
                                     <Label Grid.Row="1"
                                            Text="{Binding DisplayName}"
                                            FontSize="14"

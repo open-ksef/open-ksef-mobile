@@ -135,8 +135,8 @@
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:IssuedLineRow">
                                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
-                                        <Label Text="{Binding Name}" Style="{StaticResource UiBody}" FontAttributes="Bold" />
-                                        <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontAttributes="Bold" />
+                                        <Label Text="{Binding Name}" Style="{StaticResource UiBody}" FontFamily="InterBold" />
+                                        <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontFamily="InterBold" />
                                         <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource UiMutedText}" />
                                     </Grid>
                                 </DataTemplate>

@@ -27,11 +27,13 @@
 
     <!-- ─── Label (implicit) ─────────────────────────────────── -->
     <Style TargetType="Label">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
     </Style>
 
     <!-- ─── Label variants ───────────────────────────────────── -->
     <Style x:Key="LabelMuted" TargetType="Label">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
         <Setter Property="FontSize" Value="14" />
     </Style>
@@ -39,28 +41,36 @@
     <Style x:Key="LabelHeading" TargetType="Label">
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
         <Setter Property="FontSize" Value="22" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterBold" />
     </Style>
 
     <Style x:Key="LabelCaption" TargetType="Label">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
         <Setter Property="FontSize" Value="12" />
     </Style>
 
     <Style x:Key="LabelFormLabel" TargetType="Label">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
         <Setter Property="FontSize" Value="13" />
     </Style>
 
     <!-- ─── Entry (implicit) ─────────────────────────────────── -->
     <Style TargetType="Entry">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
         <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
     </Style>
 
+    <Style TargetType="SearchBar">
+        <Setter Property="FontFamily" Value="Inter" />
+    </Style>
+
     <!-- ─── Editor (implicit) ────────────────────────────────── -->
     <Style TargetType="Editor">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
         <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
@@ -71,7 +81,7 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnPrimary}, Dark={StaticResource UiOnPrimaryDark}}" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
@@ -81,7 +91,7 @@
         <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="BorderWidth" Value="1" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
@@ -91,7 +101,7 @@
         <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}" />
         <Setter Property="BorderWidth" Value="1" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
@@ -99,11 +109,12 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnError}, Dark={StaticResource UiOnErrorDark}}" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
     <Style x:Key="ButtonGhost" TargetType="Button">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
         <Setter Property="CornerRadius" Value="8" />
@@ -111,6 +122,7 @@
     </Style>
 
     <Style x:Key="ButtonSmall" TargetType="Button">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnPrimary}, Dark={StaticResource UiOnPrimaryDark}}" />
         <Setter Property="CornerRadius" Value="8" />
@@ -160,52 +172,56 @@
 
     <Style x:Key="UiDisplay" TargetType="Label">
         <Setter Property="FontSize" Value="32" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterBold" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
     </Style>
 
     <Style x:Key="UiH2" TargetType="Label">
         <Setter Property="FontSize" Value="18" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
     </Style>
 
     <Style x:Key="UiBody" TargetType="Label">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="FontSize" Value="16" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
     </Style>
 
     <Style x:Key="UiMutedText" TargetType="Label">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
     </Style>
 
     <Style x:Key="UiFieldLabel" TargetType="Label">
         <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
     </Style>
 
     <Style x:Key="UiCaption" TargetType="Label">
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="CharacterSpacing" Value="0.5" />
         <Setter Property="TextTransform" Value="Uppercase" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
     </Style>
 
     <Style x:Key="UiFieldError" TargetType="Label">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
     </Style>
 
     <Style x:Key="UiMono" TargetType="Label">
         <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontFamily" Value="{OnPlatform Android=monospace, iOS=Menlo}" />
+        <Setter Property="FontFamily" Value="JetBrainsMono" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
     </Style>
 
     <Style x:Key="UiEntry" TargetType="Entry">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="FontSize" Value="16" />
         <Setter Property="MinimumHeightRequest" Value="48" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
@@ -220,6 +236,7 @@
     </Style>
 
     <Style x:Key="UiPicker" TargetType="Picker">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="FontSize" Value="16" />
         <Setter Property="MinimumHeightRequest" Value="48" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
@@ -227,6 +244,7 @@
     </Style>
 
     <Style x:Key="UiDatePicker" TargetType="DatePicker">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="FontSize" Value="16" />
         <Setter Property="MinimumHeightRequest" Value="48" />
         <Setter Property="Format" Value="dd.MM.yyyy" />
@@ -238,7 +256,7 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnPrimary}, Dark={StaticResource UiOnPrimaryDark}}" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -260,7 +278,7 @@
         <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}" />
         <Setter Property="BorderWidth" Value="1" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
@@ -268,11 +286,12 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
     <Style x:Key="UiButtonGhost" TargetType="Button">
+        <Setter Property="FontFamily" Value="Inter" />
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
         <Setter Property="CornerRadius" Value="8" />
@@ -283,7 +302,7 @@
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiOnError}, Dark={StaticResource UiOnErrorDark}}" />
         <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontFamily" Value="InterSemiBold" />
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
@@ -302,7 +321,7 @@
                         <VisualState x:Name="Checked">
                             <VisualState.Setters>
                                 <Setter TargetName="Root" Property="Border.BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
-                                <Setter TargetName="Text" Property="Label.FontAttributes" Value="Bold" />
+                                <Setter TargetName="Text" Property="Label.FontFamily" Value="InterSemiBold" />
                             </VisualState.Setters>
                         </VisualState>
                         <VisualState x:Name="Unchecked" />

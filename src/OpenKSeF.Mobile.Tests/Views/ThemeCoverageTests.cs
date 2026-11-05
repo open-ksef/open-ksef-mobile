@@ -63,6 +63,37 @@ public class ThemeCoverageTests
         Assert.True(Contrast(Color(background), Color(foreground)) >= 4.5);
     }
 
+    [Fact]
+    public void Bold_UsesARealBoldFont()
+    {
+        var files = Directory.GetFiles(Path.Combine(AppDir, "Views"), "*.xaml").Append(Path.Combine(AppDir, "Resources/Styles/Styles.xaml"));
+
+        Assert.Empty(files.Where(f => File.ReadAllText(f).Contains("FontAttributes")));
+    }
+
+    [Fact]
+    public void FontFamilies_AreRegisteredAndBundled()
+    {
+        var registered = Regex.Matches(File.ReadAllText(Path.Combine(AppDir, "MauiProgram.cs")), @"AddFont\(""([^""]+)"", ""(\w+)""\)")
+            .ToDictionary(m => m.Groups[2].Value, m => m.Groups[1].Value);
+        Assert.All(registered.Values, file => Assert.True(File.Exists(Path.Combine(AppDir, "Resources/Fonts", file)), file));
+
+        var files = Directory.GetFiles(Path.Combine(AppDir, "Views"), "*.xaml").Append(Path.Combine(AppDir, "Resources/Styles/Styles.xaml"));
+        var used = files.SelectMany(f => Regex.Matches(File.ReadAllText(f), @"(?:FontFamily=|Property=""(?:Label\.)?FontFamily"" Value=)""([^""]+)""").Select(m => m.Groups[1].Value)).ToHashSet();
+
+        Assert.Contains("InterBold", used);
+        Assert.Empty(used.Where(family => !registered.ContainsKey(family)));
+    }
+
+    [Fact]
+    public void BundledFonts_HaveOflNotice()
+    {
+        var notices = File.ReadAllText(Path.Combine(AppDir, "Resources/Raw/pdf/THIRD-PARTY-NOTICES.txt"));
+
+        Assert.Contains("Inter 4.1", notices);
+        Assert.Contains("JetBrains Mono 2.304", notices);
+    }
+
     private static double Contrast(string a, string b)
     {
         var (hi, lo) = (Luminance(a), Luminance(b));

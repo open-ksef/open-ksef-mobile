@@ -46,7 +46,7 @@
                         <Label Text="{Binding Invoice.GrossAmountText}"
                                AutomationId="InvoiceDetailsPageLabelAmount"
                                FontSize="36"
-                               FontAttributes="Bold"
+                               FontFamily="InterBold"
                                TextColor="{AppThemeBinding Light={StaticResource UiOnPrimary}, Dark={StaticResource UiOnPrimaryDark}}"
                                HorizontalOptions="Center" />
                         <Label Text="{Binding Invoice.Currency}"
@@ -62,7 +62,7 @@
                         <Label Text="Sprzedawca" Style="{StaticResource LabelCaption}" />
                         <Label Text="{Binding Invoice.VendorName}"
                                AutomationId="InvoiceDetailsPageLabelVendorName"
-                               FontSize="18" FontAttributes="Bold" />
+                               FontSize="18" FontFamily="InterBold" />
                         <Label Text="{Binding Invoice.VendorNip, StringFormat='NIP: {0}'}"
                                FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                     </VerticalStackLayout>
@@ -114,7 +114,7 @@
                                             <!-- Line number + name -->
                                             <Label Grid.Column="0"
                                                    FontSize="14"
-                                                   FontAttributes="Bold"
+                                                   FontFamily="InterBold"
                                                    Text="{Binding Name}"
                                                    LineBreakMode="WordWrap" />
                                             <Label Grid.Column="1"
@@ -140,7 +140,7 @@
                                             <!-- Amounts -->
                                             <Label Grid.Row="2" Grid.ColumnSpan="2"
                                                    FontSize="13"
-                                                   FontAttributes="Bold">
+                                                   FontFamily="InterBold">
                                                 <Label.FormattedText>
                                                     <FormattedString>
                                                         <Span Text="Netto: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
