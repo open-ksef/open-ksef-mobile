@@ -23,7 +23,7 @@
                                  Padding="30">
                 <Label Text="{Binding ErrorMessage}"
                        AutomationId="InvoiceDetailsPageLabelError"
-                       TextColor="{StaticResource Error}"
+                       TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                        HorizontalTextAlignment="Center" />
                 <Button Text="Ponów"
                         AutomationId="InvoiceDetailsPageButtonRetry"
@@ -37,7 +37,7 @@
                                  Padding="0">
 
                 <!-- Amount card -->
-                <Border BackgroundColor="{StaticResource Primary}"
+                <Border BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}"
                         StrokeShape="RoundRectangle 0"
                         StrokeThickness="0"
                         Padding="20"
@@ -47,11 +47,11 @@
                                AutomationId="InvoiceDetailsPageLabelAmount"
                                FontSize="36"
                                FontAttributes="Bold"
-                               TextColor="{StaticResource TextInverse}"
+                               TextColor="{AppThemeBinding Light={StaticResource UiOnPrimary}, Dark={StaticResource UiOnPrimaryDark}}"
                                HorizontalOptions="Center" />
                         <Label Text="{Binding Invoice.Currency}"
                                FontSize="18"
-                               TextColor="{StaticResource TextInverse}"
+                               TextColor="{AppThemeBinding Light={StaticResource UiOnPrimary}, Dark={StaticResource UiOnPrimaryDark}}"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Border>
@@ -64,7 +64,7 @@
                                AutomationId="InvoiceDetailsPageLabelVendorName"
                                FontSize="18" FontAttributes="Bold" />
                         <Label Text="{Binding Invoice.VendorNip, StringFormat='NIP: {0}'}"
-                               FontSize="14" TextColor="{StaticResource TextMuted}" />
+                               FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -106,8 +106,8 @@
                                              BindableLayout.ItemsSource="{Binding Invoice.Lines}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="models:InvoiceLineDto">
-                                    <Border BackgroundColor="{StaticResource Background}"
-                                            StrokeShape="RoundRectangle 6"
+                                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface2}, Dark={StaticResource UiSurface2Dark}}"
+                                            StrokeShape="RoundRectangle 8"
                                             StrokeThickness="0"
                                             Padding="10">
                                         <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
@@ -119,21 +119,21 @@
                                                    LineBreakMode="WordWrap" />
                                             <Label Grid.Column="1"
                                                    FontSize="11"
-                                                   TextColor="{StaticResource TextMuted}"
+                                                   TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                                                    Text="{Binding LineNumber, StringFormat='#{0}'}"
                                                    HorizontalTextAlignment="End" />
                                             <!-- Quantity × unit -->
                                             <Label Grid.Row="1" Grid.ColumnSpan="2"
                                                    FontSize="12"
-                                                   TextColor="{StaticResource TextMuted}">
+                                                   TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}">
                                                 <Label.FormattedText>
                                                     <FormattedString>
                                                         <Span Text="{Binding QuantityText}" />
                                                         <Span Text=" " />
                                                         <Span Text="{Binding Unit}" />
-                                                        <Span Text="  ×  " TextColor="{StaticResource TextMuted}" />
+                                                        <Span Text="  ×  " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                                         <Span Text="{Binding UnitPriceNetText}" />
-                                                        <Span Text=" netto" TextColor="{StaticResource TextMuted}" />
+                                                        <Span Text=" netto" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                                     </FormattedString>
                                                 </Label.FormattedText>
                                             </Label>
@@ -143,11 +143,11 @@
                                                    FontAttributes="Bold">
                                                 <Label.FormattedText>
                                                     <FormattedString>
-                                                        <Span Text="Netto: " TextColor="{StaticResource TextMuted}" FontSize="11" />
+                                                        <Span Text="Netto: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
                                                         <Span Text="{Binding AmountNetText}" />
-                                                        <Span Text="   Brutto: " TextColor="{StaticResource TextMuted}" FontSize="11" />
+                                                        <Span Text="   Brutto: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
                                                         <Span Text="{Binding AmountGrossText}" />
-                                                        <Span Text="   VAT: " TextColor="{StaticResource TextMuted}" FontSize="11" />
+                                                        <Span Text="   VAT: " TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" FontSize="11" />
                                                         <Span Text="{Binding VatRateText}" />
                                                     </FormattedString>
                                                 </Label.FormattedText>

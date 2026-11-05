@@ -13,7 +13,7 @@
             <Border StrokeShape="RoundRectangle 50"
                     WidthRequest="80" HeightRequest="80"
                     HorizontalOptions="Center"
-                    BackgroundColor="{StaticResource PrimarySubtle}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}"
                     Stroke="Transparent"
                     Margin="0,0,0,15">
                 <Label Text="👤" FontSize="36"
@@ -62,21 +62,21 @@
                         <Label Grid.Column="1" Text="Zmień serwer" FontSize="15"
                                VerticalOptions="Center" Margin="12,0,0,0" />
                         <Label Grid.Column="2" Text="›" FontSize="22"
-                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                               TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" VerticalOptions="Center" />
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding ChangeServerCommand}" />
                         </Grid.GestureRecognizers>
                     </Grid>
 
-                    <BoxView HeightRequest="1" Color="{StaticResource Border}" Margin="0,4" />
+                    <BoxView HeightRequest="1" Color="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" Margin="0,4" />
 
                     <Grid ColumnDefinitions="Auto,*,Auto" Padding="0,10">
                         <Label Text="🚪" FontSize="20" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="Wyloguj się" FontSize="15"
                                VerticalOptions="Center" Margin="12,0,0,0"
-                               TextColor="{StaticResource Error}" />
+                               TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
                         <Label Grid.Column="2" Text="›" FontSize="22"
-                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                               TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" VerticalOptions="Center" />
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding LogoutCommand}" />
                         </Grid.GestureRecognizers>
@@ -97,7 +97,7 @@
                         <Label Grid.Column="1" Text="Polityka prywatności" FontSize="15"
                                VerticalOptions="Center" Margin="12,0,0,0" />
                         <Label Grid.Column="2" Text="›" FontSize="22"
-                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                               TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" VerticalOptions="Center" />
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenPrivacyPolicyCommand}" />
                         </Grid.GestureRecognizers>
@@ -107,7 +107,7 @@
                         <Label Grid.Column="1" Text="Usuń konto" FontSize="15"
                                VerticalOptions="Center" Margin="12,0,0,0" />
                         <Label Grid.Column="2" Text="›" FontSize="22"
-                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                               TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" VerticalOptions="Center" />
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenAccountDeletionCommand}" />
                         </Grid.GestureRecognizers>
@@ -117,7 +117,7 @@
                         <Label Grid.Column="1" Text="Licencje oprogramowania" FontSize="15"
                                VerticalOptions="Center" Margin="12,0,0,0" />
                         <Label Grid.Column="2" Text="›" FontSize="22"
-                               TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                               TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" VerticalOptions="Center" />
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenThirdPartyNoticesCommand}" />
                         </Grid.GestureRecognizers>

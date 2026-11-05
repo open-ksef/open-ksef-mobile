@@ -19,7 +19,7 @@
                                  Spacing="10">
                 <Label Text="{Binding ErrorMessage}"
                        AutomationId="QrCodePageLabelError"
-                       TextColor="{StaticResource Error}"
+                       TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                        HorizontalTextAlignment="Center" />
                 <Button Text="Ponów"
                         AutomationId="QrCodePageButtonRetry"
@@ -45,10 +45,11 @@
                                  Spacing="20"
                                  HorizontalOptions="Center">
 
+                <!-- Literal white in dark too: a themed surface breaks bank scanning. -->
                 <Border Padding="15"
                         StrokeShape="RoundRectangle 12,12,12,12"
-                        Stroke="{StaticResource Border}"
-                        BackgroundColor="{StaticResource Surface}"
+                        Stroke="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}"
+                        BackgroundColor="White"
                         HorizontalOptions="Center">
                     <Image Source="{Binding QrImage}"
                            AutomationId="QrCodePageImageQr"

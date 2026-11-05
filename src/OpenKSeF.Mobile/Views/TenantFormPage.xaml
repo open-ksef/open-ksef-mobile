@@ -16,7 +16,7 @@
                IsEnabled="{Binding IsEditMode, Converter={StaticResource InvertedBoolConverter}}" />
         <Label Text="{Binding NipError}"
                IsVisible="{Binding NipError, Converter={StaticResource IsNotNullConverter}}"
-               TextColor="{StaticResource Error}"
+               TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                FontSize="12" />
 
         <Label Text="Nazwa wyświetlana" FontSize="14" FontAttributes="Bold" />
@@ -28,7 +28,7 @@
         <Label Text="{Binding ErrorMessage}"
                AutomationId="TenantFormPageLabelError"
                IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
-               TextColor="{StaticResource Error}"
+               TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                FontSize="13"
                HorizontalTextAlignment="Center" />
 

@@ -41,7 +41,7 @@
 
             <Label Text="{Binding ErrorMessage}"
                    IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
-                   TextColor="{StaticResource Error}"
+                   TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                    FontSize="13"
                    HorizontalTextAlignment="Center"
                    HorizontalOptions="Center" />
