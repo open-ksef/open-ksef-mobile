@@ -12,7 +12,7 @@ public sealed class AndroidTenantNavigationFlow(AndroidDriver driver)
     public void OpenTenantList()
     {
         var wait = new WaitHelper(_driver, TimeSpan.FromSeconds(45));
-        var tenantsTab = wait.UntilVisible(By.XPath("//*[contains(@text, 'NIP-y')]"));
+        var tenantsTab = wait.UntilVisible(By.XPath("//*[contains(@text, 'Firmy')]"));
         tenantsTab.Click();
         wait.UntilVisible(ByAutoId("TenantsPageCollectionViewTenants"));
     }
