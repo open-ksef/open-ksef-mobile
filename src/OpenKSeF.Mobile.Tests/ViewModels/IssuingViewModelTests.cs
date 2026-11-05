@@ -1897,15 +1897,60 @@ public class IssuingViewModelTests : IDisposable
         Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
     }
 
-    [Fact]
-    public async Task Draft_SaveUnreadable2xx_ShowsPolishText()
+    private const string CheckIssuedList = "Sprawdź listę wystawionych, zanim zapiszesz ponownie.";
+
+    [Theory]
+    [InlineData("save")]
+    [InlineData("issue")]
+    public async Task Draft_CreateUnreadable2xx_SendsToIssuedListWithWarning(string command)
     {
         var vm = Draft(Profile());
-        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new ApiException(HttpStatusCode.OK, UnreadableText));
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).ThrowsAsync(new ApiException(HttpStatusCode.Created, UnreadableText));
+
+        await (command == "save" ? vm.SaveDraftCommand : vm.IssueCommand).ExecuteAsync(null);
+
+        Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
+        Assert.Equal("//main/issued", Shell.Current.LastRoute);
+        Assert.Null(vm.InvoiceId);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Draft_CreateUnreadable2xxOnAnotherTab_ReturnWarnsAndOpensIssuedListOnce()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(_ => { vm.IsShown = false; return Task.FromException<IssuedInvoiceDto>(new ApiException(HttpStatusCode.OK, UnreadableText)); });
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.Empty(Shell.Current.Alerts);
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.Equal(CheckIssuedList, vm.ErrorMessage);
+
+        vm.IsShown = true;
+        Shell.Current.GoToFailure = new InvalidOperationException("no route");
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.GoToFailure = null;
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal("//main/issued", Shell.Current.LastRoute);
+        Assert.Equal(2, Shell.Current.Alerts.Count(a => a.Item2 == CheckIssuedList));
+        await _api.Received(1).CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>());
+    }
+
+    [Fact]
+    public async Task Draft_UpdateUnreadable2xx_StaysOnFormWithError()
+    {
+        var vm = Draft(Profile());
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), Arg.Any<uint?>()).ThrowsAsync(new ApiException(HttpStatusCode.OK, UnreadableText));
 
         await vm.SaveDraftCommand.ExecuteAsync(null);
 
         Assert.Equal([("Błąd", UnreadableText)], Shell.Current.Alerts);
+        Assert.Null(Shell.Current.LastRoute);
     }
 
     [Fact]
