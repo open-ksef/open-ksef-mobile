@@ -94,6 +94,8 @@ public static class MauiProgram
         builder.Services.AddTransient<IssuedInvoiceDetailsPage>();
 
 #if ANDROID
+        builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<Shell, SurfaceShellRenderer>());
+
         // Keyboard.Numeric installs a locale key listener that deletes the other decimal separator, so 2,5 became 25 on en-US.
         // DigitsKeyListener is an InputFilter and strips pasted text, so 1e5 became 15. TextKeyListener filters nothing; the form refuses what it cannot parse.
         Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("DecimalEntryInput", (handler, entry) =>
