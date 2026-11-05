@@ -151,7 +151,7 @@
         <Setter Property="BorderColor" Value="Transparent" />
     </Style>
 
-    <!-- ─── Design system v1 (issuing pages) ─────────────────── -->
+    <!-- ─── Design tokens ────────────────────────────────────── -->
     <Style x:Key="UiPage" TargetType="ContentPage">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiBg}, Dark={StaticResource UiBgDark}}" />
     </Style>
