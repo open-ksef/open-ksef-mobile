@@ -251,7 +251,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
         if (_routeOnReturn is { } route)
         {
             _routeOnReturn = null;
-            try { await Shell.Current.GoToAsync(route); } catch { }
+            try { await Shell.Current.GoToAsync(route); } catch { _routeOnReturn = route; }
             return;
         }
 

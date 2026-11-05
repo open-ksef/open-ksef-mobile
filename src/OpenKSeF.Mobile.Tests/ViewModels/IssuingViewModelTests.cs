@@ -1879,6 +1879,25 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Draft_IssueEndsOnAnotherTab_FailedReturnNavigationKeepsRoute()
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).Returns(_ => { vm.IsShown = false; return Invoice("Sending"); });
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        vm.IsShown = true;
+        Shell.Current.GoToFailure = new InvalidOperationException("no route");
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Null(Shell.Current.LastRoute);
+
+        Shell.Current.GoToFailure = null;
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Fact]
     public async Task Draft_SaveUnreadable2xx_ShowsPolishText()
     {
         var vm = Draft(Profile());
