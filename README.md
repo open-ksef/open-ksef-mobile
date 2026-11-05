@@ -1,113 +1,63 @@
+<p>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://open-ksef.pl/img/mark-dark.svg">
+    <img src="https://open-ksef.pl/img/mark.svg" alt="OpenKSeF mark" width="48">
+  </picture>
+</p>
+
 # OpenKSeF Mobile
 
+[![Build](https://github.com/open-ksef/open-ksef-mobile/actions/workflows/build.yml/badge.svg)](https://github.com/open-ksef/open-ksef-mobile/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/open-ksef/open-ksef-mobile)](https://github.com/open-ksef/open-ksef-mobile/releases/latest)
 [![License: Elastic-2.0](https://img.shields.io/badge/License-Elastic--2.0-blue.svg)](LICENSE)
 
-Android and iOS mobile app for [OpenKSeF](https://open-ksef.pl) — browse and manage KSeF invoices from your phone.
+Android app for [OpenKSeF](https://github.com/open-ksef/open-ksef): invoices from Poland's National e-Invoice System (KSeF) on your phone. It connects to an OpenKSeF instance; it does not work without one.
 
-Built with [.NET MAUI](https://dotnet.microsoft.com/apps/maui) targeting **net10.0-android** and **net10.0-ios**.
+`Android: plik APK na GitHubie, Google Play i iPhone jeszcze nie` (Android: an APK file on GitHub, not on Google Play or iPhone yet). Download: [latest release](https://github.com/open-ksef/open-ksef-mobile/releases/latest).
+
+`Kod źródłowy jest publicznie dostępny` (the source code is publicly available) under the [Elastic License 2.0](LICENSE). `Niezależny projekt, niepowiązany z Ministerstwem Finansów` (an independent project, not affiliated with the Ministry of Finance). `Nie prowadzimy wersji hostowanej dla firm` (we run no hosted version for companies).
+
+Guide in Polish: [open-ksef.pl/docs/aplikacja-mobilna](https://open-ksef.pl/docs/aplikacja-mobilna).
 
 ## Features
 
-- OIDC login via Keycloak (WebAuthenticator)
-- Browse and search KSeF invoices
-- Tenant (company/NIP) onboarding with QR code setup
-- Push notifications for new invoices (Firebase / APNS)
-- Offline invoice cache (SQLite)
-- KSeF real-time updates via SignalR
-
-## Documentation
-
-Full documentation is at [open-ksef.pl](https://open-ksef.pl).
-
-## Requirements
-
-| Tool | Version |
-|------|---------|
-| .NET SDK | 10.0.x |
-| MAUI Android workload | `dotnet workload install maui-android` |
-| MAUI iOS workload (macOS) | `dotnet workload install maui-ios` |
-| Android Studio | For Android emulator |
-| Xcode (macOS) | For iOS simulator |
+- Login through Keycloak on your instance, with a QR code from the portal to set the server address
+- Received invoices: list, details, line items, offline cache (SQLite)
+- Transfer details and a QR code for the banking app, both from the server
+- Issuing invoices. Invoices for foreign companies are view-only here: issue them in the portal
+- New invoice notifications: Firebase Cloud Messaging through the relay or your own Firebase project, plus SignalR while the app is connected
 
 ## Build
 
-```bash
-# All projects (solution)
-dotnet build src/OpenKSeF.Mobile.slnx
+.NET 10 SDK, `dotnet workload install maui-android`, Android SDK.
 
-# Android only
+```bash
 dotnet build src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj -f net10.0-android
-
-# iOS only (macOS)
-dotnet build src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj -f net10.0-ios
-```
-
-## Tests
-
-### Unit tests (no device required)
-
-```bash
 dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj
 ```
 
-### Android E2E tests (requires backend + emulator)
+The project also targets `net10.0-ios` so that CI can compile it. No iOS build is released.
 
-The E2E tests connect to a running backend. Start the backend first from the [open-ksef](https://github.com/OpenKSeF/open-ksef) repo, then:
+Push is optional: Firebase is compiled in when `src/OpenKSeF.Mobile/Platforms/Android/google-services.json` is present. Setup: [push notifications](https://github.com/open-ksef/open-ksef/blob/main/docs/push-notifications-setup.md).
+
+## End-to-end tests
+
+They need a running backend from [open-ksef](https://github.com/open-ksef/open-ksef), `./scripts/dev-env-up.ps1` there, plus an emulator and Appium:
 
 ```powershell
-# Prepare Android emulator + Appium + install app
 ./scripts/setup-android-e2e.ps1
-
-# Run tests (smoke + login by default)
-./scripts/run-mobile-e2e.ps1
-
-# Full regression suite
-./scripts/run-mobile-e2e.ps1 -Filter "Category=Regression"
+./scripts/run-mobile-e2e.ps1                                # smoke + login
+./scripts/run-mobile-e2e.ps1 -Filter "Category=Regression"  # full suite
 ```
-
-## Backend
-
-This app connects to the [open-ksef](https://github.com/OpenKSeF/open-ksef) backend (API + Keycloak). Run the backend locally with:
-
-```powershell
-# From the open-ksef repo:
-./scripts/dev-env-up.ps1
-```
-
-The app communicates with the backend via:
-- REST API at `/api/`
-- Keycloak OIDC at `/auth/`
-- SignalR hub for real-time invoice notifications
-
-## Push notifications (optional)
-
-Firebase Cloud Messaging is enabled automatically when `src/OpenKSeF.Mobile/Platforms/Android/google-services.json` is present. Without it, the app builds without push notification support. See [docs/push-notifications-setup.md](https://open-ksef.pl/docs/push-notifications-setup) for setup instructions.
 
 ## Release
 
-Releases are built automatically by the [release workflow](.github/workflows/release.yml) when a version tag is pushed:
+A version tag runs the [release workflow](.github/workflows/release.yml): signed APK and AAB on the GitHub release, and the AAB on the Google Play internal track. Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, `ANDROID_STORE_PASSWORD`, `GOOGLE_SERVICES_JSON`, `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`.
 
-```bash
-git tag v1.0.0 && git push origin v1.0.0
-```
+## Contributing and security
 
-Required repository secrets:
-
-| Secret | Description |
-|--------|-------------|
-| `ANDROID_KEYSTORE_BASE64` | Base64-encoded Android keystore |
-| `ANDROID_KEY_ALIAS` | Keystore key alias |
-| `ANDROID_KEY_PASSWORD` | Key password |
-| `ANDROID_STORE_PASSWORD` | Store password |
-| `APPLE_CERTIFICATE_BASE64` | Apple distribution certificate (optional) |
-| `APPLE_CERTIFICATE_PASSWORD` | Certificate password (optional) |
-| `APPLE_PROVISIONING_PROFILE_BASE64` | Provisioning profile (optional) |
-| `APPLE_SIGNING_IDENTITY` | Signing identity (optional) |
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+[CONTRIBUTING.md](CONTRIBUTING.md). Security reports: [SECURITY.md](SECURITY.md).
 
 ## License
 
-[Elastic License 2.0](LICENSE) — free to use and modify; commercial hosting requires a license. See [COMMERCIAL.md](COMMERCIAL.md).
+[Elastic License 2.0](LICENSE). See [COMMERCIAL.md](COMMERCIAL.md).

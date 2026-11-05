@@ -60,7 +60,7 @@ dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj
 
 ## Reporting bugs
 
-Use [GitHub Issues](../../issues) with the **Bug report** template. Include:
+E-mail **openksef@proton.me**. Include:
 
 - Steps to reproduce
 - Expected vs actual behavior
@@ -68,7 +68,7 @@ Use [GitHub Issues](../../issues) with the **Bug report** template. Include:
 
 ## Requesting features
 
-Use [GitHub Issues](../../issues) with the **Feature request** template. Describe:
+E-mail **openksef@proton.me**. Describe:
 
 - The problem you're trying to solve
 - Your proposed solution
@@ -76,7 +76,7 @@ Use [GitHub Issues](../../issues) with the **Feature request** template. Describ
 
 ## Security vulnerabilities
 
-**Do NOT open a public issue for security vulnerabilities.** See [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
+**Do NOT disclose security vulnerabilities publicly.** See [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
 
 ## Contributor License Agreement (CLA)
 
@@ -89,7 +89,7 @@ You sign by replying to the comment with a specific phrase. Your signature is
 recorded in this repository.
 
 The CLA grants the copyright holder the right to dual-license your
-contributions (open source + commercial), while you retain full copyright
+contributions (Elastic License 2.0 and commercial), while you retain full copyright
 ownership of your work.
 
 ## License
