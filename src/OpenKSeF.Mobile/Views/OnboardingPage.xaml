@@ -33,7 +33,7 @@
                            Padding="0" HasShadow="False"
                            BackgroundColor="{Binding Step1Color}" BorderColor="Transparent">
                         <Label Text="{Binding Step1Label}" HorizontalOptions="Center"
-                               VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
+                               VerticalOptions="Center" FontSize="14" FontFamily="InterBold"
                                TextColor="White" />
                     </Frame>
                     <BoxView WidthRequest="28" HeightRequest="2" Color="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" />
@@ -41,7 +41,7 @@
                            Padding="0" HasShadow="False"
                            BackgroundColor="{Binding Step2Color}" BorderColor="Transparent">
                         <Label Text="{Binding Step2Label}" HorizontalOptions="Center"
-                               VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
+                               VerticalOptions="Center" FontSize="14" FontFamily="InterBold"
                                TextColor="White" />
                     </Frame>
                     <BoxView WidthRequest="28" HeightRequest="2" Color="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" />
@@ -49,14 +49,14 @@
                            Padding="0" HasShadow="False"
                            BackgroundColor="{Binding Step3Color}" BorderColor="Transparent">
                         <Label Text="{Binding Step3Label}" HorizontalOptions="Center"
-                               VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
+                               VerticalOptions="Center" FontSize="14" FontFamily="InterBold"
                                TextColor="White" />
                     </Frame>
                 </HorizontalStackLayout>
 
                 <!-- Step Title -->
                 <Label Text="{Binding StepTitle}"
-                       FontSize="22" FontAttributes="Bold"
+                       FontSize="22" FontFamily="InterBold"
                        TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" HorizontalOptions="Center" />
 
                 <!-- Error -->
@@ -120,7 +120,7 @@
                         <Label FontSize="12" TextColor="{AppThemeBinding Light={StaticResource UiInfo}, Dark={StaticResource UiInfoDark}}">
                             <Label.FormattedText>
                                 <FormattedString>
-                                    <Span Text="Jak uzyskać token KSeF:" FontAttributes="Bold" />
+                                    <Span Text="Jak uzyskać token KSeF:" FontFamily="InterBold" />
                                     <Span Text="&#10;1. Przejdź na ksef-test.mf.gov.pl" />
                                     <Span Text="&#10;2. Zaloguj się danymi firmy" />
                                     <Span Text="&#10;3. Sekcja Tokeny autoryzacyjne" />

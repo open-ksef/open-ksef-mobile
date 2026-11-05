@@ -15,7 +15,7 @@ public class KsefBadge : Border
     public static readonly BindableProperty ShortProperty =
         BindableProperty.Create(nameof(Short), typeof(bool), typeof(KsefBadge), false, propertyChanged: (b, _, _) => ((KsefBadge)b).Refresh());
 
-    private readonly Label _label = new() { FontSize = 12, FontAttributes = FontAttributes.Bold, VerticalTextAlignment = TextAlignment.Center };
+    private readonly Label _label = new() { FontSize = 12, FontFamily = "InterBold", VerticalTextAlignment = TextAlignment.Center };
 
     public KsefBadge()
     {

@@ -37,7 +37,7 @@
                 <Label Text="OpenKSeF"
                        AutomationId="LoginPageLabelTitle"
                        FontSize="28"
-                       FontAttributes="Bold"
+                       FontFamily="InterBold"
                        HorizontalOptions="Center"
                        TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
                 <Label Text="{Binding SubtitleText}"
@@ -167,7 +167,7 @@
                     <Label AutomationId="{Binding SwitchButtonAutomationId}"
                            FontSize="13"
                            TextColor="{AppThemeBinding Light={StaticResource UiLink}, Dark={StaticResource UiLinkDark}}"
-                           FontAttributes="Bold"
+                           FontFamily="InterBold"
                            VerticalOptions="Center">
                         <Label.Text>
                             <Binding Path="SwitchLinkText" />
@@ -194,7 +194,7 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Serwer: " />
-                                    <Span Text="{Binding ActiveServerHost}" FontAttributes="Bold" />
+                                    <Span Text="{Binding ActiveServerHost}" FontFamily="InterBold" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
@@ -202,7 +202,7 @@
                                Text="Zmień serwer"
                                FontSize="12"
                                TextColor="{AppThemeBinding Light={StaticResource UiLink}, Dark={StaticResource UiLinkDark}}"
-                               FontAttributes="Bold"
+                               FontFamily="InterBold"
                                VerticalOptions="Center"
                                AutomationId="LoginPageButtonChangeServer">
                             <Label.GestureRecognizers>

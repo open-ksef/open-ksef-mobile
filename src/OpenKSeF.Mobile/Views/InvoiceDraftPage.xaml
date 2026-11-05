@@ -145,7 +145,7 @@
                                                         Title="VAT"
                                                         Style="{StaticResource UiPicker}"
                                                         AutomationId="InvoiceDraftPagePickerLineVat" />
-                                                <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontAttributes="Bold"
+                                                <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontFamily="InterBold"
                                                        VerticalOptions="Center" />
                                             </Grid>
                                             <Label Text="{Binding Error}" Style="{StaticResource UiFieldError}"
