@@ -14,6 +14,11 @@ namespace Microsoft.Maui.Controls
         public string QueryId { get; } = queryId;
     }
 
+    public interface IQueryAttributable
+    {
+        void ApplyQueryAttributes(IDictionary<string, object> query);
+    }
+
     public class ImageSource
     {
         public Func<Stream>? Stream { get; private init; }
