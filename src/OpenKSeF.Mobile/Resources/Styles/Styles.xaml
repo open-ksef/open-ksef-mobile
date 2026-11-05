@@ -25,6 +25,11 @@
         <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
     </Style>
 
+    <Style TargetType="RefreshView">
+        <Setter Property="RefreshColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
+    </Style>
+
     <!-- ─── Label (implicit) ─────────────────────────────────── -->
     <Style TargetType="Label">
         <Setter Property="FontFamily" Value="Inter" />
