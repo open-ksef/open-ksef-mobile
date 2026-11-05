@@ -51,17 +51,18 @@
                     <DataTemplate x:DataType="models:TenantDto">
                         <SwipeView>
                             <SwipeView.RightItems>
+                                <!-- Same fill in both themes: SwipeItem picks white text by luminosity, unreadable on the dark primary. -->
                                 <SwipeItems>
                                     <SwipeItem Text="Edytuj"
-                                               BackgroundColor="{StaticResource Primary}"
+                                               BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimary}}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=EditTenantCommand}"
                                                CommandParameter="{Binding .}" />
                                     <SwipeItem Text="Dane do faktur"
-                                               BackgroundColor="{StaticResource PrimaryHover}"
+                                               BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimaryHover}, Dark={StaticResource UiPrimaryHover}}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=OpenSellerProfileCommand}"
                                                CommandParameter="{Binding .}" />
                                     <SwipeItem Text="Usuń"
-                                               BackgroundColor="{StaticResource Error}"
+                                               BackgroundColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiError}}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=DeleteTenantCommand}"
                                                CommandParameter="{Binding .}" />
                                 </SwipeItems>
@@ -81,12 +82,12 @@
                                     <Label Grid.Row="1"
                                            Text="{Binding DisplayName}"
                                            FontSize="14"
-                                           TextColor="{StaticResource TextMuted}" />
+                                           TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                     <Label Grid.Column="1"
                                            Grid.RowSpan="2"
                                            VerticalOptions="Center"
                                            FontSize="20"
-                                           TextColor="{StaticResource TextMuted}"
+                                           TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                                            Text=">" />
                                 </Grid>
                             </Border>
@@ -99,7 +100,7 @@
             <Label Text="{Binding ErrorMessage}"
                    AutomationId="TenantsPageLabelError"
                    IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
-                   TextColor="{StaticResource Error}"
+                   TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                    FontSize="13"
                    HorizontalTextAlignment="Center"
                    Margin="15"

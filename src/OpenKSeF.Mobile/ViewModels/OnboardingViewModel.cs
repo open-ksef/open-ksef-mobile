@@ -58,9 +58,9 @@ public partial class OnboardingViewModel : ObservableObject
         _ => ""
     };
 
-    private static readonly Color ActiveColor = Color.FromArgb("#6366f1");
-    private static readonly Color DoneColor = Color.FromArgb("#059669");
-    private static readonly Color PendingColor = Color.FromArgb("#e5e7eb");
+    private static readonly Color ActiveColor = Color.FromArgb("#4f46e5");
+    private static readonly Color DoneColor = Color.FromArgb("#047857");
+    private static readonly Color PendingColor = Color.FromArgb("#5b6474");
 
     public Color Step1Color => CurrentStep > 1 ? DoneColor : CurrentStep == 1 ? ActiveColor : PendingColor;
     public Color Step2Color => CurrentStep > 2 ? DoneColor : CurrentStep == 2 ? ActiveColor : PendingColor;

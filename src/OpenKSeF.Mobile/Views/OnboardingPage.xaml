@@ -34,43 +34,43 @@
                            BackgroundColor="{Binding Step1Color}" BorderColor="Transparent">
                         <Label Text="{Binding Step1Label}" HorizontalOptions="Center"
                                VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
-                               TextColor="{StaticResource White}" />
+                               TextColor="White" />
                     </Frame>
-                    <BoxView WidthRequest="28" HeightRequest="2" Color="{StaticResource Border}" VerticalOptions="Center" />
+                    <BoxView WidthRequest="28" HeightRequest="2" Color="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" />
                     <Frame WidthRequest="32" HeightRequest="32" CornerRadius="16"
                            Padding="0" HasShadow="False"
                            BackgroundColor="{Binding Step2Color}" BorderColor="Transparent">
                         <Label Text="{Binding Step2Label}" HorizontalOptions="Center"
                                VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
-                               TextColor="{StaticResource White}" />
+                               TextColor="White" />
                     </Frame>
-                    <BoxView WidthRequest="28" HeightRequest="2" Color="{StaticResource Border}" VerticalOptions="Center" />
+                    <BoxView WidthRequest="28" HeightRequest="2" Color="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" />
                     <Frame WidthRequest="32" HeightRequest="32" CornerRadius="16"
                            Padding="0" HasShadow="False"
                            BackgroundColor="{Binding Step3Color}" BorderColor="Transparent">
                         <Label Text="{Binding Step3Label}" HorizontalOptions="Center"
                                VerticalOptions="Center" FontSize="14" FontAttributes="Bold"
-                               TextColor="{StaticResource White}" />
+                               TextColor="White" />
                     </Frame>
                 </HorizontalStackLayout>
 
                 <!-- Step Title -->
                 <Label Text="{Binding StepTitle}"
                        FontSize="22" FontAttributes="Bold"
-                       TextColor="{StaticResource GradientStart}" HorizontalOptions="Center" />
+                       TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" HorizontalOptions="Center" />
 
                 <!-- Error -->
-                <Frame BackgroundColor="{StaticResource ErrorBg}" CornerRadius="8" Padding="12" HasShadow="False"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}" CornerRadius="8" Padding="12" HasShadow="False"
                        BorderColor="Transparent"
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}">
-                    <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Error}" FontSize="13"
+                    <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" FontSize="13"
                            HorizontalTextAlignment="Center" />
                 </Frame>
 
                 <!-- ===== STEP 1: Company Data ===== -->
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsStep1}">
                     <Label Text="Podaj dane swojej firmy, aby rozpocząć korzystanie z KSeF."
-                           FontSize="14" TextColor="{StaticResource TextMuted}" HorizontalTextAlignment="Center" />
+                           FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" HorizontalTextAlignment="Center" />
 
                     <VerticalStackLayout Spacing="4">
                         <Label Text="NIP" Style="{StaticResource LabelFormLabel}" />
@@ -84,7 +84,7 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Nazwa wyświetlana " />
-                                    <Span Text="(opcjonalnie)" TextColor="{StaticResource TextMuted}" />
+                                    <Span Text="(opcjonalnie)" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
@@ -97,7 +97,7 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="E-mail do powiadomień " />
-                                    <Span Text="(opcjonalnie)" TextColor="{StaticResource TextMuted}" />
+                                    <Span Text="(opcjonalnie)" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>
@@ -113,11 +113,11 @@
                 <!-- ===== STEP 2: KSeF Token ===== -->
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsStep2}">
                     <Label Text="Dodaj token autoryzacyjny KSeF, aby umożliwić synchronizację faktur."
-                           FontSize="14" TextColor="{StaticResource TextMuted}" HorizontalTextAlignment="Center" />
+                           FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" HorizontalTextAlignment="Center" />
 
-                    <Frame BackgroundColor="{StaticResource InfoBg}" CornerRadius="8" Padding="12" HasShadow="False"
-                           BorderColor="{StaticResource InfoBorder}">
-                        <Label FontSize="12" TextColor="{StaticResource InfoText}">
+                    <Frame BackgroundColor="{AppThemeBinding Light={StaticResource UiInfoBg}, Dark={StaticResource UiInfoBgDark}}" CornerRadius="8" Padding="12" HasShadow="False"
+                           BorderColor="Transparent">
+                        <Label FontSize="12" TextColor="{AppThemeBinding Light={StaticResource UiInfo}, Dark={StaticResource UiInfoDark}}">
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Jak uzyskać token KSeF:" FontAttributes="Bold" />
@@ -139,7 +139,7 @@
 
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,8,0,0">
                         <Label Text="Pomiń ten krok" AutomationId="OnboardingButtonSkipToken"
-                               TextColor="{StaticResource Primary}" FontSize="14" VerticalOptions="Center" TextDecorations="Underline">
+                               TextColor="{AppThemeBinding Light={StaticResource UiLink}, Dark={StaticResource UiLinkDark}}" FontSize="14" VerticalOptions="Center" TextDecorations="Underline">
                             <Label.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding SkipTokenCommand}" />
                             </Label.GestureRecognizers>
@@ -152,17 +152,17 @@
 
                 <!-- ===== STEP 3: Success ===== -->
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding IsStep3}">
-                    <Label Text="✓" FontSize="48" TextColor="{StaticResource Success}" HorizontalOptions="Center"
+                    <Label Text="✓" FontSize="48" TextColor="{AppThemeBinding Light={StaticResource UiSuccess}, Dark={StaticResource UiSuccessDark}}" HorizontalOptions="Center"
                            AutomationId="OnboardingLabelSuccess" />
-                    <Label Text="{Binding SuccessMessage}" FontSize="14" TextColor="{StaticResource TextMuted}"
+                    <Label Text="{Binding SuccessMessage}" FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                            HorizontalTextAlignment="Center" />
                     <ActivityIndicator IsRunning="{Binding IsSyncing}" IsVisible="{Binding IsSyncing}"
                                        HorizontalOptions="Center" />
                     <Label Text="{Binding SyncStatusText}" AutomationId="OnboardingLabelSyncStatus"
-                           FontSize="13" TextColor="{StaticResource TextMuted}" HorizontalTextAlignment="Center"
+                           FontSize="13" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" HorizontalTextAlignment="Center"
                            IsVisible="{Binding SyncStatusText, Converter={StaticResource IsNotNullConverter}}" />
                     <Label Text="Token KSeF nie został dodany. Synchronizacja nie będzie działać do momentu dodania tokenu."
-                           FontSize="13" TextColor="{StaticResource Warning}" HorizontalTextAlignment="Center"
+                           FontSize="13" TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" HorizontalTextAlignment="Center"
                            IsVisible="{Binding TokenSkipped}" />
                     <Button Text="Przejdź do faktur" AutomationId="OnboardingButtonFinish"
                             Command="{Binding GoToInvoicesCommand}"

@@ -22,14 +22,14 @@
     <Grid RowDefinitions="Auto,*">
         <!-- Offline mode indicator -->
         <Border IsVisible="{Binding IsOfflineMode}"
-                BackgroundColor="{StaticResource WarningBg}"
-                Stroke="{StaticResource Warning}"
+                BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}"
+                Stroke="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}"
                 StrokeShape="RoundRectangle 0"
                 Padding="10,8">
             <Label Text="Tryb offline — wyświetlane są dane z pamięci podręcznej"
                    FontSize="12"
                    HorizontalTextAlignment="Center"
-                   TextColor="{StaticResource WarningText}" />
+                   TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
         </Border>
 
         <!-- Loading indicator (initial load) -->
@@ -111,11 +111,11 @@
                                        Text="{Binding GrossText}"
                                        FontSize="16"
                                        FontAttributes="Bold"
-                                       TextColor="{StaticResource Primary}" />
+                                       TextColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
                                 <Label Grid.Row="1"
                                        Text="{Binding DisplayNumber}"
                                        FontSize="13"
-                                       TextColor="{StaticResource TextMuted}" />
+                                       TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                 <Label Grid.Row="2"
                                        Text="{Binding IssueDateText}"
                                        Style="{StaticResource LabelCaption}" />
@@ -137,8 +137,8 @@
         <!-- Error message -->
         <Border Grid.Row="1"
                 IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
-                BackgroundColor="{StaticResource ErrorBg}"
-                Stroke="{StaticResource ErrorBorder}"
+                BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}"
+                Stroke="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                 StrokeShape="RoundRectangle 8,8,8,8"
                 Margin="15"
                 Padding="15"
@@ -146,7 +146,7 @@
             <VerticalStackLayout Spacing="10">
                 <Label Text="{Binding ErrorMessage}"
                        AutomationId="InvoiceListPageLabelError"
-                       TextColor="{StaticResource Error}"
+                       TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                        FontSize="13"
                        HorizontalTextAlignment="Center" />
                 <Button Text="Ponów"

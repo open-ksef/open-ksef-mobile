@@ -39,16 +39,16 @@
                        FontSize="28"
                        FontAttributes="Bold"
                        HorizontalOptions="Center"
-                       TextColor="{StaticResource GradientStart}" />
+                       TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
                 <Label Text="{Binding SubtitleText}"
                        FontSize="14"
                        HorizontalOptions="Center"
                        HorizontalTextAlignment="Center"
-                       TextColor="{StaticResource TextMuted}"
+                       TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                        Margin="0,0,0,8" />
 
                 <!-- Error message -->
-                <Frame BackgroundColor="{StaticResource ErrorBg}"
+                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}"
                        CornerRadius="8"
                        Padding="12"
                        HasShadow="False"
@@ -56,7 +56,7 @@
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}">
                     <Label Text="{Binding ErrorMessage}"
                            AutomationId="LoginPageLabelError"
-                           TextColor="{StaticResource Error}"
+                           TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                            FontSize="13"
                            HorizontalTextAlignment="Center" />
                 </Frame>
@@ -145,9 +145,9 @@
 
                 <!-- Divider -->
                 <Grid ColumnDefinitions="*,Auto,*" Margin="0,4">
-                    <BoxView HeightRequest="1" BackgroundColor="{StaticResource Border}" VerticalOptions="Center" />
-                    <Label Text="lub" FontSize="12" TextColor="{StaticResource TextMuted}" Margin="12,0" Grid.Column="1" />
-                    <BoxView HeightRequest="1" BackgroundColor="{StaticResource Border}" VerticalOptions="Center" Grid.Column="2" />
+                    <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" />
+                    <Label Text="lub" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" Margin="12,0" Grid.Column="1" />
+                    <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" Grid.Column="2" />
                 </Grid>
 
                 <!-- Google button -->
@@ -162,11 +162,11 @@
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="4" Margin="0,8,0,0">
                     <Label Text="{Binding SwitchPromptText}"
                            FontSize="13"
-                           TextColor="{StaticResource TextMuted}"
+                           TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                            VerticalOptions="Center" />
                     <Label AutomationId="{Binding SwitchButtonAutomationId}"
                            FontSize="13"
-                           TextColor="{StaticResource Primary}"
+                           TextColor="{AppThemeBinding Light={StaticResource UiLink}, Dark={StaticResource UiLinkDark}}"
                            FontAttributes="Bold"
                            VerticalOptions="Center">
                         <Label.Text>
@@ -187,7 +187,7 @@
                 <VerticalStackLayout Spacing="6" Margin="0,8,0,0">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                         <Label FontSize="12"
-                               TextColor="{StaticResource TextMuted}"
+                               TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                                VerticalOptions="Center"
                                LineBreakMode="MiddleTruncation"
                                AutomationId="LoginPageLabelServerHost">
@@ -201,7 +201,7 @@
                         <Label Grid.Column="1"
                                Text="Zmień serwer"
                                FontSize="12"
-                               TextColor="{StaticResource Primary}"
+                               TextColor="{AppThemeBinding Light={StaticResource UiLink}, Dark={StaticResource UiLinkDark}}"
                                FontAttributes="Bold"
                                VerticalOptions="Center"
                                AutomationId="LoginPageButtonChangeServer">
