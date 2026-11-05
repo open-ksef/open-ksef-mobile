@@ -295,6 +295,18 @@
         <Setter Property="HeightRequest" Value="48" />
     </Style>
 
+    <!-- Native Switch tints are resolved once at creation, so a live theme switch left a track in the old theme's colour. -->
+    <Style TargetType="Switch">
+        <Setter Property="OnColor" Value="{AppThemeBinding Light={StaticResource UiPrimaryDark}, Dark={StaticResource UiPrimary}}" />
+        <Setter Property="OffColor" Value="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}" />
+        <Setter Property="ThumbColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+        <Style.Triggers>
+            <Trigger TargetType="Switch" Property="IsToggled" Value="True">
+                <Setter Property="ThumbColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="UiSegmentTrack" TargetType="Border">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiNeutralBg}, Dark={StaticResource UiNeutralBgDark}}" />
         <Setter Property="StrokeThickness" Value="0" />
