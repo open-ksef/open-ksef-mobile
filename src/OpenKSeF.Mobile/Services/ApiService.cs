@@ -208,7 +208,7 @@ public class ApiService : IApiService
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
-            throw new ApiException(response.StatusCode, "Serwer przyjął żądanie, ale jego odpowiedź jest nieczytelna. Odśwież widok, aby zobaczyć aktualny stan.");
+            throw new ApiException(response.StatusCode, "Odpowiedź serwera jest nieczytelna. Nie wiadomo, czy operacja się udała. Sprawdź aktualny stan, zanim spróbujesz ponownie.");
         }
         return result ?? throw new ApiException(HttpStatusCode.InternalServerError,
             "Otrzymano pusta odpowiedz z serwera.");

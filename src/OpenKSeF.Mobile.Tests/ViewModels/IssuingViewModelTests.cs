@@ -1941,6 +1941,29 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Draft_CreateUnreadable2xxThenFailedReturnThenSave_ReturnShowsNoStaleWarning()
+    {
+        var vm = Draft(Profile());
+        var saved = Invoice();
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(
+            _ => { vm.IsShown = false; return Task.FromException<IssuedInvoiceDto>(new ApiException(HttpStatusCode.OK, UnreadableText)); },
+            _ => Task.FromResult(saved));
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        vm.IsShown = true;
+        Shell.Current.GoToFailure = new InvalidOperationException("no route");
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.GoToFailure = null;
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        Shell.Current.Reset();
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(InvoiceId.ToString(), vm.InvoiceId);
+        Assert.Empty(Shell.Current.Alerts);
+        Assert.Null(Shell.Current.LastRoute);
+    }
+
+    [Fact]
     public async Task Draft_UpdateUnreadable2xx_StaysOnFormWithError()
     {
         var vm = Draft(Profile());
@@ -1967,7 +1990,7 @@ public class IssuingViewModelTests : IDisposable
         Assert.Null(vm.ErrorMessage);
     }
 
-    private const string UnreadableText = "Serwer przyjął żądanie, ale jego odpowiedź jest nieczytelna. Odśwież widok, aby zobaczyć aktualny stan.";
+    private const string UnreadableText = "Odpowiedź serwera jest nieczytelna. Nie wiadomo, czy operacja się udała. Sprawdź aktualny stan, zanim spróbujesz ponownie.";
 
     [Fact]
     public async Task Draft_ValidLines_SaveShowsNoAlert()

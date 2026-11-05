@@ -547,6 +547,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
             _loaded = true;
             _version = saved.Version;
             InvoiceId = saved.Id.ToString();
+            _routeOnReturn = null;
             SavedAt = $"Zapisano {IssuingFormat.Time(DateTime.Now)}";
             return saved;
         }
