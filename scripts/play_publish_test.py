@@ -176,7 +176,7 @@ def test_listing_and_images_come_from_the_commit():
     result, calls = run(listing=True)
     assert result.returncode == 0, result.stderr
     body = json.loads(next(call for call in calls if call[0] == 'PUT' and call[1].endswith('/listings/pl-PL'))[3])
-    assert body['language'] == 'pl-PL' and body['title'] in LISTING and body['fullDescription'].endswith('/issues')
+    assert body['language'] == 'pl-PL' and body['title'] in LISTING and body['fullDescription'].endswith('openksef@proton.me')
     uploads = [call for call in calls if call[1].startswith('/upload')]
     assert [(call[1].rsplit('/', 1)[1], call[3]) for call in uploads] == [
         ('icon', b'icon.png'), ('featureGraphic', b'featureGraphic.png'),

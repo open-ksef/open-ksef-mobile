@@ -63,7 +63,7 @@ Dane firm i faktur są na instancji, z którą łączy się aplikacja. Powiadomi
 
 Kod źródłowy jest publicznie dostępny: github.com/open-ksef. Licencja: Elastic License 2.0.
 
-Wymagany Android 7.0 lub nowszy. Błędy: github.com/open-ksef/open-ksef-mobile/issues
+Wymagany Android 7.0 lub nowszy. Błędy: openksef@proton.me
 ```
 
 ---
