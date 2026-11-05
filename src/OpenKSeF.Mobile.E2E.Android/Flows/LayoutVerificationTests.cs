@@ -55,7 +55,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
 
         wait.UntilVisible(ByAutoId("LoginPageLabelLogo"));
 
-        var switchLink = AndroidDriver.FindElement(ByAutoId("LoginPageSwitchToRegister"));
+        var switchLink = AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToRegister"));
         switchLink.Click();
 
         Thread.Sleep(500);
@@ -74,7 +74,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
 
         CaptureLayoutScreenshot("LoginPage_RegisterMode");
 
-        var switchBack = AndroidDriver.FindElement(ByAutoId("LoginPageSwitchToLogin"));
+        var switchBack = AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToLogin"));
         switchBack.Click();
         Thread.Sleep(300);
     }
