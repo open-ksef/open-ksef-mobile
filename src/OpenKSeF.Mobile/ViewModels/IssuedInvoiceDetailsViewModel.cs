@@ -1,3 +1,4 @@
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenKSeF.Mobile.Models;
@@ -19,6 +20,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     private readonly IApiService _apiService;
     private readonly IServerSettingsService _serverSettings;
     private const string NoConnection = "Brak połączenia z serwerem. Status faktury pojawi się tu po powrocie sieci. Nie wystawiaj jej drugi raz.";
+    private const string ChangedMessage = "Ta faktura została zmieniona w innym miejscu. Sprawdź aktualne dane i wybierz „Wystaw i wyślij” jeszcze raz.";
 
     private CancellationTokenSource? _polling;
     private bool _loadFailedOnNetwork;
@@ -228,7 +230,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
 
             if (shown.Version != displayed)
             {
-                await Shell.Current.DisplayAlertAsync("Faktura zmieniona", "Ta faktura została zmieniona w innym miejscu. Sprawdź aktualne dane i wybierz „Wystaw i wyślij” jeszcze raz.", "OK");
+                await Shell.Current.DisplayAlertAsync("Faktura zmieniona", ChangedMessage, "OK");
                 return;
             }
 
@@ -247,6 +249,17 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         {
             ErrorMessage = NoConnection;
             Start();
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            await LoadAsync();
+            if (IsSending)
+                Start();
+
+            if (Invoice?.Version != displayed && (IsDraft || CanFixRejection))
+                await Shell.Current.DisplayAlertAsync("Faktura zmieniona", ChangedMessage, "OK");
+            else
+                await Shell.Current.DisplayAlertAsync("Błąd", ex.Message, "OK");
         }
         catch (Exception ex)
         {
