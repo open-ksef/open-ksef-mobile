@@ -21,7 +21,9 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("issuedInvoiceDetails", typeof(IssuedInvoiceDetailsPage));
 
 #if ANDROID
+        ApplyStatusBar();
         Loaded += (_, _) => ApplyStatusBar();
+        Navigated += (_, _) => ApplyStatusBar();
         Application.Current!.RequestedThemeChanged += (_, _) => ApplyStatusBar();
 #endif
     }
@@ -30,8 +32,9 @@ public partial class AppShell : Shell
     private static void ApplyStatusBar()
     {
         var dark = Application.Current!.RequestedTheme == AppTheme.Dark;
-        StatusBar.SetColor((Color)Application.Current.Resources[dark ? "UiSurfaceDark" : "UiSurface"]);
-        StatusBar.SetStyle(dark ? StatusBarStyle.LightContent : StatusBarStyle.DarkContent);
+        var onGradient = Shell.Current?.CurrentPage is null or { Background: LinearGradientBrush };
+        StatusBar.SetColor((Color)Application.Current.Resources[onGradient ? "GradientStart" : dark ? "UiSurfaceDark" : "UiSurface"]);
+        StatusBar.SetStyle(onGradient || dark ? StatusBarStyle.LightContent : StatusBarStyle.DarkContent);
     }
 #endif
 }
