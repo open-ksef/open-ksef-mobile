@@ -1,0 +1,157 @@
+{
+  "GET /api/account/me": {
+    "userId": "6f1d2c3b-0000-4000-8000-000000000001",
+    "email": "jan.testowy@example.com",
+    "name": "Jan Testowy"
+  },
+  "GET /api/account/onboarding-status": {
+    "isComplete": true,
+    "hasTenant": true,
+    "hasCredential": false,
+    "firstTenantId": "11111111-1111-4111-8111-111111111111"
+  },
+  "POST /api/tenants": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "nip": "1234567890",
+    "displayName": "Firma Testowa",
+    "notificationEmail": "faktury@example.com",
+    "createdAt": "2026-11-01T08:15:30.123456Z"
+  },
+  "GET /api/tenants": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "nip": "1234567890",
+      "displayName": "Firma Testowa",
+      "notificationEmail": "faktury@example.com",
+      "createdAt": "2026-11-01T08:15:30.123456Z"
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "nip": "9876543210",
+      "displayName": null,
+      "notificationEmail": null,
+      "createdAt": "2026-11-02T09:00:00Z"
+    }
+  ],
+  "PUT /api/tenants/{id}": {
+    "id": "11111111-1111-4111-8111-111111111111",
+    "nip": "1234567890",
+    "displayName": "Firma Testowa Zmieniona",
+    "notificationEmail": "nowe@example.com",
+    "createdAt": "2026-11-01T08:15:30.123456Z"
+  },
+  "GET /api/tenants/{id}/invoices": {
+    "items": [
+      {
+        "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "ksefInvoiceNumber": "9876543210-20261103-0A1B2C000000-11",
+        "ksefReferenceNumber": "20261103-EE-0A1B2C0000-11",
+        "invoiceNumber": "FV/12/11/2026",
+        "vendorName": "Dostawca Testowy",
+        "vendorNip": "9876543210",
+        "vendorBankAccount": "61109010140000071219812874",
+        "buyerName": "Firma Testowa",
+        "buyerNip": "1234567890",
+        "amountNet": 1000.50,
+        "amountVat": 230.12,
+        "amountGross": 1230.62,
+        "currency": "PLN",
+        "issueDate": "2026-11-03T00:00:00Z",
+        "acquisitionDate": "2026-11-03T10:20:30Z",
+        "invoiceType": "VAT",
+        "firstSeenAt": "2026-11-03T10:25:00.5Z",
+        "isPaid": true,
+        "paidAt": "2026-11-04T12:00:00Z"
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "totalCount": 41
+  },
+  "GET /api/tenants/{id}/invoices/{invoiceId}": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "ksefInvoiceNumber": "9876543210-20261103-0A1B2C000000-11",
+    "ksefReferenceNumber": "20261103-EE-0A1B2C0000-11",
+    "invoiceNumber": "FV/12/11/2026",
+    "vendorName": "Dostawca Testowy",
+    "vendorNip": "9876543210",
+    "vendorBankAccount": "61109010140000071219812874",
+    "buyerName": "Firma Testowa",
+    "buyerNip": "1234567890",
+    "amountNet": 1000.50,
+    "amountVat": 230.12,
+    "amountGross": 1230.62,
+    "currency": "PLN",
+    "issueDate": "2026-11-03T00:00:00Z",
+    "acquisitionDate": "2026-11-03T10:20:30Z",
+    "invoiceType": "VAT",
+    "firstSeenAt": "2026-11-03T10:25:00.5Z",
+    "isPaid": true,
+    "paidAt": "2026-11-04T12:00:00Z",
+    "lines": [
+      {
+        "lineNumber": 1,
+        "name": "Usluga testowa",
+        "unit": "szt.",
+        "quantity": 2.5,
+        "unitPriceNet": 400.20,
+        "unitPriceGross": 492.25,
+        "amountNet": 1000.50,
+        "amountGross": 1230.62,
+        "amountVat": 230.12,
+        "vatRate": "23"
+      }
+    ]
+  },
+  "GET /api/tenants/{id}/invoices/{invoiceId} lines null": {
+    "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "ksefInvoiceNumber": "9876543210-20261105-0D1E2F000000-22",
+    "ksefReferenceNumber": "20261105-EE-0D1E2F0000-22",
+    "invoiceNumber": null,
+    "vendorName": "Dostawca Testowy",
+    "vendorNip": "9876543210",
+    "vendorBankAccount": null,
+    "buyerName": null,
+    "buyerNip": null,
+    "amountNet": 10.00,
+    "amountVat": 2.30,
+    "amountGross": 12.30,
+    "currency": "EUR",
+    "issueDate": "2026-11-05T00:00:00Z",
+    "acquisitionDate": null,
+    "invoiceType": null,
+    "firstSeenAt": "2026-11-05T07:00:00Z",
+    "isPaid": false,
+    "paidAt": null,
+    "lines": null
+  },
+  "GET /api/devices": [
+    {
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "token": "fake-fcm-token-android",
+      "platform": 0,
+      "tenantId": "11111111-1111-4111-8111-111111111111",
+      "createdAt": "2026-11-01T08:16:00Z",
+      "updatedAt": "2026-11-03T08:16:00Z"
+    },
+    {
+      "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      "token": "fake-apns-token-ios",
+      "platform": 1,
+      "tenantId": null,
+      "createdAt": "2026-11-02T08:16:00Z",
+      "updatedAt": "2026-11-02T08:16:00Z"
+    }
+  ],
+  "POST /api/tenants/{id}/credentials/sync": {
+    "tenantId": "11111111-1111-4111-8111-111111111111",
+    "fetchedInvoices": 7,
+    "newInvoices": 3,
+    "syncedAtUtc": "2026-11-05T07:00:00Z",
+    "failedDownloads": 0,
+    "queuedDownloads": 0,
+    "erroredDownloads": 0,
+    "issuedFetchedInvoices": 0,
+    "issuedNewInvoices": 0
+  }
+}

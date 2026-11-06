@@ -51,6 +51,7 @@
 
   <ItemGroup>
     <None Include="Services/Vectors/TotalsVectors.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Fixtures/MobileContract/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
