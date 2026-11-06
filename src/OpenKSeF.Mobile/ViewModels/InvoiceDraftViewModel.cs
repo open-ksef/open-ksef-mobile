@@ -85,9 +85,9 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private const string NoConnection = "Brak połączenia z serwerem. Dane w formularzu zostały. Spróbuj ponownie po powrocie sieci, nie twórz nowej faktury.";
 
-    private const string CheckIssuedList = "Sprawdź listę wystawionych, zanim zapiszesz ponownie.";
+    internal const string CheckIssuedList = "Sprawdź listę wystawionych, zanim zapiszesz ponownie.";
 
-    private const string IssuedList = "//main/issued";
+    internal const string IssuedList = "//main/issued?status=Draft";
 
     private readonly IApiService _apiService;
     private SellerProfileDto? _profile;
@@ -487,6 +487,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
             InvoiceId = copy.Id.ToString();
             Fill(copy);
         }
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
+        {
+            await SendToIssuedListAsync();
+        }
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
@@ -559,11 +563,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
         catch (ApiException ex) when (creating && ex.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices)
         {
-            ErrorMessage = CheckIssuedList;
-            if (IsShown)
-                await OpenIssuedListAsync();
-            else
-                _routeOnReturn = IssuedList;
+            await SendToIssuedListAsync();
             return null;
         }
         catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
@@ -650,6 +650,15 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
 
         ErrorMessage = string.Join("\n", ["Popraw błędy zaznaczone w formularzu.", .. unplaced]);
+    }
+
+    private async Task SendToIssuedListAsync()
+    {
+        ErrorMessage = CheckIssuedList;
+        if (IsShown)
+            await OpenIssuedListAsync();
+        else
+            _routeOnReturn = IssuedList;
     }
 
     private async Task OpenIssuedListAsync()

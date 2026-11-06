@@ -210,7 +210,7 @@ public class ApiService : IApiService
         {
             throw new ApiException(response.StatusCode, "Odpowiedź serwera jest nieczytelna. Nie wiadomo, czy operacja się udała. Sprawdź aktualny stan, zanim spróbujesz ponownie.");
         }
-        return result ?? throw new ApiException(HttpStatusCode.InternalServerError,
+        return result ?? throw new ApiException(response.StatusCode,
             "Otrzymano pusta odpowiedz z serwera.");
     }
 

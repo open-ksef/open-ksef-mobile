@@ -1053,6 +1053,95 @@ public class IssuingViewModelTests : IDisposable
         await _api.DidNotReceiveWithAnyArgs().CopyIssuedInvoiceAsync(default, default);
     }
 
+    [Fact]
+    public async Task Draft_CopyUnreadable2xx_SendsToIssuedListAndKeepsSource()
+    {
+        var vm = Draft(Profile());
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Rejected"));
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new ApiException(HttpStatusCode.Created, UnreadableText));
+        vm.InvoiceId = InvoiceId.ToString();
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
+        Assert.Equal("//main/issued?status=Draft", Shell.Current.LastRoute);
+        Assert.Equal(CheckIssuedList, vm.ErrorMessage);
+        Assert.Equal(InvoiceId.ToString(), vm.InvoiceId);
+        await _api.Received(1).CopyIssuedInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Fact]
+    public async Task Draft_CopyTimeout_SendsToIssuedListAndKeepsSource()
+    {
+        var vm = Draft(Profile());
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Rejected"));
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new TaskCanceledException("HttpClient.Timeout"));
+        vm.InvoiceId = InvoiceId.ToString();
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
+        Assert.Equal("//main/issued?status=Draft", Shell.Current.LastRoute);
+        Assert.Equal(InvoiceId.ToString(), vm.InvoiceId);
+    }
+
+    [Fact]
+    public async Task Details_CopyNetworkFailure_SendsToIssuedListWithWarning()
+    {
+        var vm = await DetailsOf(Invoice("Rejected"));
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new HttpRequestException("no route to host"));
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
+        Assert.Equal("//main/issued?status=Draft", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Details_CopyUnreadable2xx_SendsToIssuedListWithWarning()
+    {
+        var vm = await DetailsOf(Invoice("Rejected"));
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new ApiException(HttpStatusCode.OK, UnreadableText));
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
+        Assert.Equal("//main/issued?status=Draft", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task List_StatusQuery_ReplacesFilter_UnknownIgnored()
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.GetIssuedInvoicesAsync(default).ReturnsForAnyArgs(new PagedResult<IssuedInvoiceListItemDto> { Items = [] });
+        var vm = new IssuedInvoiceListViewModel(_api) { SelectedStatus = "Accepted" };
+
+        vm.ApplyQueryAttributes(new Dictionary<string, object> { ["status"] = "Draft" });
+        Assert.Equal("Draft", vm.SelectedStatus);
+        vm.ApplyQueryAttributes(new Dictionary<string, object>());
+        vm.ApplyQueryAttributes(new Dictionary<string, object> { ["status"] = "Bogus" });
+
+        Assert.Equal("Draft", vm.SelectedStatus);
+        await _api.Received().GetIssuedInvoicesAsync(TenantId, 1, 20, "Draft", null, null);
+    }
+
+    [Fact]
+    public void List_StatusQuery_IsConsumed_BackNavigationKeepsUserFilter()
+    {
+        _api.GetIssuedInvoicesAsync(default).ReturnsForAnyArgs(new PagedResult<IssuedInvoiceListItemDto> { Items = [] });
+        var vm = new IssuedInvoiceListViewModel(_api);
+        var query = new Dictionary<string, object> { ["status"] = "Draft" };
+
+        vm.ApplyQueryAttributes(query);
+        vm.SelectedStatus = "Accepted";
+        vm.ApplyQueryAttributes(query);
+
+        Assert.Empty(query);
+        Assert.Equal("Accepted", vm.SelectedStatus);
+    }
+
     private static ValidationEnvelope Invalid(string code, string field) =>
         new() { Errors = [new ValidationIssue { Code = code, Field = field, Message = code }] };
 
@@ -1910,7 +1999,7 @@ public class IssuingViewModelTests : IDisposable
         await (command == "save" ? vm.SaveDraftCommand : vm.IssueCommand).ExecuteAsync(null);
 
         Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
-        Assert.Equal("//main/issued", Shell.Current.LastRoute);
+        Assert.Equal("//main/issued?status=Draft", Shell.Current.LastRoute);
         Assert.Null(vm.InvoiceId);
         await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
         Assert.False(vm.IsBusy);
@@ -1935,7 +2024,7 @@ public class IssuingViewModelTests : IDisposable
         await vm.LoadCommand.ExecuteAsync(null);
         await vm.LoadCommand.ExecuteAsync(null);
 
-        Assert.Equal("//main/issued", Shell.Current.LastRoute);
+        Assert.Equal("//main/issued?status=Draft", Shell.Current.LastRoute);
         Assert.Equal(2, Shell.Current.Alerts.Count(a => a.Item2 == CheckIssuedList));
         await _api.Received(1).CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>());
     }

@@ -21,7 +21,7 @@ public sealed record IssuedInvoiceRow(IssuedInvoiceListItemDto Invoice)
 
 public sealed record StatusFilter(string Label, string Value);
 
-public partial class IssuedInvoiceListViewModel : ObservableObject
+public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttributable
 {
     private const int PageSize = 20;
     private readonly IApiService _apiService;
@@ -78,6 +78,13 @@ public partial class IssuedInvoiceListViewModel : ObservableObject
     }
 
     partial void OnSelectedStatusChanged(string value) => _ = LoadAsync();
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("status", out var status) && status is string value && Filters.Any(f => f.Value == value))
+            SelectedStatus = value;
+        query.Clear();
+    }
 
     [RelayCommand]
     private async Task LoadAsync()
