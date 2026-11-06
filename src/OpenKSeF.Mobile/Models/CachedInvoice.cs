@@ -40,10 +40,10 @@ public class CachedInvoice
             AmountVat = AmountVat,
             AmountGross = AmountGross,
             Currency = Currency,
-            IssueDate = IssueDate,
-            AcquisitionDate = AcquisitionDate,
+            IssueDate = DateTime.SpecifyKind(IssueDate, DateTimeKind.Utc),
+            AcquisitionDate = AcquisitionDate is { } acquisitionDate ? DateTime.SpecifyKind(acquisitionDate, DateTimeKind.Utc) : null,
             InvoiceType = InvoiceType,
-            FirstSeenAt = FirstSeenAt
+            FirstSeenAt = DateTime.SpecifyKind(FirstSeenAt, DateTimeKind.Utc)
         };
     }
 
