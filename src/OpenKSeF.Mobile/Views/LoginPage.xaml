@@ -15,7 +15,7 @@
         </LinearGradientBrush>
     </ContentPage.Background>
 
-    <Grid SafeAreaEdges="SoftInput">
+    <Grid SafeAreaEdges="Container, Container, Container, SoftInput">
     <ActivityIndicator IsRunning="{Binding IsRestoringSession}" IsVisible="{Binding IsRestoringSession}"
                        Color="White" VerticalOptions="Center" HorizontalOptions="Center"
                        AutomationId="LoginPageIndicatorRestoring" />
