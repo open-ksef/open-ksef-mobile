@@ -27,7 +27,7 @@
     },
     {
       "id": "22222222-2222-4222-8222-222222222222",
-      "nip": "9876543210",
+      "nip": "1111111112",
       "displayName": null,
       "notificationEmail": null,
       "createdAt": "2026-11-02T09:00:00Z"
@@ -44,11 +44,11 @@
     "items": [
       {
         "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        "ksefInvoiceNumber": "9876543210-20261103-0A1B2C000000-11",
+        "ksefInvoiceNumber": "1111111112-20261103-0A1B2C000000-11",
         "ksefReferenceNumber": "20261103-EE-0A1B2C0000-11",
         "invoiceNumber": "FV/12/11/2026",
         "vendorName": "Dostawca Testowy",
-        "vendorNip": "9876543210",
+        "vendorNip": "1111111112",
         "vendorBankAccount": "61109010140000071219812874",
         "buyerName": "Firma Testowa",
         "buyerNip": "1234567890",
@@ -70,11 +70,11 @@
   },
   "GET /api/tenants/{id}/invoices/{invoiceId}": {
     "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-    "ksefInvoiceNumber": "9876543210-20261103-0A1B2C000000-11",
+    "ksefInvoiceNumber": "1111111112-20261103-0A1B2C000000-11",
     "ksefReferenceNumber": "20261103-EE-0A1B2C0000-11",
     "invoiceNumber": "FV/12/11/2026",
     "vendorName": "Dostawca Testowy",
-    "vendorNip": "9876543210",
+    "vendorNip": "1111111112",
     "vendorBankAccount": "61109010140000071219812874",
     "buyerName": "Firma Testowa",
     "buyerNip": "1234567890",
@@ -105,11 +105,11 @@
   },
   "GET /api/tenants/{id}/invoices/{invoiceId} lines null": {
     "id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-    "ksefInvoiceNumber": "9876543210-20261105-0D1E2F000000-22",
+    "ksefInvoiceNumber": "1111111112-20261105-0D1E2F000000-22",
     "ksefReferenceNumber": "20261105-EE-0D1E2F0000-22",
     "invoiceNumber": null,
     "vendorName": "Dostawca Testowy",
-    "vendorNip": "9876543210",
+    "vendorNip": "1111111112",
     "vendorBankAccount": null,
     "buyerName": null,
     "buyerNip": null,

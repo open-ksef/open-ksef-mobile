@@ -160,7 +160,7 @@ public class MobileContractTests
 
         Assert.Null(invoice.Lines);
         Assert.Null(invoice.InvoiceNumber);
-        Assert.Equal("9876543210-20261105-0D1E2F000000-22", invoice.DisplayNumber);
+        Assert.Equal("1111111112-20261105-0D1E2F000000-22", invoice.DisplayNumber);
         Assert.Null(invoice.VendorBankAccount);
         Assert.Null(invoice.BuyerName);
         Assert.Null(invoice.BuyerNip);
@@ -204,7 +204,7 @@ public class MobileContractTests
         AssertCachedRoundTrip(dto, CachedInvoice.FromDto(dto, TenantId));
     }
 
-    [Fact(Skip = "Defect: sqlite-net ticks storage reads DateTime back as Unspecified (T-127 QA report)")]
+    [Fact]
     public async Task CachedInvoice_ThroughSqlite_KeepsMappedFieldsAndUtcKind()
     {
         var dto = await Api(Detail).GetInvoiceDetailsAsync(TenantId, InvoiceId);
@@ -250,11 +250,11 @@ public class MobileContractTests
     private static void AssertFullInvoice(InvoiceDto invoice)
     {
         Assert.Equal(InvoiceId, invoice.Id);
-        Assert.Equal("9876543210-20261103-0A1B2C000000-11", invoice.KSeFInvoiceNumber);
+        Assert.Equal("1111111112-20261103-0A1B2C000000-11", invoice.KSeFInvoiceNumber);
         Assert.Equal("20261103-EE-0A1B2C0000-11", invoice.KSeFReferenceNumber);
         Assert.Equal("FV/12/11/2026", invoice.InvoiceNumber);
         Assert.Equal("Dostawca Testowy", invoice.VendorName);
-        Assert.Equal("9876543210", invoice.VendorNip);
+        Assert.Equal("1111111112", invoice.VendorNip);
         Assert.Equal("61109010140000071219812874", invoice.VendorBankAccount);
         Assert.Equal("Firma Testowa", invoice.BuyerName);
         Assert.Equal("1234567890", invoice.BuyerNip);
