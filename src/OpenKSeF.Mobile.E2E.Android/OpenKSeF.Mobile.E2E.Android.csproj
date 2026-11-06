@@ -27,6 +27,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Exclude="..\OpenKSeF.Mobile\Models\CachedInvoice.cs" Link="Linked\Models\%(Filename)%(Extension)" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\IssuingFormat.cs" Link="Linked\ViewModels\IssuingFormat.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\IssuedInvoiceTotals.cs" Link="Linked\Services\IssuedInvoiceTotals.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OpenKSeF.Mobile.E2E.Shared\OpenKSeF.Mobile.E2E.Shared.csproj" />
   </ItemGroup>
 
