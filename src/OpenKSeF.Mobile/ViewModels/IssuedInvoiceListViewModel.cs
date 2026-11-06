@@ -83,6 +83,7 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     {
         if (query.TryGetValue("status", out var status) && status is string value && Filters.Any(f => f.Value == value))
             SelectedStatus = value;
+        query.Clear();
     }
 
     [RelayCommand]

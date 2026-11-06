@@ -487,7 +487,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
             InvoiceId = copy.Id.ToString();
             Fill(copy);
         }
-        catch (ApiException ex) when (ex.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices)
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
         {
             await SendToIssuedListAsync();
         }

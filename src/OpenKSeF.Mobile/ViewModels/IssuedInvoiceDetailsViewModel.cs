@@ -278,7 +278,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
             var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, Invoice!.Id);
             try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); } catch { }
         }
-        catch (ApiException ex) when (ex.StatusCode is >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices)
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
         {
             await Shell.Current.DisplayAlertAsync("Nie wiadomo, czy zapisano szkic", InvoiceDraftViewModel.CheckIssuedList, "OK");
             try { await Shell.Current.GoToAsync(InvoiceDraftViewModel.IssuedList); } catch { }

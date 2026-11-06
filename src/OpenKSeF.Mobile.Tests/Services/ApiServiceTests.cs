@@ -470,6 +470,16 @@ public class ApiServiceTests
         Assert.Equal("Odpowiedź serwera jest nieczytelna. Nie wiadomo, czy operacja się udała. Sprawdź aktualny stan, zanim spróbujesz ponownie.", ex.Message);
     }
 
+    [Fact]
+    public async Task NullBody2xx_KeepsSuccessStatus()
+    {
+        _handler.Enqueue(() => new HttpResponseMessage(HttpStatusCode.Created) { Content = new StringContent("null", System.Text.Encoding.UTF8, "application/json") });
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().CopyIssuedInvoiceAsync(Guid.NewGuid(), Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.Created, ex.StatusCode);
+    }
+
     private sealed class RecordingLogger : ILogger<ApiService>
     {
         public List<string> Lines { get; } = [];
