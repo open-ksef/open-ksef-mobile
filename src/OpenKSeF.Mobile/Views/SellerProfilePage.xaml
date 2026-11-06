@@ -7,7 +7,7 @@
              Style="{StaticResource UiPage}"
              Title="Dane do faktur">
 
-    <Grid>
+    <Grid SafeAreaEdges="Container, Container, Container, SoftInput">
         <ScrollView>
             <VerticalStackLayout Padding="16" Spacing="16">
 
