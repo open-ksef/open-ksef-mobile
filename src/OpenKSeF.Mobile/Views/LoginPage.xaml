@@ -19,7 +19,9 @@
     <ActivityIndicator IsRunning="{Binding IsRestoringSession}" IsVisible="{Binding IsRestoringSession}"
                        Color="White" VerticalOptions="Center" HorizontalOptions="Center"
                        AutomationId="LoginPageIndicatorRestoring" />
-    <ScrollView VerticalOptions="Center"
+    <ScrollView x:Name="Scroll"
+                SizeChanged="OnScrollSizeChanged"
+                VerticalOptions="Center"
                 IsVisible="{Binding IsRestoringSession, Converter={StaticResource InvertedBoolConverter}}">
         <Frame Style="{StaticResource CardFrame}"
                Padding="28,36"
@@ -70,6 +72,7 @@
                                Placeholder="jan@firma.pl"
                                Keyboard="Email"
                                AutomationId="LoginPageEntryEmail"
+                               Focused="OnLoginFieldFocused" Unfocused="OnFieldUnfocused"
                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
                     </VerticalStackLayout>
 
@@ -79,10 +82,12 @@
                                Placeholder="••••••••"
                                IsPassword="True"
                                AutomationId="LoginPageEntryPassword"
+                               Focused="OnLoginFieldFocused" Unfocused="OnFieldUnfocused"
                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
                     </VerticalStackLayout>
 
                     <Button Text="{Binding LoginButtonText}"
+                            x:Name="LoginButton"
                             AutomationId="LoginPageButtonLogin"
                             Command="{Binding LoginWithCredentialsCommand}"
                             HorizontalOptions="Fill"
@@ -98,6 +103,7 @@
                             <Entry Text="{Binding RegFirstName}"
                                    Placeholder="Jan"
                                    AutomationId="LoginPageEntryRegFirstName"
+                                   Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
                         </VerticalStackLayout>
                         <VerticalStackLayout Spacing="4" Grid.Column="1">
@@ -105,6 +111,7 @@
                             <Entry Text="{Binding RegLastName}"
                                    Placeholder="Kowalski"
                                    AutomationId="LoginPageEntryRegLastName"
+                                   Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
                         </VerticalStackLayout>
                     </Grid>
@@ -115,6 +122,7 @@
                                Placeholder="jan@firma.pl"
                                Keyboard="Email"
                                AutomationId="LoginPageEntryRegEmail"
+                               Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
                     </VerticalStackLayout>
 
@@ -124,6 +132,7 @@
                                Placeholder="Min. 8 znaków"
                                IsPassword="True"
                                AutomationId="LoginPageEntryRegPassword"
+                               Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
                     </VerticalStackLayout>
 
@@ -133,10 +142,12 @@
                                Placeholder="Powtórz hasło"
                                IsPassword="True"
                                AutomationId="LoginPageEntryRegConfirmPassword"
+                               Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
                                IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
                     </VerticalStackLayout>
 
                     <Button Text="{Binding RegisterButtonText}"
+                            x:Name="RegisterButton"
                             AutomationId="LoginPageButtonRegister"
                             Command="{Binding RegisterCommand}"
                             HorizontalOptions="Fill"
@@ -215,9 +226,11 @@
                                Placeholder="https://faktury.twoja-firma.pl"
                                Keyboard="Url"
                                FontSize="12"
-                               AutomationId="LoginPageEntryServerUrl" />
+                               AutomationId="LoginPageEntryServerUrl"
+                               Focused="OnServerFieldFocused" Unfocused="OnFieldUnfocused" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                             <Button Text="Zapisz"
+                                    x:Name="SaveServerButton"
                                     AutomationId="LoginPageButtonSaveServer"
                                     Command="{Binding SaveServerCommand}"
                                     Style="{StaticResource ButtonSmall}" />

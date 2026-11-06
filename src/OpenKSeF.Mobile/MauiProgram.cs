@@ -107,6 +107,20 @@ public static class MauiProgram
             handler.PlatformView.SetRawInputType(Android.Text.InputTypes.ClassNumber | Android.Text.InputTypes.NumberFlagDecimal);
         });
 
+        // The native underline follows the Android night config, which can disagree with the MAUI theme, so tint the AndroidX line layer MAUI adds.
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, entry) =>
+        {
+            if (handler.PlatformView.Background is not Android.Graphics.Drawables.LayerDrawable { NumberOfLayers: 2 } layers)
+                return;
+
+            var app = Microsoft.Maui.Controls.Application.Current!;
+            var dark = app.RequestedTheme == AppTheme.Dark;
+            var line = ((Color)app.Resources[dark ? "UiMutedDark" : "UiMuted"]).ToInt();
+            var focused = ((Color)app.Resources[dark ? "UiPrimaryDark" : "UiPrimary"]).ToInt();
+            layers.GetDrawable(1)!.Mutate().SetTintList(new Android.Content.Res.ColorStateList(
+                [[Android.Resource.Attribute.StateFocused], []], [focused, line]));
+        });
+
         // Runs once per handler. The IsChecked mapping below runs on every change, and setting the state description makes TalkBack announce it.
         Microsoft.Maui.Handlers.RadioButtonHandler.Mapper.AppendToMapping("CheckableAccessibility", (handler, radio) =>
         {
