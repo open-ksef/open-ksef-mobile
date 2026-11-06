@@ -17,6 +17,12 @@ public class MobileContractTests
 {
     private const string Detail = "GET /api/tenants/{id}/invoices/{invoiceId}";
     private const string DetailLinesNull = "GET /api/tenants/{id}/invoices/{invoiceId} lines null";
+    private const string Transfer = "GET /api/tenants/{id}/invoices/{invoiceId}/transfer";
+    private const string TransferQrBlocked = "GET /api/tenants/{id}/invoices/{invoiceId}/transfer (QR blocked)";
+    private const string IssuedDetail = "GET /api/tenants/{id}/issued-invoices/{invoiceId}";
+    private const string NipLookup = "GET /api/nip-lookup/{nip}";
+    private const string NipLookupInvalid = "GET /api/nip-lookup/{nip} (invalid)";
+    private const string GoldenSha256 = "2AB206B8B7D16DF309A245125793AE598503898CB67C8860D7D222BE8A2D1EDC";
 
     private static readonly JsonObject Golden = Load("responses.json");
     private static readonly JsonObject Payloads = Load("payloads.json");
@@ -36,6 +42,17 @@ public class MobileContractTests
         { "GET /api/tenants/{id}/invoices", typeof(PagedResult<InvoiceDto>) },
         { Detail, typeof(InvoiceDto) },
         { "GET /api/devices", typeof(List<DeviceTokenDto>) },
+        { Transfer, typeof(TransferDetailsDto) },
+        { TransferQrBlocked, typeof(TransferDetailsDto) },
+        { "GET /api/tenants/{id}/seller-profile", typeof(SellerProfileDto) },
+        { "PUT /api/tenants/{id}/seller-profile", typeof(SellerProfileDto) },
+        { "POST /api/tenants/{id}/issued-invoices", typeof(IssuedInvoiceDto) },
+        { IssuedDetail, typeof(IssuedInvoiceDto) },
+        { "POST /api/tenants/{id}/issued-invoices/{invoiceId}/copy", typeof(IssuedInvoiceDto) },
+        { "POST /api/tenants/{id}/issued-invoices/{invoiceId}/issue", typeof(IssuedInvoiceDto) },
+        { "GET /api/tenants/{id}/issued-invoices", typeof(PagedResult<IssuedInvoiceListItemDto>) },
+        { NipLookup, typeof(NipLookupDto) },
+        { NipLookupInvalid, typeof(ValidationEnvelope) },
     };
 
     [Fact]
@@ -221,6 +238,211 @@ public class MobileContractTests
         AssertCachedRoundTrip(dto, stored);
     }
 
+    [Fact]
+    public void Golden_IsByteIdenticalToBackend()
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "MobileContract", "responses.json"));
+
+        Assert.Equal(GoldenSha256, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)));
+    }
+
+    [Fact]
+    public async Task Transfer_ExplicitNullQrMessage_MarksServerQrRules()
+    {
+        var transfer = await Api(Transfer).GetTransferDetailsAsync(TenantId, InvoiceId);
+
+        Assert.True(transfer.ServerHasQrRules);
+        Assert.Null(transfer.QrMessage);
+        Assert.Equal("iVBORw0KGgo=", transfer.QrCodeBase64);
+        Assert.Equal("Dostawca Testowy", transfer.RecipientName);
+        Assert.Equal("61109010140000071219812874", transfer.RecipientAccount);
+        Assert.Equal("1111111111", transfer.RecipientNip);
+        Assert.Equal(1230.62m, transfer.Amount);
+        Assert.Equal("PLN", transfer.Currency);
+        Assert.Equal("FV/12/11/2026", transfer.Title);
+        Assert.StartsWith("Dostawca Testowy\n", transfer.TransferText);
+    }
+
+    [Fact]
+    public async Task Transfer_Eur_HasMessageAndNoQr()
+    {
+        var transfer = await Api(TransferQrBlocked).GetTransferDetailsAsync(TenantId, InvoiceId);
+
+        Assert.True(transfer.ServerHasQrRules);
+        Assert.Null(transfer.QrCodeBase64);
+        Assert.Null(transfer.RecipientAccount);
+        Assert.Equal("Kod QR tylko dla PLN.", transfer.QrMessage);
+        Assert.Equal("EUR", transfer.Currency);
+        Assert.Equal(12.30m, transfer.Amount);
+    }
+
+    [Fact]
+    public async Task SellerProfile_MapsCompleteAndEmpty()
+    {
+        var saved = await Api("PUT /api/tenants/{id}/seller-profile").UpdateSellerProfileAsync(TenantId, new SellerProfileRequest());
+        var empty = await Api("GET /api/tenants/{id}/seller-profile").GetSellerProfileAsync(TenantId);
+
+        Assert.Equal("Firma Testowa Sp. z o.o.", saved.LegalName);
+        Assert.Equal("ul. Testowa 1", saved.AddressLine1);
+        Assert.Equal("00-001 Warszawa", saved.AddressLine2);
+        Assert.Equal("61109010140000071219812874", saved.BankAccount);
+        Assert.True(saved.CashAccounting);
+        Assert.Equal(13, saved.NextNumber);
+        Assert.Equal("2026-11", saved.NextNumberPeriod);
+        Assert.Equal("FV/{n}/{MM}/{yyyy}", saved.NumberingPattern);
+        Assert.Equal("FV/13/11/2026", saved.NextNumberPreview);
+        Assert.True(saved.IsComplete);
+        Assert.Equal("Test", saved.KsefEnvironment);
+        Assert.NotNull(empty);
+        Assert.Equal("1111111111", empty.Nip);
+        Assert.False(empty.IsComplete);
+        Assert.Null(empty.LegalName);
+        Assert.Null(empty.NextNumber);
+        Assert.Null(empty.NextNumberPreview);
+    }
+
+    [Fact]
+    public async Task IssuedInvoiceCreate_MapsDraftWithExemption()
+    {
+        var draft = await Api("POST /api/tenants/{id}/issued-invoices").CreateIssuedInvoiceAsync(TenantId, new IssuedInvoiceDraftRequest());
+
+        Assert.Equal(Guid.Parse("dddddddd-dddd-4ddd-8ddd-dddddddddddd"), draft.Id);
+        Assert.Equal("Draft", draft.Status);
+        Assert.Null(draft.Number);
+        Assert.Equal("1111111111", draft.Seller.Nip);
+        Assert.Equal("Company", draft.Buyer.Kind);
+        Assert.Equal("1234567890", draft.Buyer.Nip);
+        Assert.Equal(new DateOnly(2026, 11, 5), draft.IssueDate);
+        Assert.Equal(new DateOnly(2026, 11, 4), draft.SaleDate);
+        Assert.Equal(new DateOnly(2026, 11, 19), draft.DueDate);
+        Assert.Equal("Act", draft.ExemptionBasis!.Kind);
+        Assert.Equal("art. 113 ust. 1 ustawy o VAT", draft.ExemptionBasis.Text);
+        var line = Assert.Single(draft.Lines);
+        Assert.Equal(1, line.LineNo);
+        Assert.Equal(2.5m, line.Quantity);
+        Assert.Equal(400.20m, line.UnitNetPrice);
+        Assert.Equal("zw", line.VatRate);
+        Assert.Equal(1000.50m, line.NetAmount);
+        Assert.Equal(0m, line.VatAmount);
+        Assert.Equal(1000.50m, Assert.Single(draft.VatSummary).Net);
+        Assert.Equal(1000.50m, draft.TotalGross);
+        Assert.False(draft.Ksef.HasUpo);
+        Assert.Null(draft.Ksef.KsefNumber);
+        Assert.Null(draft.IssuedAt);
+        Assert.Null(draft.ExchangeRate);
+        Assert.Null(draft.ExchangeRateDate);
+        Assert.Equal(1u, draft.Version);
+        Assert.Equal(DateTimeKind.Utc, draft.CreatedAt.Kind);
+    }
+
+    [Fact]
+    public async Task IssuedInvoiceDetail_MapsForeignAcceptedEur()
+    {
+        var invoice = await Api(IssuedDetail).GetIssuedInvoiceAsync(TenantId, InvoiceId);
+
+        Assert.Equal("Accepted", invoice.Status);
+        Assert.Equal("FV/13/11/2026", invoice.Number);
+        Assert.Equal("PL61109010140000071219812874", invoice.Seller.Iban);
+        Assert.Equal("TESTPLPW", invoice.Seller.Swift);
+        Assert.Equal("Bank Testowy", invoice.Seller.BankName);
+        Assert.True(invoice.Seller.CashAccounting);
+        Assert.Equal("Foreign", invoice.Buyer.Kind);
+        Assert.Null(invoice.Buyer.Nip);
+        Assert.Equal("DE", invoice.Buyer.CountryCode);
+        Assert.Equal("VatUe", invoice.Buyer.IdType);
+        Assert.Equal("DE000000000", invoice.Buyer.ForeignId);
+        Assert.Equal("Directive", invoice.ExemptionBasis!.Kind);
+        Assert.Null(Assert.Single(invoice.Lines).Unit);
+        Assert.Equal("EUR", invoice.Currency);
+        Assert.Equal(4.2512m, invoice.ExchangeRate);
+        Assert.Equal(new DateOnly(2026, 11, 4), invoice.ExchangeRateDate);
+        Assert.Equal(3u, invoice.Version);
+        Assert.Equal("1111111111-20261105-0F1E2D000000-33", invoice.Ksef.KsefNumber);
+        Assert.Equal(new DateTime(2026, 11, 5, 9, 5, 0, DateTimeKind.Utc), invoice.Ksef.AcceptedAt);
+        Assert.Equal(200, invoice.Ksef.StatusCode);
+        Assert.Equal("Sukces", invoice.Ksef.StatusMessage);
+        Assert.Equal("https://ksef-test.example.com/verify/1", invoice.Ksef.VerificationUrl);
+        Assert.True(invoice.Ksef.HasUpo);
+        Assert.Equal(new DateTime(2026, 11, 5, 9, 4, 0, DateTimeKind.Utc), invoice.IssuedAt);
+    }
+
+    [Fact]
+    public async Task IssuedInvoiceCopyAndIssue_MapResponse()
+    {
+        var copy = await Api("POST /api/tenants/{id}/issued-invoices/{invoiceId}/copy").CopyIssuedInvoiceAsync(TenantId, InvoiceId);
+        var issued = await Api("POST /api/tenants/{id}/issued-invoices/{invoiceId}/issue").IssueInvoiceAsync(TenantId, InvoiceId, 3);
+
+        Assert.Equal(Guid.Parse("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"), copy.Id);
+        Assert.Equal("Person", copy.Buyer.Kind);
+        Assert.Equal("Cash", copy.PaymentMethod);
+        Assert.Equal("kg", Assert.Single(copy.Lines).Unit);
+        Assert.Equal("Rejected", issued.Status);
+        Assert.True(issued.SplitPayment);
+        Assert.Equal("Other", issued.ExemptionBasis!.Kind);
+        Assert.Equal(440, issued.Ksef.StatusCode);
+        Assert.Equal("Faktura o tym numerze juz istnieje.", issued.Ksef.StatusDetails);
+        Assert.Equal("Duplikat faktury", issued.Ksef.LastError);
+        Assert.Equal("1111111111-20261104-0A0B0C000000-44", issued.Ksef.DuplicateKsefNumber);
+        Assert.Equal(230.12m, issued.TotalVat);
+        Assert.Equal(1230.62m, issued.TotalGross);
+        Assert.Equal(4u, issued.Version);
+    }
+
+    [Fact]
+    public async Task IssuedInvoiceList_MapsItemsAndPaging()
+    {
+        var page = await Api("GET /api/tenants/{id}/issued-invoices").GetIssuedInvoicesAsync(TenantId);
+
+        Assert.Equal(1, page.Page);
+        Assert.Equal(20, page.PageSize);
+        Assert.Equal(21, page.TotalCount);
+        Assert.Equal(2, page.TotalPages);
+        Assert.Equal(2, page.Items.Count);
+        var foreign = page.Items[0];
+        Assert.Equal("Accepted", foreign.Status);
+        Assert.Equal("Example GmbH", foreign.BuyerName);
+        Assert.Null(foreign.BuyerNip);
+        Assert.Equal(new DateOnly(2026, 11, 5), foreign.IssueDate);
+        Assert.Equal(new DateOnly(2026, 11, 19), foreign.DueDate);
+        Assert.Equal(100.00m, foreign.TotalNet);
+        Assert.Equal("EUR", foreign.Currency);
+        Assert.Equal("1111111111-20261105-0F1E2D000000-33", foreign.KsefNumber);
+        Assert.Equal("DE", foreign.BuyerCountryCode);
+        Assert.Equal("VatUe", foreign.BuyerIdType);
+        Assert.Equal("DE000000000", foreign.BuyerForeignId);
+        Assert.Null(page.Items[1].Number);
+        Assert.Null(page.Items[1].KsefNumber);
+        Assert.Null(page.Items[1].BuyerCountryCode);
+        Assert.Equal(1230.62m, page.Items[1].TotalGross);
+    }
+
+    [Fact]
+    public async Task NipLookup_MapsCompanyAndAccounts()
+    {
+        var company = await Api(NipLookup).LookupNipAsync("1111111111");
+
+        Assert.NotNull(company);
+        Assert.Equal("1111111111", company.Nip);
+        Assert.Equal("Firma Testowa Sp. z o.o.", company.Name);
+        Assert.Equal("ul. Testowa 1", company.AddressLine1);
+        Assert.Null(company.AddressLine2);
+        Assert.Equal("Czynny", company.VatStatus);
+        Assert.Equal(["61109010140000071219812874", "27114020040000300201355387"], company.BankAccounts);
+    }
+
+    [Fact]
+    public async Task NipLookup_Invalid400_LandsInValidation()
+    {
+        var ex = await Assert.ThrowsAsync<ApiException>(() => Api(NipLookupInvalid, HttpStatusCode.BadRequest).LookupNipAsync("123"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, ex.StatusCode);
+        Assert.Equal(2, ex.Validation!.Errors.Count);
+        Assert.Equal("NIP-001", ex.Validation.Errors[0].Code);
+        Assert.Equal("nip", ex.Validation.Errors[0].Field);
+        Assert.Equal("Nieprawidlowy NIP.", ex.Validation.Errors[0].Message);
+        Assert.Null(ex.Validation.Errors[1].Field);
+    }
+
     private static void AssertCachedRoundTrip(InvoiceDto dto, CachedInvoice stored)
     {
         Assert.Equal(TenantId.ToString(), stored.TenantId);
@@ -271,13 +493,13 @@ public class MobileContractTests
         Assert.Equal(new DateTime(2026, 11, 4, 12, 0, 0, DateTimeKind.Utc), invoice.PaidAt);
     }
 
-    private static ApiService Api(string endpoint)
+    private static ApiService Api(string endpoint, HttpStatusCode status = HttpStatusCode.OK)
     {
         var auth = Substitute.For<IAuthService>();
         auth.GetAccessTokenAsync().Returns("token");
         var settings = Substitute.For<IServerSettingsService>();
         settings.ServerUrl.Returns("https://ksef.example.com");
-        return new ApiService(new HttpClient(new FixtureHandler(Payloads[endpoint]!.ToJsonString())), auth, settings, NullLogger<ApiService>.Instance);
+        return new ApiService(new HttpClient(new FixtureHandler(Payloads[endpoint]!.ToJsonString(), status)), auth, settings, NullLogger<ApiService>.Instance);
     }
 
     private static PropertyInfo? Resolve(Type type, string path)
@@ -292,7 +514,7 @@ public class MobileContractTests
                 continue;
             }
             property = type.GetProperties().FirstOrDefault(p =>
-                p.GetCustomAttribute<JsonIgnoreAttribute>() is null &&
+                p.GetCustomAttribute<JsonIgnoreAttribute>() is not { Condition: JsonIgnoreCondition.Always } &&
                 string.Equals(p.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? p.Name, name, StringComparison.OrdinalIgnoreCase));
             if (property is null)
                 return null;
@@ -314,9 +536,9 @@ public class MobileContractTests
 
     private static string Join(string prefix, string key) => prefix.Length == 0 ? key : prefix + "." + key;
 
-    private sealed class FixtureHandler(string json) : HttpMessageHandler
+    private sealed class FixtureHandler(string json, HttpStatusCode status) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") });
+            Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json") });
     }
 }

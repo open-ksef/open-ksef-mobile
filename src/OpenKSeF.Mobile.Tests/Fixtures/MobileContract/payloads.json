@@ -153,5 +153,423 @@
     "erroredDownloads": 0,
     "issuedFetchedInvoices": 0,
     "issuedNewInvoices": 0
+  },
+  "GET /api/tenants/{id}/invoices/{invoiceId}/transfer": {
+    "recipientName": "Dostawca Testowy",
+    "recipientAccount": "61109010140000071219812874",
+    "recipientNip": "1111111111",
+    "amount": 1230.62,
+    "currency": "PLN",
+    "title": "FV/12/11/2026",
+    "transferText": "Dostawca Testowy\n61109010140000071219812874\n1230,62 PLN\nFV/12/11/2026",
+    "qrCodeBase64": "iVBORw0KGgo=",
+    "qrMessage": null
+  },
+  "GET /api/tenants/{id}/invoices/{invoiceId}/transfer (QR blocked)": {
+    "recipientName": "Dostawca Testowy",
+    "recipientAccount": null,
+    "recipientNip": "1111111111",
+    "amount": 12.30,
+    "currency": "EUR",
+    "title": "FV/13/11/2026",
+    "transferText": "Dostawca Testowy\n12,30 EUR\nFV/13/11/2026",
+    "qrCodeBase64": null,
+    "qrMessage": "Kod QR tylko dla PLN."
+  },
+  "PUT /api/tenants/{id}/seller-profile": {
+    "legalName": "Firma Testowa Sp. z o.o.",
+    "addressLine1": "ul. Testowa 1",
+    "addressLine2": "00-001 Warszawa",
+    "bankAccount": "61109010140000071219812874",
+    "cashAccounting": true,
+    "numberingPattern": "FV/{n}/{MM}/{yyyy}",
+    "nextNumber": 13,
+    "nextNumberPeriod": "2026-11",
+    "nip": "1111111111",
+    "isComplete": true,
+    "nextNumberPreview": "FV/13/11/2026",
+    "ksefEnvironment": "Test"
+  },
+  "GET /api/tenants/{id}/seller-profile": {
+    "legalName": null,
+    "addressLine1": null,
+    "addressLine2": null,
+    "bankAccount": null,
+    "cashAccounting": false,
+    "numberingPattern": null,
+    "nextNumber": null,
+    "nextNumberPeriod": null,
+    "nip": "1111111111",
+    "isComplete": false,
+    "nextNumberPreview": null,
+    "ksefEnvironment": "Test"
+  },
+  "POST /api/tenants/{id}/issued-invoices": {
+    "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "status": "Draft",
+    "number": null,
+    "seller": {
+      "nip": "1111111111",
+      "name": "Firma Testowa Sp. z o.o.",
+      "addressLine1": "ul. Testowa 1",
+      "addressLine2": "00-001 Warszawa",
+      "bankAccount": "61109010140000071219812874",
+      "cashAccounting": false,
+      "iban": null,
+      "swift": null,
+      "bankName": null
+    },
+    "buyer": {
+      "kind": "Company",
+      "nip": "1234567890",
+      "name": "Nabywca Testowy",
+      "addressLine1": "ul. Przykladowa 2",
+      "addressLine2": "00-002 Warszawa",
+      "countryCode": null,
+      "idType": null,
+      "foreignId": null
+    },
+    "issueDate": "2026-11-05",
+    "saleDate": "2026-11-04",
+    "dueDate": "2026-11-19",
+    "paymentMethod": "Transfer",
+    "splitPayment": false,
+    "exemptionBasis": {
+      "kind": "Act",
+      "text": "art. 113 ust. 1 ustawy o VAT"
+    },
+    "lines": [
+      {
+        "lineNo": 1,
+        "name": "Usluga testowa",
+        "unit": "szt.",
+        "quantity": 2.5,
+        "unitNetPrice": 400.20,
+        "vatRate": "zw",
+        "netAmount": 1000.50,
+        "vatAmount": 0
+      }
+    ],
+    "vatSummary": [
+      {
+        "vatRate": "zw",
+        "net": 1000.50,
+        "vat": 0
+      }
+    ],
+    "totalNet": 1000.50,
+    "totalVat": 0,
+    "totalGross": 1000.50,
+    "currency": "PLN",
+    "ksef": {
+      "environment": "Test",
+      "ksefNumber": null,
+      "acceptedAt": null,
+      "statusCode": null,
+      "statusMessage": null,
+      "statusDetails": null,
+      "lastError": null,
+      "verificationUrl": null,
+      "hasUpo": false,
+      "duplicateKsefNumber": null
+    },
+    "createdAt": "2026-11-05T09:00:00Z",
+    "updatedAt": "2026-11-05T09:00:00Z",
+    "issuedAt": null,
+    "exchangeRate": null,
+    "exchangeRateDate": null,
+    "version": 1
+  },
+  "GET /api/tenants/{id}/issued-invoices/{invoiceId}": {
+    "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "status": "Accepted",
+    "number": "FV/13/11/2026",
+    "seller": {
+      "nip": "1111111111",
+      "name": "Firma Testowa Sp. z o.o.",
+      "addressLine1": "ul. Testowa 1",
+      "addressLine2": "00-001 Warszawa",
+      "bankAccount": null,
+      "cashAccounting": true,
+      "iban": "PL61109010140000071219812874",
+      "swift": "TESTPLPW",
+      "bankName": "Bank Testowy"
+    },
+    "buyer": {
+      "kind": "Foreign",
+      "nip": null,
+      "name": "Example GmbH",
+      "addressLine1": "Beispielstrasse 1",
+      "addressLine2": "10115 Berlin",
+      "countryCode": "DE",
+      "idType": "VatUe",
+      "foreignId": "DE000000000"
+    },
+    "issueDate": "2026-11-05",
+    "saleDate": "2026-11-05",
+    "dueDate": "2026-11-19",
+    "paymentMethod": "Transfer",
+    "splitPayment": false,
+    "exemptionBasis": {
+      "kind": "Directive",
+      "text": "art. 138 dyrektywy 2006/112/WE"
+    },
+    "lines": [
+      {
+        "lineNo": 1,
+        "name": "Usluga testowa",
+        "unit": null,
+        "quantity": 1,
+        "unitNetPrice": 100.00,
+        "vatRate": "np",
+        "netAmount": 100.00,
+        "vatAmount": 0
+      }
+    ],
+    "vatSummary": [
+      {
+        "vatRate": "np",
+        "net": 100.00,
+        "vat": 0
+      }
+    ],
+    "totalNet": 100.00,
+    "totalVat": 0,
+    "totalGross": 100.00,
+    "currency": "EUR",
+    "ksef": {
+      "environment": "Test",
+      "ksefNumber": "1111111111-20261105-0F1E2D000000-33",
+      "acceptedAt": "2026-11-05T09:05:00Z",
+      "statusCode": 200,
+      "statusMessage": "Sukces",
+      "statusDetails": null,
+      "lastError": null,
+      "verificationUrl": "https://ksef-test.example.com/verify/1",
+      "hasUpo": true,
+      "duplicateKsefNumber": null
+    },
+    "createdAt": "2026-11-05T09:00:00Z",
+    "updatedAt": "2026-11-05T09:05:00Z",
+    "issuedAt": "2026-11-05T09:04:00Z",
+    "exchangeRate": 4.2512,
+    "exchangeRateDate": "2026-11-04",
+    "version": 3
+  },
+  "POST /api/tenants/{id}/issued-invoices/{invoiceId}/copy": {
+    "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    "status": "Draft",
+    "number": null,
+    "seller": {
+      "nip": "1111111111",
+      "name": "Firma Testowa Sp. z o.o.",
+      "addressLine1": "ul. Testowa 1",
+      "addressLine2": null,
+      "bankAccount": null,
+      "cashAccounting": false,
+      "iban": null,
+      "swift": null,
+      "bankName": null
+    },
+    "buyer": {
+      "kind": "Person",
+      "nip": null,
+      "name": "Jan Testowy",
+      "addressLine1": null,
+      "addressLine2": null,
+      "countryCode": null,
+      "idType": null,
+      "foreignId": null
+    },
+    "issueDate": "2026-11-06",
+    "saleDate": "2026-11-06",
+    "dueDate": "2026-11-20",
+    "paymentMethod": "Cash",
+    "splitPayment": false,
+    "exemptionBasis": {
+      "kind": "Act",
+      "text": "art. 43 ust. 1 pkt 1 ustawy o VAT"
+    },
+    "lines": [
+      {
+        "lineNo": 1,
+        "name": "Towar testowy",
+        "unit": "kg",
+        "quantity": 3,
+        "unitNetPrice": 10.00,
+        "vatRate": "zw",
+        "netAmount": 30.00,
+        "vatAmount": 0
+      }
+    ],
+    "vatSummary": [
+      {
+        "vatRate": "zw",
+        "net": 30.00,
+        "vat": 0
+      }
+    ],
+    "totalNet": 30.00,
+    "totalVat": 0,
+    "totalGross": 30.00,
+    "currency": "PLN",
+    "ksef": {
+      "environment": "Test",
+      "ksefNumber": null,
+      "acceptedAt": null,
+      "statusCode": null,
+      "statusMessage": null,
+      "statusDetails": null,
+      "lastError": null,
+      "verificationUrl": null,
+      "hasUpo": false,
+      "duplicateKsefNumber": null
+    },
+    "createdAt": "2026-11-06T08:00:00Z",
+    "updatedAt": "2026-11-06T08:00:00Z",
+    "issuedAt": null,
+    "exchangeRate": null,
+    "exchangeRateDate": null,
+    "version": 1
+  },
+  "POST /api/tenants/{id}/issued-invoices/{invoiceId}/issue": {
+    "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    "status": "Rejected",
+    "number": "FV/13/11/2026",
+    "seller": {
+      "nip": "1111111111",
+      "name": "Firma Testowa Sp. z o.o.",
+      "addressLine1": "ul. Testowa 1",
+      "addressLine2": "00-001 Warszawa",
+      "bankAccount": "61109010140000071219812874",
+      "cashAccounting": false,
+      "iban": null,
+      "swift": null,
+      "bankName": null
+    },
+    "buyer": {
+      "kind": "Company",
+      "nip": "1234567890",
+      "name": "Nabywca Testowy",
+      "addressLine1": "ul. Przykladowa 2",
+      "addressLine2": "00-002 Warszawa",
+      "countryCode": null,
+      "idType": null,
+      "foreignId": null
+    },
+    "issueDate": "2026-11-05",
+    "saleDate": "2026-11-04",
+    "dueDate": "2026-11-19",
+    "paymentMethod": "Transfer",
+    "splitPayment": true,
+    "exemptionBasis": {
+      "kind": "Other",
+      "text": "Podstawa testowa"
+    },
+    "lines": [
+      {
+        "lineNo": 1,
+        "name": "Usluga testowa",
+        "unit": "szt.",
+        "quantity": 2.5,
+        "unitNetPrice": 400.20,
+        "vatRate": "23",
+        "netAmount": 1000.50,
+        "vatAmount": 230.12
+      }
+    ],
+    "vatSummary": [
+      {
+        "vatRate": "23",
+        "net": 1000.50,
+        "vat": 230.12
+      }
+    ],
+    "totalNet": 1000.50,
+    "totalVat": 230.12,
+    "totalGross": 1230.62,
+    "currency": "PLN",
+    "ksef": {
+      "environment": "Test",
+      "ksefNumber": null,
+      "acceptedAt": null,
+      "statusCode": 440,
+      "statusMessage": "Duplikat faktury",
+      "statusDetails": "Faktura o tym numerze juz istnieje.",
+      "lastError": "Duplikat faktury",
+      "verificationUrl": null,
+      "hasUpo": false,
+      "duplicateKsefNumber": "1111111111-20261104-0A0B0C000000-44"
+    },
+    "createdAt": "2026-11-05T09:00:00Z",
+    "updatedAt": "2026-11-05T09:10:00Z",
+    "issuedAt": "2026-11-05T09:09:00Z",
+    "exchangeRate": null,
+    "exchangeRateDate": null,
+    "version": 4
+  },
+  "GET /api/tenants/{id}/issued-invoices": {
+    "items": [
+      {
+        "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "status": "Accepted",
+        "number": "FV/13/11/2026",
+        "buyerName": "Example GmbH",
+        "buyerNip": null,
+        "issueDate": "2026-11-05",
+        "dueDate": "2026-11-19",
+        "totalNet": 100.00,
+        "totalGross": 100.00,
+        "currency": "EUR",
+        "ksefNumber": "1111111111-20261105-0F1E2D000000-33",
+        "buyerCountryCode": "DE",
+        "buyerIdType": "VatUe",
+        "buyerForeignId": "DE000000000"
+      },
+      {
+        "id": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        "status": "Draft",
+        "number": null,
+        "buyerName": "Nabywca Testowy",
+        "buyerNip": "1234567890",
+        "issueDate": "2026-11-06",
+        "dueDate": "2026-11-20",
+        "totalNet": 1000.50,
+        "totalGross": 1230.62,
+        "currency": "PLN",
+        "ksefNumber": null,
+        "buyerCountryCode": null,
+        "buyerIdType": null,
+        "buyerForeignId": null
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "totalCount": 21
+  },
+  "GET /api/nip-lookup/{nip}": {
+    "nip": "1111111111",
+    "name": "Firma Testowa Sp. z o.o.",
+    "addressLine1": "ul. Testowa 1",
+    "addressLine2": null,
+    "vatStatus": "Czynny",
+    "bankAccounts": [
+      "61109010140000071219812874",
+      "27114020040000300201355387"
+    ]
+  },
+  "GET /api/nip-lookup/{nip} (invalid)": {
+    "errors": [
+      {
+        "code": "NIP-001",
+        "field": "nip",
+        "message": "Nieprawidlowy NIP."
+      },
+      {
+        "code": "NIP-002",
+        "field": null,
+        "message": "Brak danych."
+      }
+    ]
   }
 }
