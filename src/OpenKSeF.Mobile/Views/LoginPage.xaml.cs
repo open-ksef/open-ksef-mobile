@@ -13,10 +13,25 @@ public partial class LoginPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+#if ANDROID
+        Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.UseWindowSoftInputModeAdjust(
+            Microsoft.Maui.Controls.Application.Current!.On<Microsoft.Maui.Controls.PlatformConfiguration.Android>(),
+            Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Resize);
+#endif
         if (BindingContext is LoginViewModel vm)
         {
             vm.RefreshServerSettings();
             _ = vm.RestoreSessionAsync();
         }
     }
+
+#if ANDROID
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.Application.UseWindowSoftInputModeAdjust(
+            Microsoft.Maui.Controls.Application.Current!.On<Microsoft.Maui.Controls.PlatformConfiguration.Android>(),
+            Microsoft.Maui.Controls.PlatformConfiguration.AndroidSpecific.WindowSoftInputModeAdjust.Pan);
+    }
+#endif
 }
