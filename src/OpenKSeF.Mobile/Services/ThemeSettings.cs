@@ -17,4 +17,19 @@ public static class ThemeSettings
         "Dark" => AppTheme.Dark,
         _ => AppTheme.Unspecified,
     };
+
+    public static void Apply(string choice)
+    {
+        Application.Current!.UserAppTheme = ToAppTheme(choice);
+#if ANDROID
+        if (OperatingSystem.IsAndroidVersionAtLeast(31))
+            ((Android.App.UiModeManager)Android.App.Application.Context.GetSystemService(Android.Content.Context.UiModeService)!)
+                .SetApplicationNightMode(choice switch
+                {
+                    "Light" => (int)Android.App.UiNightMode.No,
+                    "Dark" => (int)Android.App.UiNightMode.Yes,
+                    _ => (int)Android.App.UiNightMode.Auto,
+                });
+#endif
+    }
 }

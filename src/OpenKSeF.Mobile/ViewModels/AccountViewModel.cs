@@ -53,7 +53,7 @@ public partial class AccountViewModel : ObservableObject
     partial void OnThemeChoiceChanged(string value)
     {
         ThemeSettings.Save(value);
-        Application.Current!.UserAppTheme = ThemeSettings.ToAppTheme(value);
+        ThemeSettings.Apply(value);
     }
 
     [RelayCommand]

@@ -1,6 +1,7 @@
 #if ANDROID
 using CommunityToolkit.Maui.Core;
 using CommunityToolkit.Maui.Core.Platform;
+using Microsoft.Maui.Platform;
 #endif
 using OpenKSeF.Mobile.Views;
 
@@ -35,6 +36,10 @@ public partial class AppShell : Shell
         var onGradient = Shell.Current?.CurrentPage is null or { Background: LinearGradientBrush };
         StatusBar.SetColor((Color)Application.Current.Resources[onGradient ? "GradientStart" : dark ? "UiSurfaceDark" : "UiSurface"]);
         StatusBar.SetStyle(onGradient || dark ? StatusBarStyle.LightContent : StatusBarStyle.DarkContent);
+        if (Platform.CurrentActivity?.Window is not { } window)
+            return;
+        window.SetBackgroundDrawable(new Android.Graphics.Drawables.ColorDrawable(((Color)Application.Current.Resources[dark ? "UiSurfaceDark" : "UiSurface"]).ToPlatform()));
+        AndroidX.Core.View.WindowCompat.GetInsetsController(window, window.DecorView).AppearanceLightNavigationBars = !dark;
     }
 #endif
 }
