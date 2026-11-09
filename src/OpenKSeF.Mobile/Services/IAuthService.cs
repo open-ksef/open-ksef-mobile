@@ -27,7 +27,7 @@ public interface IAuthService
     /// <summary>Null when no deferred logout is left or Keycloak ended that session; throws when the server is unreachable.</summary>
     Task<string?> GetDeferredLogoutAccessTokenAsync(string signOutId, CancellationToken cancellationToken);
 
-    /// <summary>False when Keycloak gave no answer; the refresh token is then kept unless <paramref name="dropOnFailure"/>.</summary>
+    /// <summary>True only when Keycloak logout returns 2xx or invalid_grant; otherwise the refresh token is kept unless <paramref name="dropOnFailure"/>.</summary>
     Task<bool> CompleteDeferredLogoutAsync(string signOutId, bool dropOnFailure = false);
     Task<string?> GetAccessTokenAsync();
     Task<string?> RefreshAccessTokenAsync();
