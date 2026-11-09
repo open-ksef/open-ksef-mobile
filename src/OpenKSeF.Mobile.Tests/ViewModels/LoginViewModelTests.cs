@@ -445,8 +445,8 @@ public class PostLoginNavigationServiceTests
         OnboardingComplete(true);
         var post = new TaskCompletionSource();
         _api.GetDevicesAsync().Returns(new List<DeviceTokenDto>());
-        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>()).Returns(post.Task);
-        var devices = new DeviceTokenService(_api);
+        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>(), Arg.Any<CancellationToken>()).Returns(post.Task);
+        var devices = new DeviceTokenService(_api, _auth);
         var serverSettings = Substitute.For<IServerSettingsService>();
         var login = new PostLoginNavigationService(_api, _auth, devices, _notificationHub, serverSettings, _localDb);
         var account = new PostLoginNavigationService(_api, _auth, devices, _notificationHub, serverSettings, _localDb);
@@ -478,7 +478,9 @@ public class PostLoginNavigationServiceTests
             await _nav.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(10));
 
             Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1.4), $"sign-out took {watch.Elapsed}");
-            await _auth.Received(1).LogoutAsync();
+            await _auth.Received(1).DeferLogoutAsync();
+            await _auth.DidNotReceive().LogoutAsync();
+            await _deviceTokenService.Received(1).CompleteSignOutCleanupAsync();
         }
         finally
         {

@@ -22,7 +22,7 @@ public class MobileContractTests
     private const string IssuedDetail = "GET /api/tenants/{id}/issued-invoices/{invoiceId}";
     private const string NipLookup = "GET /api/nip-lookup/{nip}";
     private const string NipLookupInvalid = "GET /api/nip-lookup/{nip} (invalid)";
-    private const string GoldenSha256 = "2AB206B8B7D16DF309A245125793AE598503898CB67C8860D7D222BE8A2D1EDC";
+    private const string GoldenSha256 = "46F925DC98F831B500A091C169CCD0577532ED363B3DFF38DC52825822427EE2";
 
     private static readonly JsonObject Golden = Load("responses.json");
     private static readonly JsonObject Payloads = Load("payloads.json");
@@ -61,6 +61,18 @@ public class MobileContractTests
         var mapped = GoldenTypes.Select(row => (string)row[0]).Append("SignalR ReceiveNotification");
 
         Assert.Equal(Golden.Select(p => p.Key).Order(), mapped.Order());
+    }
+
+    [Fact]
+    public void GoldenHubArguments_BindToNotificationPayload()
+    {
+        var missing = Golden["SignalR ReceiveNotification"]!.AsObject()
+            .Select(f => f.Key)
+            .Where(path => path.StartsWith("arguments[].") && !path.StartsWith("arguments[].data."))
+            .Where(path => Resolve(typeof(NotificationHubService.NotificationPayload), path["arguments[].".Length..]) is null)
+            .ToList();
+
+        Assert.Empty(missing);
     }
 
     [Theory]

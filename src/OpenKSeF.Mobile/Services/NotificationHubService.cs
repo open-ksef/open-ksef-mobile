@@ -75,13 +75,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
             .WithAutomaticReconnect(new RetryPolicy())
             .Build();
 
-        _connection.On<NotificationPayload>("ReceiveNotification", payload =>
-        {
-            _logger.LogDebug("SignalR notification received: {Title}", payload.Title);
-            NotificationReceived?.Invoke(payload.Title, payload.Body, payload.Data);
-            if (_deviceTokenService.ShowHubNotification)
-                ShowLocalNotification(payload.Title, payload.Body, payload.Data);
-        });
+        _connection.On<NotificationPayload>("ReceiveNotification", payload => Receive(payload));
 
         _connection.Closed += async (error) =>
         {
@@ -141,6 +135,17 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
                 delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, maxDelay.TotalSeconds));
             }
         }
+    }
+
+    internal bool Receive(NotificationPayload payload)
+    {
+        _logger.LogDebug("SignalR notification received: {Title}", payload.Title);
+        NotificationReceived?.Invoke(payload.Title, payload.Body, payload.Data);
+        if (!_deviceTokenService.ShowHubNotification(payload.NativePush))
+            return false;
+
+        ShowLocalNotification(payload.Title, payload.Body, payload.Data);
+        return true;
     }
 
     /// <summary>The backend sends one event over SignalR and FCM/APNs; the same key replaces the shown notification instead of adding a second one.</summary>
@@ -203,7 +208,8 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    private sealed record NotificationPayload(string Title, string Body, Dictionary<string, string>? Data);
+    /// <summary>NativePush is null from an API older than T-618: the local notification is shown, a duplicate beats none.</summary>
+    internal sealed record NotificationPayload(string Title, string Body, Dictionary<string, string>? Data, bool? NativePush = null);
 
     private sealed class RetryPolicy : IRetryPolicy
     {

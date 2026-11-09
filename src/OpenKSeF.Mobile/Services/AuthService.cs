@@ -200,22 +200,82 @@ public class AuthService : IAuthService
         ClearTokens();
 
         if (refreshToken is not null)
+            await PostLogoutAsync(refreshToken);
+    }
+
+    public async Task DeferLogoutAsync()
+    {
+        EnsureConfiguration();
+
+        if (_refreshToken is null)
+            await TryLoadTokensAsync();
+
+        var refreshToken = _refreshToken;
+        ClearTokens();
+
+        if (refreshToken is not null)
+            await SecureStorage.Default.SetAsync(GetDeferredLogoutKey(), refreshToken);
+    }
+
+    public async Task<string?> GetDeferredLogoutAccessTokenAsync()
+    {
+        EnsureConfiguration();
+
+        var refreshToken = await SecureStorage.Default.GetAsync(GetDeferredLogoutKey());
+        if (refreshToken is null)
+            return null;
+
+        using var response = await _httpClient.PostAsync(
+            $"{_authority}/protocol/openid-connect/token",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = _options.ClientId,
+                ["refresh_token"] = refreshToken
+            }));
+
+        if (response.StatusCode == HttpStatusCode.BadRequest
+            && (await response.Content.ReadFromJsonAsync<ErrorResponse>())?.Error == "invalid_grant")
         {
-            try
-            {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-                using var response = await _httpClient.PostAsync(
-                    $"{_authority}/protocol/openid-connect/logout",
-                    new FormUrlEncodedContent(new Dictionary<string, string>
-                    {
-                        ["client_id"] = _options.ClientId,
-                        ["refresh_token"] = refreshToken
-                    }),
-                    cts.Token);
-            }
-            catch
-            {
-            }
+            SecureStorage.Default.Remove(GetDeferredLogoutKey());
+            return null;
+        }
+
+        response.EnsureSuccessStatusCode();
+        var tokens = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>()
+            ?? throw new HttpRequestException("empty token response");
+        if (tokens.RefreshToken is not null)
+            await SecureStorage.Default.SetAsync(GetDeferredLogoutKey(), tokens.RefreshToken);
+
+        return tokens.AccessToken;
+    }
+
+    public async Task CompleteDeferredLogoutAsync()
+    {
+        EnsureConfiguration();
+
+        var refreshToken = await SecureStorage.Default.GetAsync(GetDeferredLogoutKey());
+        SecureStorage.Default.Remove(GetDeferredLogoutKey());
+        if (refreshToken is not null)
+            await PostLogoutAsync(refreshToken);
+    }
+
+    private async Task PostLogoutAsync(string refreshToken)
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var response = await _httpClient.PostAsync(
+                $"{_authority}/protocol/openid-connect/logout",
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["client_id"] = _options.ClientId,
+                    ["refresh_token"] = refreshToken
+                }),
+                cts.Token);
+        }
+        catch
+        {
         }
     }
 
@@ -436,6 +496,7 @@ public class AuthService : IAuthService
     private string GetAccessTokenKey() => $"{_storagePrefix}:access_token";
     private string GetRefreshTokenKey() => $"{_storagePrefix}:refresh_token";
     private string GetTokenExpiryKey() => $"{_storagePrefix}:token_expiry";
+    private string GetDeferredLogoutKey() => $"{_storagePrefix}:deferred_logout_refresh_token";
 
     private sealed class KeycloakTokenResponse
     {

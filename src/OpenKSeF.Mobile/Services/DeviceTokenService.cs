@@ -12,13 +12,21 @@ public class DeviceTokenService : IDeviceTokenService
     private const string DeviceRegisteredKey = "device_registered";
     private const string DeviceIdKey = "device_stable_id";
     private const string PushDisabledKey = "push_disabled_by_user";
+    private const string PendingSignOutKey = "pending_signout_tokens";
 
     private readonly IApiService _apiService;
+    private readonly IAuthService _authService;
+    private readonly object _gate = new();
+    private readonly HashSet<string> _posting = [];
     private Task _registration = Task.CompletedTask;
+    private Task _cleanup = Task.CompletedTask;
+    private CancellationTokenSource? _session;
+    private bool _postAbandoned;
 
-    public DeviceTokenService(IApiService apiService)
+    public DeviceTokenService(IApiService apiService, IAuthService authService)
     {
         _apiService = apiService;
+        _authService = authService;
     }
 
     public bool PushDisabledByUser => Preferences.Default.Get(PushDisabledKey, false);
@@ -26,12 +34,22 @@ public class DeviceTokenService : IDeviceTokenService
     public bool PushRemovalPending =>
         PushDisabledByUser && !string.IsNullOrEmpty(Preferences.Default.Get(TokenStorageKey, string.Empty));
 
-    public bool ShowHubNotification =>
+    public bool SignOutCleanupPending => Preferences.Default.ContainsKey(PendingSignOutKey);
+
+    public bool ShowHubNotification(bool? nativePush) =>
         !PushDisabledByUser
-        && (Preferences.Default.Get(TokenStorageKey, string.Empty) is not { Length: > 0 } token
+        && (nativePush != true
+            || Preferences.Default.Get(TokenStorageKey, string.Empty) is not { Length: > 0 } token
             || token == Preferences.Default.Get(DeviceIdKey, string.Empty));
 
-    public async Task RegisterTokenAsync(string token, string platform)
+    public Task RegisterTokenAsync(string token, string platform) =>
+        Enqueue(async ct =>
+        {
+            await RegisterTokenAsync(token, platform, ct);
+            return true;
+        });
+
+    private async Task RegisterTokenAsync(string token, string platform, CancellationToken ct)
     {
         if (PushDisabledByUser)
             return;
@@ -48,12 +66,12 @@ public class DeviceTokenService : IDeviceTokenService
 
             // TenantId = null: the device gets pushes for all of the user's companies.
             // Per-company scoping is an explicit choice made in the portal.
-            await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
+            await PostAsync(new RegisterDeviceTokenRequest
             {
                 Token = token,
                 Platform = ParsePlatform(platform),
                 TenantId = null
-            });
+            }, ct);
 
             await SaveRegistrationAsync(token, platform);
         }
@@ -90,9 +108,14 @@ public class DeviceTokenService : IDeviceTokenService
         }
     }
 
-    public Task EnsureDeviceRegisteredAsync() => _registration = EnsureRegisteredAsync();
+    public Task EnsureDeviceRegisteredAsync() =>
+        Enqueue(async ct =>
+        {
+            await EnsureRegisteredAsync(ct);
+            return true;
+        });
 
-    private async Task EnsureRegisteredAsync()
+    private async Task EnsureRegisteredAsync(CancellationToken ct)
     {
         if (PushDisabledByUser)
         {
@@ -106,7 +129,7 @@ public class DeviceTokenService : IDeviceTokenService
             if (!string.IsNullOrWhiteSpace(nativeToken))
             {
                 var nativePlatform = DeviceInfo.Platform == DevicePlatform.Android ? "Android" : "iOS";
-                await RegisterTokenAsync(nativeToken, nativePlatform);
+                await RegisterTokenAsync(nativeToken, nativePlatform, ct);
                 return;
             }
 
@@ -117,12 +140,12 @@ public class DeviceTokenService : IDeviceTokenService
 
             var deviceId = GetOrCreateDeviceId();
 
-            await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
+            await PostAsync(new RegisterDeviceTokenRequest
             {
                 Token = deviceId,
                 Platform = platformInt,
                 TenantId = null
-            });
+            }, ct);
 
             await SaveRegistrationAsync(deviceId, GetCurrentPlatformName());
         }
@@ -145,26 +168,29 @@ public class DeviceTokenService : IDeviceTokenService
         if (status != PermissionStatus.Granted)
             return false;
 
-        var platformInt = GetCurrentPlatform();
-
-        var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-        var nativeToken = await TryGetNativePushTokenAsync();
-        var token = !string.IsNullOrWhiteSpace(nativeToken)
-            ? nativeToken
-            : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
-
-        await _apiService.RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest
+        return await Enqueue(async ct =>
         {
-            Token = token,
-            Platform = platformInt,
-            TenantId = null
-        });
+            var platformInt = GetCurrentPlatform();
 
-        Preferences.Default.Set(TokenStorageKey, token);
-        Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
-        Preferences.Default.Set(DeviceRegisteredKey, true);
-        Preferences.Default.Remove(PushDisabledKey);
-        return true;
+            var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
+            var nativeToken = await TryGetNativePushTokenAsync();
+            var token = !string.IsNullOrWhiteSpace(nativeToken)
+                ? nativeToken
+                : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
+
+            await PostAsync(new RegisterDeviceTokenRequest
+            {
+                Token = token,
+                Platform = platformInt,
+                TenantId = null
+            }, ct);
+
+            Preferences.Default.Set(TokenStorageKey, token);
+            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
+            Preferences.Default.Set(DeviceRegisteredKey, true);
+            Preferences.Default.Remove(PushDisabledKey);
+            return true;
+        });
     }
 
     public async Task<bool> AreNotificationsEnabledAsync()
@@ -187,12 +213,93 @@ public class DeviceTokenService : IDeviceTokenService
         return true;
     }
 
+    /// <summary>Leaves the device tokens saved for <see cref="CompleteSignOutCleanupAsync"/> until removal is confirmed: a POST cancelled in flight or still running may land on the server after the delete.</summary>
     public async Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken)
     {
+        HashSet<string> tokens;
+        lock (_gate)
+        {
+            _postAbandoned = false;
+            _session?.Cancel();
+            _session = null;
+            tokens = StoredTokens();
+            tokens.UnionWith(_posting);
+            tokens.UnionWith(PendingTokens());
+            _posting.Clear();
+        }
+        tokens.Remove(string.Empty);
+        Preferences.Default.Set(PendingSignOutKey, string.Join('\n', tokens));
+
         try { await _registration.WaitAsync(cancellationToken); } catch { }
-        var tokens = StoredTokens();
+        var settled = _registration.IsCompleted;
         RemoveTokenKeys();
-        await TryDeleteServerDevicesAsync(tokens, cancellationToken);
+
+        if (await TryDeleteServerDevicesAsync(tokens, cancellationToken) && settled && !_postAbandoned)
+            Preferences.Default.Remove(PendingSignOutKey);
+    }
+
+    public Task CompleteSignOutCleanupAsync()
+    {
+        lock (_gate)
+            return _cleanup.IsCompleted ? _cleanup = RunSignOutCleanupAsync() : _cleanup;
+    }
+
+    private async Task RunSignOutCleanupAsync()
+    {
+        await Task.Yield();
+        try { await _registration; } catch { }
+        if (_postAbandoned)
+            return;
+
+        try
+        {
+            var accessToken = await _authService.GetDeferredLogoutAccessTokenAsync();
+            if (accessToken is not null)
+                await DeleteServerDevicesAsync(PendingTokens(), CancellationToken.None, accessToken);
+
+            await _authService.CompleteDeferredLogoutAsync();
+            Preferences.Default.Remove(PendingSignOutKey);
+        }
+        catch
+        {
+            // Offline: the next app start retries.
+        }
+    }
+
+    private Task<T> Enqueue<T>(Func<CancellationToken, Task<T>> work)
+    {
+        lock (_gate)
+        {
+            var ct = (_session ??= new CancellationTokenSource()).Token;
+            var task = RunAfterAsync(_registration, work, ct);
+            _registration = task;
+            return task;
+        }
+    }
+
+    private static async Task<T> RunAfterAsync<T>(Task previous, Func<CancellationToken, Task<T>> work, CancellationToken ct)
+    {
+        try { await previous; } catch { }
+        ct.ThrowIfCancellationRequested();
+        return await work(ct);
+    }
+
+    private async Task PostAsync(RegisterDeviceTokenRequest request, CancellationToken ct)
+    {
+        lock (_gate)
+            _posting.Add(request.Token);
+
+        try
+        {
+            await _apiService.RegisterDeviceTokenAsync(request, ct);
+        }
+        catch when (ct.IsCancellationRequested)
+        {
+            _postAbandoned = true;
+            throw;
+        }
+
+        ct.ThrowIfCancellationRequested();
     }
 
     // Registration no longer blocks login, so the user can turn push off while the POST is in flight.
@@ -210,6 +317,9 @@ public class DeviceTokenService : IDeviceTokenService
         Preferences.Default.Get(TokenStorageKey, string.Empty),
         Preferences.Default.Get(DeviceIdKey, string.Empty)
     ];
+
+    private static HashSet<string> PendingTokens() =>
+        Preferences.Default.Get(PendingSignOutKey, string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
 
     private static void RemoveTokenKeys()
     {
@@ -233,7 +343,7 @@ public class DeviceTokenService : IDeviceTokenService
         }
     }
 
-    private async Task DeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken limit)
+    private async Task DeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken limit, string? accessToken = null)
     {
         tokens.Remove(string.Empty);
         if (tokens.Count == 0 && await TryGetNativePushTokenAsync().WaitAsync(limit) is { Length: > 0 } nativeToken)
@@ -242,11 +352,11 @@ public class DeviceTokenService : IDeviceTokenService
         if (tokens.Count == 0)
             return;
 
-        var devices = await _apiService.GetDevicesAsync();
+        var devices = await _apiService.GetDevicesAsync(accessToken);
         foreach (var device in devices.Where(d => tokens.Contains(d.Token)))
         {
             limit.ThrowIfCancellationRequested();
-            await _apiService.UnregisterDeviceAsync(device.Id);
+            await _apiService.UnregisterDeviceAsync(device.Id, accessToken);
         }
     }
 

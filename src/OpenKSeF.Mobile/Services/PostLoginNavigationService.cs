@@ -31,6 +31,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
     public async Task RestoreSessionAsync()
     {
+        _ = _deviceTokenService.CompleteSignOutCleanupAsync();
         switch (await _authService.RestoreSessionAsync())
         {
             case SessionRestoreResult.Restored:
@@ -110,10 +111,24 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         {
             using var limit = new CancellationTokenSource(SignOutLimit);
             try { await _notificationHub.StopAsync().WaitAsync(limit.Token); } catch { }
-            try { await _deviceTokenService.UnregisterCurrentDeviceAsync(limit.Token).WaitAsync(limit.Token); } catch { }
+            var unregistered = false;
+            try
+            {
+                await _deviceTokenService.UnregisterCurrentDeviceAsync(limit.Token).WaitAsync(limit.Token);
+                unregistered = !_deviceTokenService.SignOutCleanupPending;
+            }
+            catch { }
             try { await _localDb.ClearUserDataAsync(); } catch { }
             ClearCacheDirectory();
-            await _authService.LogoutAsync();
+            if (unregistered)
+            {
+                await _authService.LogoutAsync();
+            }
+            else
+            {
+                await _authService.DeferLogoutAsync();
+                _ = _deviceTokenService.CompleteSignOutCleanupAsync();
+            }
         }
         finally
         {

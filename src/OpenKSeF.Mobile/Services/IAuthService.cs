@@ -20,6 +20,14 @@ public interface IAuthService
     Task<AuthResult> LoginWithGoogleAsync();
     Task<AuthResult> RegisterAsync(string email, string password, string? firstName, string? lastName);
     Task LogoutAsync();
+
+    /// <summary>Signs out locally and keeps the refresh token only for the device cleanup; the Keycloak logout waits for <see cref="CompleteDeferredLogoutAsync"/>.</summary>
+    Task DeferLogoutAsync();
+
+    /// <summary>Null when no deferred logout is left or Keycloak ended that session; throws when the server is unreachable.</summary>
+    Task<string?> GetDeferredLogoutAccessTokenAsync();
+
+    Task CompleteDeferredLogoutAsync();
     Task<string?> GetAccessTokenAsync();
     Task<string?> RefreshAccessTokenAsync();
     Task<SessionRestoreResult> RestoreSessionAsync();
