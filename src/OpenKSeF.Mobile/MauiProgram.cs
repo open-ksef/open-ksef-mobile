@@ -108,9 +108,9 @@ public static class MauiProgram
         });
 
         // The native underline follows the Android night config, which can disagree with the MAUI theme, so tint the AndroidX line layer MAUI adds.
-        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, entry) =>
+        static void TintUnderline(Android.Views.View view)
         {
-            if (handler.PlatformView.Background is not Android.Graphics.Drawables.LayerDrawable { NumberOfLayers: 2 } layers)
+            if (view.Background is not Android.Graphics.Drawables.LayerDrawable { NumberOfLayers: 2 } layers)
                 return;
 
             var app = Microsoft.Maui.Controls.Application.Current!;
@@ -119,7 +119,11 @@ public static class MauiProgram
             var focused = ((Color)app.Resources[dark ? "UiPrimaryDark" : "UiPrimary"]).ToInt();
             layers.GetDrawable(1)!.Mutate().SetTintList(new Android.Content.Res.ColorStateList(
                 [[Android.Resource.Attribute.StateFocused], []], [focused, line]));
-        });
+        }
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, _) => TintUnderline(handler.PlatformView));
+        Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, _) => TintUnderline(handler.PlatformView));
+        Microsoft.Maui.Handlers.PickerHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, _) => TintUnderline(handler.PlatformView));
+        Microsoft.Maui.Handlers.DatePickerHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, _) => TintUnderline(handler.PlatformView));
 
         // Runs once per handler. The IsChecked mapping below runs on every change, and setting the state description makes TalkBack announce it.
         Microsoft.Maui.Handlers.RadioButtonHandler.Mapper.AppendToMapping("CheckableAccessibility", (handler, radio) =>

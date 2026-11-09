@@ -1107,7 +1107,7 @@ public class AuthServiceRestoreTests
     private IDeviceTokenService DeviceRefreshingOnUnregister()
     {
         var device = Substitute.For<IDeviceTokenService>();
-        device.UnregisterCurrentDeviceAsync().Returns(async _ => await _auth.GetAccessTokenAsync());
+        device.UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>()).Returns(async _ => await _auth.GetAccessTokenAsync());
         return device;
     }
 

@@ -9,6 +9,10 @@ namespace OpenKSeF.Mobile;
 public class CheckableRadioAccessibilityDelegate(AccessibilityDelegateCompat? original, IRadioButton radio)
     : AccessibilityDelegateCompatWrapper(original)
 {
+    // AccessibilityNodeInfoCompat.CHECKED_STATE_TRUE / CHECKED_STATE_FALSE; the binding does not expose them.
+    private const int CheckedStateTrue = 1;
+    private const int CheckedStateFalse = 0;
+
     public override void OnInitializeAccessibilityNodeInfo(AView? host, AccessibilityNodeInfoCompat? info)
     {
         base.OnInitializeAccessibilityNodeInfo(host, info);
@@ -17,6 +21,6 @@ public class CheckableRadioAccessibilityDelegate(AccessibilityDelegateCompat? or
 
         info.ClassName = "android.widget.RadioButton";
         info.Checkable = true;
-        info.Checked = radio.IsChecked;
+        info.Checked = radio.IsChecked ? CheckedStateTrue : CheckedStateFalse;
     }
 }

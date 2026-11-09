@@ -422,8 +422,81 @@ public class PostLoginNavigationServiceTests
         Received.InOrder(() =>
         {
             _notificationHub.StopAsync();
-            _deviceTokenService.UnregisterCurrentDeviceAsync();
+            _deviceTokenService.UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>());
             _auth.LogoutAsync();
         });
+    }
+
+    [Fact]
+    public async Task Navigate_RegistrationHangs_OpensInvoicesWithoutWaiting()
+    {
+        OnboardingComplete(true);
+        _deviceTokenService.EnsureDeviceRegisteredAsync().Returns(new TaskCompletionSource().Task);
+
+        await _nav.NavigateAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal("//main/invoices", Shell.Current.LastRoute);
+        await _notificationHub.Received(1).StartAsync();
+    }
+
+    [Fact]
+    public async Task SignOut_FromAnotherInstance_WaitsForPendingRegistration_ThenRemovesDevice()
+    {
+        OnboardingComplete(true);
+        var post = new TaskCompletionSource();
+        _api.GetDevicesAsync().Returns(new List<DeviceTokenDto>());
+        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>()).Returns(post.Task);
+        var devices = new DeviceTokenService(_api);
+        var serverSettings = Substitute.For<IServerSettingsService>();
+        var login = new PostLoginNavigationService(_api, _auth, devices, _notificationHub, serverSettings, _localDb);
+        var account = new PostLoginNavigationService(_api, _auth, devices, _notificationHub, serverSettings, _localDb);
+        await login.NavigateAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        var signOut = account.SignOutAsync();
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = Preferences.Default.Get("device_stable_id", "") };
+        _api.GetDevicesAsync().Returns([mine]);
+        post.SetResult();
+        await signOut.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+    }
+
+    [Fact]
+    public async Task SignOut_HubRegistrationAndUnregisterHang_ShareOneTimeBudget()
+    {
+        OnboardingComplete(true);
+        _deviceTokenService.EnsureDeviceRegisteredAsync().Returns(new TaskCompletionSource().Task);
+        _notificationHub.StopAsync().Returns(new TaskCompletionSource().Task);
+        _deviceTokenService.UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource().Task);
+        await _nav.NavigateAsync();
+
+        var limit = PostLoginNavigationService.SignOutLimit;
+        PostLoginNavigationService.SignOutLimit = TimeSpan.FromMilliseconds(500);
+        try
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            await _nav.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1.4), $"sign-out took {watch.Elapsed}");
+            await _auth.Received(1).LogoutAsync();
+        }
+        finally
+        {
+            PostLoginNavigationService.SignOutLimit = limit;
+        }
+    }
+
+    [Fact]
+    public async Task SignOut_RemovesCachedInvoiceTextFromDatabaseFile()
+    {
+        var tenantId = Guid.NewGuid();
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow, VendorName = "ZZTOPSECRETVENDORZZ" }]);
+
+        await _nav.SignOutAsync();
+
+        using var file = new FileStream(Path.Combine(FileSystem.AppDataDirectory, "openksef.db"), FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var copy = new MemoryStream();
+        file.CopyTo(copy);
+        Assert.DoesNotContain("ZZTOPSECRETVENDORZZ", System.Text.Encoding.UTF8.GetString(copy.ToArray()));
     }
 }

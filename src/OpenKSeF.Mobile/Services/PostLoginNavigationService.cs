@@ -2,6 +2,8 @@ namespace OpenKSeF.Mobile.Services;
 
 public class PostLoginNavigationService : IPostLoginNavigationService
 {
+    internal static TimeSpan SignOutLimit { get; set; } = TimeSpan.FromSeconds(15);
+
     private readonly IApiService _apiService;
     private readonly IAuthService _authService;
     private readonly IDeviceTokenService _deviceTokenService;
@@ -65,7 +67,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
         if (!needsOnboarding)
         {
-            try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
+            _ = RegisterDeviceAsync();
             _ = StartHubAsync();
         }
 
@@ -77,6 +79,11 @@ public class PostLoginNavigationService : IPostLoginNavigationService
                 await Shell.Current.GoToAsync("//main/invoices");
         }
         catch { }
+    }
+
+    private async Task RegisterDeviceAsync()
+    {
+        try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
     }
 
     private async Task StartHubAsync()
@@ -101,8 +108,9 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         _authService.LogoutUnderway = true;
         try
         {
-            try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
-            try { await _deviceTokenService.UnregisterCurrentDeviceAsync(); } catch { }
+            using var limit = new CancellationTokenSource(SignOutLimit);
+            try { await _notificationHub.StopAsync().WaitAsync(limit.Token); } catch { }
+            try { await _deviceTokenService.UnregisterCurrentDeviceAsync(limit.Token).WaitAsync(limit.Token); } catch { }
             try { await _localDb.ClearUserDataAsync(); } catch { }
             ClearCacheDirectory();
             await _authService.LogoutAsync();

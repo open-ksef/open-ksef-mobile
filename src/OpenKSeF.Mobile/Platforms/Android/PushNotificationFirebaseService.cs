@@ -49,7 +49,7 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
         if (notification is null)
             return;
 
-        ShowNotification(notification.Title ?? "OpenKSeF", notification.Body ?? string.Empty);
+        NotificationHubService.ShowLocalNotification(notification.Title ?? "OpenKSeF", notification.Body ?? string.Empty, message.Data);
     }
 
     private static async Task RegisterTokenAsync(string token)
@@ -64,41 +64,6 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
         {
             // Best-effort registration
         }
-    }
-
-    private void ShowNotification(string title, string body)
-    {
-        const string channelId = "openksef_invoices";
-
-        var notificationManager = (NotificationManager?)GetSystemService(NotificationService);
-        if (notificationManager is null)
-            return;
-
-        if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.O)
-        {
-            var channel = new NotificationChannel(channelId, "Faktury", NotificationImportance.Default)
-            {
-                Description = "Powiadomienia o nowych fakturach z KSeF"
-            };
-            notificationManager.CreateNotificationChannel(channel);
-        }
-
-        // Unique id per notification: several invoices in one sync must not overwrite each other
-        // or share a one-shot PendingIntent.
-        var notificationId = Random.Shared.Next();
-        var intent = new Intent(this, typeof(MainActivity));
-        intent.AddFlags(ActivityFlags.ClearTop);
-        var pendingIntent = PendingIntent.GetActivity(this, notificationId, intent,
-            PendingIntentFlags.OneShot | PendingIntentFlags.Immutable);
-
-        var builder = new Notification.Builder(this, channelId)
-            .SetContentTitle(title)
-            .SetContentText(body)
-            .SetSmallIcon(Android.Resource.Drawable.IcDialogInfo)
-            .SetAutoCancel(true)
-            .SetContentIntent(pendingIntent);
-
-        notificationManager.Notify(notificationId, builder.Build());
     }
 
     private sealed class FcmTokenCompleteListener : Java.Lang.Object, Android.Gms.Tasks.IOnCompleteListener
