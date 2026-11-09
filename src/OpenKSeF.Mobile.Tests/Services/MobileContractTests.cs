@@ -105,11 +105,40 @@ public class MobileContractTests
         try
         {
             Assert.True(NotificationHubService.OnNotificationTapped(payload.Data["type"], payload.Data["tenantId"]));
-            Assert.Equal(TenantId, NotificationHubService.TakeTappedTenantId());
+            Assert.Equal((TenantId, (Guid?)null), NotificationHubService.TakeTapped());
         }
         finally
         {
-            NotificationHubService.TakeTappedTenantId();
+            NotificationHubService.TakeTapped();
+        }
+    }
+
+    [Fact]
+    public void GoldenInvoiceHubPayload_OpensThatInvoice()
+    {
+        var invoiceId = Guid.Parse("5c2f8e13-9a4b-4d6c-8e7f-0a1b2c3d4e5f");
+        var data = Golden[Hub]!.AsObject()
+            .Select(f => f.Key)
+            .Where(path => path.StartsWith("arguments[].data."))
+            .Select(path => path["arguments[].data.".Length..])
+            .ToList();
+        var values = new Dictionary<string, string> { ["tenantId"] = TenantId.ToString(), ["invoiceId"] = invoiceId.ToString() };
+        var payload = new JsonObject
+        {
+            ["title"] = "New invoice received",
+            ["body"] = "New invoice from 'Firma'",
+            ["data"] = new JsonObject(data.Select(k => KeyValuePair.Create(k, (JsonNode?)values[k])))
+        }.Deserialize<NotificationHubService.NotificationPayload>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        payload.Data!.TryGetValue("type", out var type);
+        try
+        {
+            Assert.True(NotificationHubService.OnNotificationTapped(type, payload.Data["tenantId"], payload.Data["invoiceId"]));
+            Assert.Equal((TenantId, (Guid?)invoiceId), NotificationHubService.TakeTapped());
+        }
+        finally
+        {
+            NotificationHubService.TakeTapped();
         }
     }
 

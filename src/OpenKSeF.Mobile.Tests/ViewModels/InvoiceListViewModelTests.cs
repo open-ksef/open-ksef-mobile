@@ -20,13 +20,14 @@ public class InvoiceListViewModelTests : IDisposable
         Preferences.Default.Set("SelectedTenantId", TenantId.ToString());
         Preferences.Default.Set("SelectedTenantNip", "1111111111");
         _api.GetInvoicesAsync(TenantId, 1).Returns(Page());
-        NotificationHubService.TakeTappedTenantId();
+        NotificationHubService.TakeTapped();
+        Shell.Current.Reset();
     }
 
     public void Dispose()
     {
         Preferences.Default.Clear();
-        NotificationHubService.TakeTappedTenantId();
+        NotificationHubService.TakeTapped();
     }
 
     private static PagedResult<InvoiceDto> Page() => new()
@@ -174,6 +175,119 @@ public class InvoiceListViewModelTests : IDisposable
     {
         Assert.False(NotificationHubService.OnNotificationTapped(type, tenantId));
         Assert.False(NotificationHubService.HasTappedTenant);
+    }
+
+    private static readonly Guid TappedInvoiceId = Guid.Parse("5c2f8e13-9a4b-4d6c-8e7f-0a1b2c3d4e5f");
+
+    [Theory]
+    [InlineData(null, "7d1c3a52-1f7e-4a59-9b0c-2f3d4e5a6b7c", "not-a-guid")]
+    [InlineData(null, "not-a-guid", "5c2f8e13-9a4b-4d6c-8e7f-0a1b2c3d4e5f")]
+    [InlineData(null, null, "5c2f8e13-9a4b-4d6c-8e7f-0a1b2c3d4e5f")]
+    public void InvoiceTap_WithoutValidTenantAndInvoice_Ignored(string? type, string? tenantId, string? invoiceId)
+    {
+        Assert.False(NotificationHubService.OnNotificationTapped(type, tenantId, invoiceId));
+        Assert.False(NotificationHubService.HasTappedTenant);
+    }
+
+    [Fact]
+    public void SummaryTap_WithInvoiceId_OpensListOnly()
+    {
+        Assert.True(NotificationHubService.OnNotificationTapped("newInvoicesSummary", TenantId.ToString(), TappedInvoiceId.ToString()));
+        Assert.Equal((TenantId, (Guid?)null), NotificationHubService.TakeTapped());
+    }
+
+    [Fact]
+    public async Task InvoiceTap_OwnedTenant_OpensInvoiceDetails()
+    {
+        OwnsTenants();
+        OtherTenantHas("Other");
+        _api.GetInvoiceDetailsAsync(OtherTenantId, TappedInvoiceId).Returns(new InvoiceDto { Id = TappedInvoiceId });
+        Assert.True(NotificationHubService.OnNotificationTapped(null, OtherTenantId.ToString(), TappedInvoiceId.ToString()));
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal($"invoiceDetails?tenantId={OtherTenantId}&invoiceId={TappedInvoiceId}", Shell.Current.LastRoute);
+        Assert.Equal(OtherTenantId.ToString(), Preferences.Default.Get("SelectedTenantId", ""));
+        Assert.Empty(Shell.Current.Alerts);
+        Assert.False(NotificationHubService.HasTappedTenant);
+    }
+
+    [Fact]
+    public async Task InvoiceTap_SelectedTenant_OpensDetailsWithoutTenantsCall()
+    {
+        _api.GetInvoiceDetailsAsync(TenantId, TappedInvoiceId).Returns(new InvoiceDto { Id = TappedInvoiceId });
+        NotificationHubService.OnNotificationTapped(null, TenantId.ToString(), TappedInvoiceId.ToString());
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal($"invoiceDetails?tenantId={TenantId}&invoiceId={TappedInvoiceId}", Shell.Current.LastRoute);
+        await _api.DidNotReceive().GetTenantsAsync();
+    }
+
+    [Theory]
+    [InlineData("404")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    [InlineData("cancel")]
+    public async Task InvoiceTap_InvoiceUnavailable_StaysOnListWithMessage(string outcome)
+    {
+        _api.GetInvoiceDetailsAsync(TenantId, TappedInvoiceId).Returns(outcome == "404"
+            ? Task.FromException<InvoiceDto>(new ApiException(System.Net.HttpStatusCode.NotFound, "404"))
+            : Outcome(outcome).ContinueWith(t => { t.Wait(); return new InvoiceDto(); }));
+        NotificationHubService.OnNotificationTapped(null, TenantId.ToString(), TappedInvoiceId.ToString());
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Test"], vm.Invoices.Select(i => i.VendorName));
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.Equal("Faktura niedostępna", Shell.Current.LastAlertTitle);
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("4xx")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    [InlineData("cancel")]
+    public async Task InvoiceTap_TenantNotOwnedOrTenantsCallFails_StaysOnCurrentListWithMessage(string outcome)
+    {
+        _api.GetTenantsAsync().Returns(outcome == "success"
+            ? Task.FromResult(new List<TenantDto> { new() { Id = TenantId, Nip = "1111111111" } })
+            : Outcome(outcome).ContinueWith(t => { t.Wait(); return new List<TenantDto>(); }));
+        NotificationHubService.OnNotificationTapped(null, OtherTenantId.ToString(), TappedInvoiceId.ToString());
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Test"], vm.Invoices.Select(i => i.VendorName));
+        Assert.Equal(TenantId.ToString(), Preferences.Default.Get("SelectedTenantId", ""));
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.Equal("Faktura niedostępna", Shell.Current.LastAlertTitle);
+        await _api.DidNotReceive().GetInvoiceDetailsAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public async Task InvoiceTap_NewerTapDuringLoad_OpensOnlyTheNewerInvoice()
+    {
+        var newer = Guid.NewGuid();
+        _api.GetInvoiceDetailsAsync(TenantId, Arg.Any<Guid>()).Returns(ci => new InvoiceDto { Id = ci.ArgAt<Guid>(1) });
+        var first = new TaskCompletionSource();
+        _api.GetInvoicesAsync(TenantId, 1).Returns(async _ => { await first.Task; return Page(); }, _ => Task.FromResult(Page()));
+        NotificationHubService.OnNotificationTapped(null, TenantId.ToString(), TappedInvoiceId.ToString());
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        NotificationHubService.OnNotificationTapped(null, TenantId.ToString(), newer.ToString());
+        first.SetResult();
+        await load;
+
+        Assert.Equal($"invoiceDetails?tenantId={TenantId}&invoiceId={newer}", Shell.Current.LastRoute);
+        await _api.DidNotReceive().GetInvoiceDetailsAsync(TenantId, TappedInvoiceId);
     }
 
     private static Task<PagedResult<InvoiceDto>> Outcome(string outcome) => outcome switch

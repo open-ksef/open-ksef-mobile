@@ -107,6 +107,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
     public async Task SignOutAsync()
     {
         var signOutId = Guid.NewGuid().ToString("N");
+        NotificationHubService.TakeTapped();
         _authService.LogoutUnderway = true;
         try
         {
