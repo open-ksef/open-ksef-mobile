@@ -152,6 +152,7 @@ public class PostLoginNavigationServiceTests
         var serverSettings = Substitute.For<IServerSettingsService>();
         serverSettings.ServerUrl.Returns("https://ksef.example.com");
         _api.GetMeAsync().Returns(new UserInfo { UserId = "u1" });
+        _deviceTokenService.UnregisterCurrentDeviceAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
         _nav = new PostLoginNavigationService(_api, _auth, _deviceTokenService, _notificationHub, serverSettings, _localDb);
     }
 
@@ -422,7 +423,7 @@ public class PostLoginNavigationServiceTests
         Received.InOrder(() =>
         {
             _notificationHub.StopAsync();
-            _deviceTokenService.UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>());
+            _deviceTokenService.UnregisterCurrentDeviceAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
             _auth.LogoutAsync();
         });
     }
@@ -467,7 +468,7 @@ public class PostLoginNavigationServiceTests
         OnboardingComplete(true);
         _deviceTokenService.EnsureDeviceRegisteredAsync().Returns(new TaskCompletionSource().Task);
         _notificationHub.StopAsync().Returns(new TaskCompletionSource().Task);
-        _deviceTokenService.UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource().Task);
+        _deviceTokenService.UnregisterCurrentDeviceAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource<bool>().Task);
         await _nav.NavigateAsync();
 
         var limit = PostLoginNavigationService.SignOutLimit;
@@ -478,7 +479,7 @@ public class PostLoginNavigationServiceTests
             await _nav.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(10));
 
             Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1.4), $"sign-out took {watch.Elapsed}");
-            await _auth.Received(1).DeferLogoutAsync();
+            await _auth.Received(1).DeferLogoutAsync(Arg.Any<string>());
             await _auth.DidNotReceive().LogoutAsync();
             await _deviceTokenService.Received(1).CompleteSignOutCleanupAsync();
         }

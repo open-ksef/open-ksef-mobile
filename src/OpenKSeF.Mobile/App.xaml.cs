@@ -5,8 +5,11 @@ namespace OpenKSeF.Mobile;
 
 public partial class App : Application
 {
+    private readonly IServiceProvider _services;
+
     public App(IAuthService authService, IServiceProvider services)
     {
+        _services = services;
         InitializeComponent();
         ThemeSettings.Apply(ThemeSettings.Load());
 
@@ -25,6 +28,9 @@ public partial class App : Application
     {
         return new Window(new AppShell());
     }
+
+    protected override void OnResume() =>
+        _ = _services.GetRequiredService<IDeviceTokenService>().CompleteSignOutCleanupAsync();
 
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
     {

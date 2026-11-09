@@ -22,12 +22,12 @@ public interface IAuthService
     Task LogoutAsync();
 
     /// <summary>Signs out locally and keeps the refresh token only for the device cleanup; the Keycloak logout waits for <see cref="CompleteDeferredLogoutAsync"/>.</summary>
-    Task DeferLogoutAsync();
+    Task DeferLogoutAsync(string signOutId);
 
     /// <summary>Null when no deferred logout is left or Keycloak ended that session; throws when the server is unreachable.</summary>
-    Task<string?> GetDeferredLogoutAccessTokenAsync();
+    Task<string?> GetDeferredLogoutAccessTokenAsync(string signOutId, CancellationToken cancellationToken);
 
-    Task CompleteDeferredLogoutAsync();
+    Task CompleteDeferredLogoutAsync(string signOutId);
     Task<string?> GetAccessTokenAsync();
     Task<string?> RefreshAccessTokenAsync();
     Task<SessionRestoreResult> RestoreSessionAsync();

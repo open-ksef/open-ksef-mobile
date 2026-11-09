@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using OpenKSeF.Mobile.Models;
 
 namespace OpenKSeF.Mobile.Services;
@@ -7,13 +8,17 @@ public class DeviceTokenService : IDeviceTokenService
 {
     internal static TimeSpan ServerRemovalLimit { get; set; } = TimeSpan.FromSeconds(15);
 
+    internal static TimeSpan LateRegistrationWait { get; set; } = TimeSpan.FromSeconds(90);
+
+    private const int MaxPendingSignOuts = 5;
+
     private const string TokenStorageKey = "device_push_token";
     private const string PlatformStorageKey = "device_push_platform";
     private const string PermissionRequestedKey = "push_permission_requested";
     private const string DeviceRegisteredKey = "device_registered";
     private const string DeviceIdKey = "device_stable_id";
     private const string PushDisabledKey = "push_disabled_by_user";
-    private const string PendingSignOutKey = "pending_signout_tokens";
+    private const string PendingSignOutKey = "pending_signout_sessions";
 
     private readonly IApiService _apiService;
     private readonly IAuthService _authService;
@@ -22,7 +27,8 @@ public class DeviceTokenService : IDeviceTokenService
     private Task _registration = Task.CompletedTask;
     private Task _cleanup = Task.CompletedTask;
     private CancellationTokenSource? _session;
-    private bool _postAbandoned;
+    private readonly HashSet<CancellationToken> _abandonedSessions = [];
+    private DateTimeOffset _abandonedAt = DateTimeOffset.MinValue;
 
     public DeviceTokenService(IApiService apiService, IAuthService authService)
     {
@@ -35,7 +41,7 @@ public class DeviceTokenService : IDeviceTokenService
     public bool PushRemovalPending =>
         PushDisabledByUser && !string.IsNullOrEmpty(Preferences.Default.Get(TokenStorageKey, string.Empty));
 
-    public bool SignOutCleanupPending => Preferences.Default.ContainsKey(PendingSignOutKey);
+    internal bool SignOutCleanupPending => PendingSignOuts().Count > 0;
 
     public bool ShowHubNotification(bool? nativePush) =>
         !PushDisabledByUser
@@ -214,56 +220,120 @@ public class DeviceTokenService : IDeviceTokenService
         return true;
     }
 
-    /// <summary>Leaves the device tokens saved for <see cref="CompleteSignOutCleanupAsync"/> until removal is confirmed: a POST cancelled, timed out or still running may land on the server after the delete.</summary>
-    public async Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken)
+    /// <summary>Saves this sign-out's device tokens under <paramref name="signOutId"/> until removal is confirmed: a POST cancelled, timed out or still running may land on the server after the delete.</summary>
+    public async Task<bool> UnregisterCurrentDeviceAsync(string signOutId, CancellationToken cancellationToken)
     {
         HashSet<string> tokens;
+        CancellationToken session;
         lock (_gate)
         {
+            session = _session?.Token ?? CancellationToken.None;
             _session?.Cancel();
             _session = null;
             tokens = StoredTokens();
             tokens.UnionWith(_posting);
-            tokens.UnionWith(PendingTokens());
             _posting.Clear();
+            tokens.Remove(string.Empty);
         }
-        tokens.Remove(string.Empty);
-        Preferences.Default.Set(PendingSignOutKey, string.Join('\n', tokens));
+        AddPendingSignOut(new PendingSignOut(signOutId, [.. tokens]));
 
         try { await _registration.WaitAsync(cancellationToken); } catch { }
         var settled = _registration.IsCompleted;
         RemoveTokenKeys();
 
-        if (await TryDeleteServerDevicesAsync(tokens, cancellationToken) && settled && !_postAbandoned)
-            Preferences.Default.Remove(PendingSignOutKey);
+        if (!await TryDeleteServerDevicesAsync(tokens, cancellationToken) || !settled)
+            return false;
+
+        lock (_gate)
+        {
+            if (_abandonedSessions.Contains(session))
+                return false;
+        }
+        UpdatePendingSignOuts(list => list.RemoveAll(p => p.Id == signOutId));
+        return true;
     }
 
     public Task CompleteSignOutCleanupAsync()
     {
         lock (_gate)
-            return _cleanup.IsCompleted ? _cleanup = RunSignOutCleanupAsync() : _cleanup;
+            return _cleanup = RunSignOutCleanupAsync(_cleanup);
     }
 
-    private async Task RunSignOutCleanupAsync()
+    private async Task RunSignOutCleanupAsync(Task previous)
     {
         await Task.Yield();
-        try { await _registration; } catch { }
-        if (_postAbandoned)
+        try { await previous; } catch { }
+
+        try { await _registration.WaitAsync(LateRegistrationWait); } catch { }
+        if (!_registration.IsCompleted)
             return;
 
+        var lateRowWait = _abandonedAt + LateRegistrationWait - DateTimeOffset.UtcNow;
+        if (lateRowWait > TimeSpan.Zero)
+            await Task.Delay(lateRowWait);
+
+        // Read before the flag: an entry written by a sign-out still underway has no deferred refresh token yet.
+        var pending = PendingSignOuts();
+        if (_authService.LogoutUnderway)
+            return;
+
+        foreach (var signOut in pending)
+        {
+            try
+            {
+                using var limit = new CancellationTokenSource(ServerRemovalLimit);
+                var accessToken = await _authService.GetDeferredLogoutAccessTokenAsync(signOut.Id, limit.Token).WaitAsync(limit.Token);
+                if (accessToken is not null)
+                    await DeleteServerDevicesAsync([.. signOut.Tokens], limit.Token, accessToken).WaitAsync(limit.Token);
+
+                await _authService.CompleteDeferredLogoutAsync(signOut.Id);
+                UpdatePendingSignOuts(list => list.RemoveAll(p => p.Id == signOut.Id));
+            }
+            catch
+            {
+                // Offline or timed out: app resume or the next start retries.
+            }
+        }
+    }
+
+    private sealed record PendingSignOut(string Id, string[] Tokens);
+
+    private static List<PendingSignOut> PendingSignOuts()
+    {
         try
         {
-            var accessToken = await _authService.GetDeferredLogoutAccessTokenAsync();
-            if (accessToken is not null)
-                await DeleteServerDevicesAsync(PendingTokens(), CancellationToken.None, accessToken);
-
-            await _authService.CompleteDeferredLogoutAsync();
-            Preferences.Default.Remove(PendingSignOutKey);
+            return JsonSerializer.Deserialize<List<PendingSignOut>>(Preferences.Default.Get(PendingSignOutKey, "[]")) ?? [];
         }
-        catch
+        catch (JsonException)
         {
-            // Offline: the next app start retries.
+            return [];
         }
+    }
+
+    private void UpdatePendingSignOuts(Action<List<PendingSignOut>> change)
+    {
+        lock (_gate)
+        {
+            var list = PendingSignOuts();
+            change(list);
+            if (list.Count == 0)
+                Preferences.Default.Remove(PendingSignOutKey);
+            else
+                Preferences.Default.Set(PendingSignOutKey, JsonSerializer.Serialize(list));
+        }
+    }
+
+    private void AddPendingSignOut(PendingSignOut signOut)
+    {
+        List<PendingSignOut> evicted = [];
+        UpdatePendingSignOuts(list =>
+        {
+            list.Add(signOut);
+            evicted = list.GetRange(0, Math.Max(0, list.Count - MaxPendingSignOuts));
+            list.RemoveRange(0, evicted.Count);
+        });
+        foreach (var old in evicted)
+            _ = _authService.CompleteDeferredLogoutAsync(old.Id);
     }
 
     private Task<T> Enqueue<T>(Func<CancellationToken, Task<T>> work)
@@ -296,7 +366,11 @@ public class DeviceTokenService : IDeviceTokenService
         // Timeout, network error, cancel or 5xx: the server may still insert the row, so it stays unknown for this process.
         catch (Exception ex) when (ct.IsCancellationRequested || ex is not ApiException { StatusCode: < HttpStatusCode.InternalServerError })
         {
-            _postAbandoned = true;
+            lock (_gate)
+            {
+                _abandonedSessions.Add(ct);
+                _abandonedAt = DateTimeOffset.UtcNow;
+            }
             throw;
         }
 
@@ -318,9 +392,6 @@ public class DeviceTokenService : IDeviceTokenService
         Preferences.Default.Get(TokenStorageKey, string.Empty),
         Preferences.Default.Get(DeviceIdKey, string.Empty)
     ];
-
-    private static HashSet<string> PendingTokens() =>
-        Preferences.Default.Get(PendingSignOutKey, string.Empty).Split('\n', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
 
     private static void RemoveTokenKeys()
     {

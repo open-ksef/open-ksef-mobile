@@ -7,10 +7,10 @@ public interface IDeviceTokenService
     Task EnsureDeviceRegisteredAsync();
     Task<bool> EnableNotificationsAsync();
     Task<bool> AreNotificationsEnabledAsync();
-    Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken);
+    /// <summary>True when the server confirmed removal and no POST of this session can still land; otherwise the cleanup keeps the tokens under <paramref name="signOutId"/>.</summary>
+    Task<bool> UnregisterCurrentDeviceAsync(string signOutId, CancellationToken cancellationToken);
     bool PushDisabledByUser { get; }
     bool PushRemovalPending { get; }
-    bool SignOutCleanupPending { get; }
     bool ShowHubNotification(bool? nativePush);
     Task CompleteSignOutCleanupAsync();
     Task<bool> DisableNotificationsAsync();
