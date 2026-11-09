@@ -24,7 +24,6 @@
 
             <VerticalStackLayout Spacing="16">
 
-                <!-- Step Indicator (3 steps) -->
                 <HorizontalStackLayout HorizontalOptions="Center"
                                        Spacing="0"
                                        AutomationId="OnboardingStepIndicator"
@@ -54,12 +53,10 @@
                     </Frame>
                 </HorizontalStackLayout>
 
-                <!-- Step Title -->
                 <Label Text="{Binding StepTitle}"
                        FontSize="22" FontFamily="InterBold"
                        TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" HorizontalOptions="Center" />
 
-                <!-- Error -->
                 <Frame BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}" CornerRadius="8" Padding="12" HasShadow="False"
                        BorderColor="Transparent"
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}">
@@ -67,7 +64,6 @@
                            HorizontalTextAlignment="Center" />
                 </Frame>
 
-                <!-- ===== STEP 1: Company Data ===== -->
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsStep1}">
                     <Label Text="Podaj dane swojej firmy, aby rozpocząć korzystanie z KSeF."
                            FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" HorizontalTextAlignment="Center" />
@@ -110,7 +106,6 @@
                             HorizontalOptions="Fill" Margin="0,8,0,0" />
                 </VerticalStackLayout>
 
-                <!-- ===== STEP 2: KSeF Token ===== -->
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsStep2}">
                     <Label Text="Dodaj token autoryzacyjny KSeF, aby umożliwić synchronizację faktur."
                            FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" HorizontalTextAlignment="Center" />
@@ -150,7 +145,6 @@
                     </Grid>
                 </VerticalStackLayout>
 
-                <!-- ===== STEP 3: Success ===== -->
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding IsStep3}">
                     <Label Text="✓" FontSize="48" TextColor="{AppThemeBinding Light={StaticResource UiSuccess}, Dark={StaticResource UiSuccessDark}}" HorizontalOptions="Center"
                            AutomationId="OnboardingLabelSuccess" />
@@ -169,7 +163,6 @@
                             HorizontalOptions="Fill" Margin="0,8,0,0" />
                 </VerticalStackLayout>
 
-                <!-- Activity indicator -->
                 <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
                                    HorizontalOptions="Center" />
             </VerticalStackLayout>

@@ -9,13 +9,11 @@
 
     <ScrollView>
         <Grid>
-            <!-- Loading -->
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                                IsVisible="{Binding IsBusy}"
                                VerticalOptions="Center"
                                HorizontalOptions="Center" />
 
-            <!-- Error -->
             <VerticalStackLayout IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
                                  VerticalOptions="Center"
                                  HorizontalOptions="Center"
@@ -31,12 +29,10 @@
                         HorizontalOptions="Center" />
             </VerticalStackLayout>
 
-            <!-- Invoice details -->
             <VerticalStackLayout IsVisible="{Binding Invoice, Converter={StaticResource IsNotNullConverter}}"
                                  Spacing="0"
                                  Padding="0">
 
-                <!-- Amount card -->
                 <Border BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}"
                         StrokeShape="RoundRectangle 0"
                         StrokeThickness="0"
@@ -56,7 +52,6 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Vendor info -->
                 <Border Margin="15,15,15,5" Style="{StaticResource CardBorder}">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="Sprzedawca" Style="{StaticResource LabelCaption}" />
@@ -68,7 +63,6 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Dates -->
                 <Border Margin="15,5" Style="{StaticResource CardBorder}">
                     <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="8">
                         <Label Text="Data wystawienia" Style="{StaticResource LabelCaption}" />
@@ -82,7 +76,6 @@
                     </Grid>
                 </Border>
 
-                <!-- KSeF identifiers -->
                 <Border Margin="15,5" Style="{StaticResource CardBorder}">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="Numer faktury" Style="{StaticResource LabelCaption}" />
@@ -95,7 +88,6 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Invoice lines -->
                 <Border Margin="15,5" Style="{StaticResource CardBorder}"
                         IsVisible="{Binding HasLines}">
                     <VerticalStackLayout Spacing="0">
@@ -111,7 +103,6 @@
                                             StrokeThickness="0"
                                             Padding="10">
                                         <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
-                                            <!-- Line number + name -->
                                             <Label Grid.Column="0"
                                                    FontSize="14"
                                                    FontFamily="InterBold"
@@ -122,7 +113,6 @@
                                                    TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                                                    Text="{Binding LineNumber, StringFormat='#{0}'}"
                                                    HorizontalTextAlignment="End" />
-                                            <!-- Quantity × unit -->
                                             <Label Grid.Row="1" Grid.ColumnSpan="2"
                                                    FontSize="12"
                                                    TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}">
@@ -137,7 +127,6 @@
                                                     </FormattedString>
                                                 </Label.FormattedText>
                                             </Label>
-                                            <!-- Amounts -->
                                             <Label Grid.Row="2" Grid.ColumnSpan="2"
                                                    FontSize="13"
                                                    FontFamily="InterBold">
@@ -160,7 +149,6 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- Action buttons -->
                 <VerticalStackLayout Spacing="10" Padding="15,15,15,30">
                     <Button Text="Zapłać"
                             AutomationId="InvoiceDetailsPageButtonShowQr"

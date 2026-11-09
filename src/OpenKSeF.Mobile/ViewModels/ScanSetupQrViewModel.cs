@@ -21,6 +21,8 @@ public partial class ScanSetupQrViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
+    public bool CanPickFromGallery => DeviceInfo.Platform == DevicePlatform.Android;
+
     public ScanSetupQrViewModel(
         IServerSettingsService serverSettings,
         IPostLoginNavigationService postLoginNav)
@@ -119,10 +121,10 @@ public partial class ScanSetupQrViewModel : ObservableObject
                 return;
 
             await using var stream = await result.OpenReadAsync();
-            var bytes = new byte[stream.Length];
-            _ = await stream.ReadAsync(bytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
 
-            var decoded = DecodeQrFromImageBytes(bytes);
+            var decoded = DecodeQrFromImageBytes(buffer.ToArray());
             if (decoded is not null)
             {
                 await ProcessBarcodeAsync(decoded);
@@ -192,8 +194,6 @@ public partial class ScanSetupQrViewModel : ObservableObject
                 bitmap.Recycle();
                 bitmap.Dispose();
             }
-#elif IOS
-            return null;
 #else
             return null;
 #endif

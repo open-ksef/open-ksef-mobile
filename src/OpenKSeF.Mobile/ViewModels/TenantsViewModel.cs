@@ -9,6 +9,7 @@ namespace OpenKSeF.Mobile.ViewModels;
 public partial class TenantsViewModel : ObservableObject
 {
     private readonly IApiService _apiService;
+    private readonly LocalDbService _localDb;
 
     [ObservableProperty]
     private ObservableCollection<TenantDto> _tenants = [];
@@ -22,9 +23,10 @@ public partial class TenantsViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
-    public TenantsViewModel(IApiService apiService)
+    public TenantsViewModel(IApiService apiService, LocalDbService localDb)
     {
         _apiService = apiService;
+        _localDb = localDb;
     }
 
     [RelayCommand]
@@ -100,6 +102,8 @@ public partial class TenantsViewModel : ObservableObject
                 Preferences.Default.Remove("SelectedTenantId");
                 Preferences.Default.Remove("SelectedTenantNip");
             }
+
+            try { await _localDb.ClearCacheForTenantAsync(tenant.Id); } catch { }
         }
         catch (ApiException ex)
         {

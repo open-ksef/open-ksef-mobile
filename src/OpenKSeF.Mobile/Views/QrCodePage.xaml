@@ -9,12 +9,10 @@
     <ScrollView>
         <VerticalStackLayout Spacing="20" Padding="20" HorizontalOptions="Center">
 
-            <!-- Loading -->
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                                IsVisible="{Binding IsBusy}"
                                HorizontalOptions="Center" />
 
-            <!-- Error -->
             <VerticalStackLayout IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
                                  Spacing="10">
                 <Label Text="{Binding ErrorMessage}"
@@ -40,7 +38,6 @@
                    FontFamily="InterBold"
                    HorizontalTextAlignment="Center" />
 
-            <!-- QR Content -->
             <VerticalStackLayout IsVisible="{Binding QrImage, Converter={StaticResource IsNotNullConverter}}"
                                  Spacing="20"
                                  HorizontalOptions="Center">
@@ -68,7 +65,6 @@
                         HorizontalOptions="Fill" />
             </VerticalStackLayout>
 
-            <!-- No QR -->
             <VerticalStackLayout IsVisible="{Binding ShowTransferText}"
                                  Spacing="20">
                 <Label Text="{Binding TransferText}"

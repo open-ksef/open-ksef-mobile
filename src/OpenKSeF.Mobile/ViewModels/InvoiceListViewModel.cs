@@ -147,13 +147,13 @@ public partial class InvoiceListViewModel : ObservableObject
         try
         {
             IsLoadingMore = true;
-            _currentPage++;
 
             var tenantId = GetSelectedTenantId();
             if (tenantId is null)
                 return;
 
-            var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage);
+            var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage + 1);
+            _currentPage++;
             foreach (var invoice in result.Items)
                 Invoices.Add(invoice);
 
@@ -162,8 +162,11 @@ public partial class InvoiceListViewModel : ObservableObject
         }
         catch (ApiException ex)
         {
-            _currentPage--; // Revert on failure
             ErrorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Nie udało się załadować faktur: {ex.Message}";
         }
         finally
         {

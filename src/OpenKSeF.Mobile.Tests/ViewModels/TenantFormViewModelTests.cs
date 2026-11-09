@@ -77,7 +77,7 @@ public class TenantFormViewModelTests
 
         await vm.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal("Nieprawidlowa suma kontrolna NIP.", vm.NipError);
+        Assert.Equal("Nieprawidłowa suma kontrolna NIP.", vm.NipError);
         await api.DidNotReceiveWithAnyArgs().CreateTenantAsync(default!);
     }
 
@@ -96,6 +96,35 @@ public class TenantFormViewModelTests
 
         Assert.Equal(expectedError, vm.NipError);
         await api.DidNotReceiveWithAnyArgs().CreateTenantAsync(default!);
+    }
+
+    [Fact]
+    public async Task Save_InEditMode_TenantLoadFailed_DoesNotSendUpdate()
+    {
+        var api = Substitute.For<IApiService>();
+        api.GetTenantsAsync().Returns(Task.FromException<List<TenantDto>>(new HttpRequestException("offline")));
+
+        var vm = new TenantFormViewModel(api) { TenantId = TenantId.ToString() };
+        vm.Nip = "1111111111";
+        vm.DisplayName = "Renamed";
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Nie udało się załadować danych firmy. Wróć i spróbuj ponownie.", vm.ErrorMessage);
+        await api.DidNotReceiveWithAnyArgs().UpdateTenantAsync(default, default!);
+    }
+
+    [Fact]
+    public async Task Save_InEditMode_TenantMissing_DoesNotSendUpdate()
+    {
+        var api = Substitute.For<IApiService>();
+        api.GetTenantsAsync().Returns(new List<TenantDto>());
+
+        var vm = new TenantFormViewModel(api) { TenantId = TenantId.ToString() };
+        vm.Nip = "1111111111";
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Nie udało się załadować danych firmy. Wróć i spróbuj ponownie.", vm.ErrorMessage);
+        await api.DidNotReceiveWithAnyArgs().UpdateTenantAsync(default, default!);
     }
 
     [Fact]

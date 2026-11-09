@@ -24,7 +24,6 @@
     <RefreshView Command="{Binding LoadTenantsCommand}"
                  IsRefreshing="{Binding IsBusy}">
         <Grid>
-            <!-- Empty state -->
             <VerticalStackLayout IsVisible="{Binding IsEmpty}"
                                  VerticalOptions="Center"
                                  HorizontalOptions="Center"
@@ -42,7 +41,6 @@
                         HorizontalOptions="Center" />
             </VerticalStackLayout>
 
-            <!-- Tenant list -->
             <CollectionView ItemsSource="{Binding Tenants}"
                             AutomationId="TenantsPageCollectionViewTenants"
                             IsVisible="{Binding IsEmpty, Converter={StaticResource InvertedBoolConverter}}"
@@ -96,7 +94,6 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
-            <!-- Error message -->
             <Label Text="{Binding ErrorMessage}"
                    AutomationId="TenantsPageLabelError"
                    IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"

@@ -20,7 +20,6 @@
     </Shell.TitleView>
 
     <Grid RowDefinitions="Auto,*">
-        <!-- Offline mode indicator -->
         <Border IsVisible="{Binding IsOfflineMode}"
                 BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}"
                 Stroke="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}"
@@ -32,58 +31,12 @@
                    TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
         </Border>
 
-        <!-- Loading indicator (initial load) -->
         <ActivityIndicator Grid.Row="1"
                            IsRunning="{Binding IsBusy}"
                            IsVisible="{Binding IsBusy}"
                            VerticalOptions="Center"
                            HorizontalOptions="Center" />
 
-        <!-- No NIP selected state -->
-        <VerticalStackLayout Grid.Row="1"
-                             IsVisible="{Binding IsNoTenantSelected}"
-                             AutomationId="InvoiceListPageNoTenantState"
-                             VerticalOptions="Center"
-                             HorizontalOptions="Center"
-                             Spacing="15"
-                             Padding="30">
-            <Label Text="📋"
-                   FontSize="48"
-                   HorizontalOptions="Center" />
-            <Label Text="Nie wybrano firmy"
-                   Style="{StaticResource LabelHeading}"
-                   HorizontalOptions="Center" />
-            <Label Text="Przejdź do zakładki Firmy i wybierz firmę, aby przeglądać faktury."
-                   Style="{StaticResource LabelMuted}"
-                   HorizontalTextAlignment="Center" />
-            <Button Text="Przejdź do Firm"
-                    AutomationId="InvoiceListPageButtonGoToTenants"
-                    Clicked="OnGoToTenantsClicked"
-                    HorizontalOptions="Center"
-                    Style="{StaticResource ButtonSecondary}" />
-        </VerticalStackLayout>
-
-        <!-- Empty state -->
-        <VerticalStackLayout Grid.Row="1"
-                             IsVisible="{Binding IsEmpty}"
-                             VerticalOptions="Center"
-                             HorizontalOptions="Center"
-                             Spacing="15"
-                             Padding="30">
-            <Label Text="Brak faktur"
-                   Style="{StaticResource LabelHeading}"
-                   HorizontalOptions="Center" />
-            <Label Text="Nie znaleziono faktur dla tego NIP-u. Faktury pojawią się po synchronizacji z KSeF."
-                   Style="{StaticResource LabelMuted}"
-                   HorizontalTextAlignment="Center" />
-            <Button Text="Odśwież"
-                    AutomationId="InvoiceListPageButtonRefreshEmptyState"
-                    Command="{Binding LoadInvoicesCommand}"
-                    Style="{StaticResource ButtonSecondary}"
-                    HorizontalOptions="Center" />
-        </VerticalStackLayout>
-
-        <!-- Invoice list -->
         <RefreshView Grid.Row="1"
                      Command="{Binding RefreshCommand}"
                      IsRefreshing="{Binding IsRefreshing}">
@@ -134,7 +87,48 @@
             </CollectionView>
         </RefreshView>
 
-        <!-- Error message -->
+        <VerticalStackLayout Grid.Row="1"
+                             IsVisible="{Binding IsNoTenantSelected}"
+                             AutomationId="InvoiceListPageNoTenantState"
+                             VerticalOptions="Center"
+                             HorizontalOptions="Center"
+                             Spacing="15"
+                             Padding="30">
+            <Label Text="📋"
+                   FontSize="48"
+                   HorizontalOptions="Center" />
+            <Label Text="Nie wybrano firmy"
+                   Style="{StaticResource LabelHeading}"
+                   HorizontalOptions="Center" />
+            <Label Text="Przejdź do zakładki Firmy i wybierz firmę, aby przeglądać faktury."
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalTextAlignment="Center" />
+            <Button Text="Przejdź do Firm"
+                    AutomationId="InvoiceListPageButtonGoToTenants"
+                    Clicked="OnGoToTenantsClicked"
+                    HorizontalOptions="Center"
+                    Style="{StaticResource ButtonSecondary}" />
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Grid.Row="1"
+                             IsVisible="{Binding IsEmpty}"
+                             VerticalOptions="Center"
+                             HorizontalOptions="Center"
+                             Spacing="15"
+                             Padding="30">
+            <Label Text="Brak faktur"
+                   Style="{StaticResource LabelHeading}"
+                   HorizontalOptions="Center" />
+            <Label Text="Nie znaleziono faktur dla tego NIP-u. Faktury pojawią się po synchronizacji z KSeF."
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalTextAlignment="Center" />
+            <Button Text="Odśwież"
+                    AutomationId="InvoiceListPageButtonRefreshEmptyState"
+                    Command="{Binding LoadInvoicesCommand}"
+                    Style="{StaticResource ButtonSecondary}"
+                    HorizontalOptions="Center" />
+        </VerticalStackLayout>
+
         <Border Grid.Row="1"
                 IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
                 BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}"

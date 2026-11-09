@@ -36,7 +36,7 @@ public class AuthServiceRestoreTests
         _settings.Authority.Returns("https://ksef.example.com/auth/realms/openksef");
 
         _auth = new AuthService(
-            new AuthOptions { Authority = _settings.Authority, ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
+            new AuthOptions { ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
             _browser,
             _settings,
             new HttpClient(_handler));

@@ -173,4 +173,64 @@ public class ScanSetupQrViewModelTests
 
         await _postLoginNav.Received(1).SignOutAsync();
     }
+
+    [Fact]
+    public void CanPickFromGallery_OnlyOnAndroid()
+    {
+        try
+        {
+            DeviceInfo.Platform = DevicePlatform.iOS;
+            Assert.False(CreateVm().CanPickFromGallery);
+            DeviceInfo.Platform = DevicePlatform.Android;
+            Assert.True(CreateVm().CanPickFromGallery);
+        }
+        finally
+        {
+            DeviceInfo.Platform = DevicePlatform.Android;
+        }
+    }
+
+    [Fact]
+    public async Task PickFromGallery_StreamWithoutLength_ReadsWholeImage()
+    {
+        var stream = new UnknownLengthStream(new byte[10_000]);
+        FilePicker.Default.Result = new FileResult(() => stream);
+        try
+        {
+            var vm = CreateVm();
+            await vm.PickFromGalleryCommand.ExecuteAsync(null);
+
+            Assert.Equal("Nie udało się odczytać kodu QR z obrazu.", vm.ErrorMessage);
+            Assert.Equal(10_000, stream.BytesRead);
+        }
+        finally
+        {
+            FilePicker.Default.Result = null;
+        }
+    }
+
+    private sealed class UnknownLengthStream(byte[] data) : Stream
+    {
+        private int _position;
+
+        public int BytesRead => _position;
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var n = Math.Min(Math.Min(count, 1024), data.Length - _position);
+            Array.Copy(data, _position, buffer, offset, n);
+            _position += n;
+            return n;
+        }
+
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
 }

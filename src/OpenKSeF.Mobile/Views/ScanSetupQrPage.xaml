@@ -51,6 +51,7 @@
             <Button Text="Wybierz z galerii"
                     AutomationId="ScanSetupQrButtonGallery"
                     Command="{Binding PickFromGalleryCommand}"
+                    IsVisible="{Binding CanPickFromGallery}"
                     HorizontalOptions="Fill" />
             <Button Text="Pomiń — wpisz adres ręcznie"
                     AutomationId="ScanSetupQrButtonSkip"

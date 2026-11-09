@@ -84,7 +84,6 @@ public class DeviceTokenService : IDeviceTokenService
         }
         catch
         {
-            // Best-effort; will retry on next app start.
         }
     }
 
@@ -158,7 +157,6 @@ public class DeviceTokenService : IDeviceTokenService
         }
         catch
         {
-            // Best-effort; don't block login flow.
         }
     }
 

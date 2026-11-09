@@ -19,7 +19,6 @@ public partial class OnboardingViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
-    // Step 1
     [ObservableProperty]
     private string _nip = string.Empty;
 
@@ -29,14 +28,12 @@ public partial class OnboardingViewModel : ObservableObject
     [ObservableProperty]
     private string _notificationEmail = string.Empty;
 
-    // Step 2
     [ObservableProperty]
     private string _ksefToken = string.Empty;
 
     [ObservableProperty]
     private bool _tokenSkipped;
 
-    // Step 3
     [ObservableProperty]
     private bool _isSyncing;
 
@@ -109,6 +106,12 @@ public partial class OnboardingViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(Nip) || Nip.Trim().Length != 10 || !Nip.Trim().All(char.IsDigit))
         {
             ErrorMessage = "NIP musi zawierać dokładnie 10 cyfr.";
+            return;
+        }
+
+        if (!TenantFormViewModel.IsValidNipChecksum(Nip.Trim()))
+        {
+            ErrorMessage = "Nieprawidłowa suma kontrolna NIP.";
             return;
         }
 
