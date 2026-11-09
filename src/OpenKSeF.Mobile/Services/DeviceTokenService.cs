@@ -14,6 +14,7 @@ public class DeviceTokenService : IDeviceTokenService
     private const string PushDisabledKey = "push_disabled_by_user";
 
     private readonly IApiService _apiService;
+    private Task _registration = Task.CompletedTask;
 
     public DeviceTokenService(IApiService apiService)
     {
@@ -84,7 +85,9 @@ public class DeviceTokenService : IDeviceTokenService
         }
     }
 
-    public async Task EnsureDeviceRegisteredAsync()
+    public Task EnsureDeviceRegisteredAsync() => _registration = EnsureRegisteredAsync();
+
+    private async Task EnsureRegisteredAsync()
     {
         if (PushDisabledByUser)
         {
@@ -181,6 +184,7 @@ public class DeviceTokenService : IDeviceTokenService
 
     public async Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken)
     {
+        try { await _registration.WaitAsync(cancellationToken); } catch { }
         var tokens = StoredTokens();
         RemoveTokenKeys();
         await TryDeleteServerDevicesAsync(tokens, cancellationToken);

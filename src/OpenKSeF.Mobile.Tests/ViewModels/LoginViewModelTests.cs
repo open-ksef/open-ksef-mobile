@@ -440,20 +440,25 @@ public class PostLoginNavigationServiceTests
     }
 
     [Fact]
-    public async Task SignOut_WaitsForRegistrationBeforeUnregister()
+    public async Task SignOut_FromAnotherInstance_WaitsForPendingRegistration_ThenRemovesDevice()
     {
         OnboardingComplete(true);
-        var registration = new TaskCompletionSource();
-        _deviceTokenService.EnsureDeviceRegisteredAsync().Returns(registration.Task);
-        await _nav.NavigateAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        var post = new TaskCompletionSource();
+        _api.GetDevicesAsync().Returns(new List<DeviceTokenDto>());
+        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>()).Returns(post.Task);
+        var devices = new DeviceTokenService(_api);
+        var serverSettings = Substitute.For<IServerSettingsService>();
+        var login = new PostLoginNavigationService(_api, _auth, devices, _notificationHub, serverSettings, _localDb);
+        var account = new PostLoginNavigationService(_api, _auth, devices, _notificationHub, serverSettings, _localDb);
+        await login.NavigateAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
-        var signOut = _nav.SignOutAsync();
-        await Task.Delay(100);
-        await _deviceTokenService.DidNotReceive().UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>());
-
-        registration.SetResult();
+        var signOut = account.SignOutAsync();
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = Preferences.Default.Get("device_stable_id", "") };
+        _api.GetDevicesAsync().Returns([mine]);
+        post.SetResult();
         await signOut.WaitAsync(TimeSpan.FromSeconds(5));
-        await _deviceTokenService.Received(1).UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>());
+
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
     }
 
     [Fact]

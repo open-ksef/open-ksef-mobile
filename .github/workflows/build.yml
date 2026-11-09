@@ -40,6 +40,14 @@ jobs:
       - name: Build MAUI Android
         run: dotnet build src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj --no-restore -f net10.0-android -c Release -p:AndroidKeyStore=false
 
+      - name: Build MAUI Android with Firebase (fake google-services.json)
+        shell: bash
+        run: |
+          json=src/OpenKSeF.Mobile/Platforms/Android/google-services.json
+          echo '{"project_info":{"project_number":"000000000000","project_id":"ci-fake","storage_bucket":"ci-fake.appspot.com"},"client":[{"client_info":{"mobilesdk_app_id":"1:000000000000:android:0000000000000000","android_client_info":{"package_name":"com.openksef.mobile"}},"oauth_client":[],"api_key":[{"current_key":"ci-fake-key"}],"services":{}}],"configuration_version":"1"}' > "$json"
+          dotnet build src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj -f net10.0-android -c Release -p:AndroidKeyStore=false -p:TargetFrameworks=net10.0-android -o "$RUNNER_TEMP/firebase-build"
+          rm "$json"
+
       - name: Build tests
         run: |
           dotnet build src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj --no-restore -c Release

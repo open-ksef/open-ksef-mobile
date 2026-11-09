@@ -10,7 +10,6 @@ public class PostLoginNavigationService : IPostLoginNavigationService
     private readonly INotificationHubService _notificationHub;
     private readonly IServerSettingsService _serverSettings;
     private readonly LocalDbService _localDb;
-    private Task _registration = Task.CompletedTask;
 
     public PostLoginNavigationService(
         IApiService apiService,
@@ -68,7 +67,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
         if (!needsOnboarding)
         {
-            _registration = RegisterDeviceAsync();
+            _ = RegisterDeviceAsync();
             _ = StartHubAsync();
         }
 
@@ -111,7 +110,6 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         {
             using var limit = new CancellationTokenSource(SignOutLimit);
             try { await _notificationHub.StopAsync().WaitAsync(limit.Token); } catch { }
-            try { await _registration.WaitAsync(limit.Token); } catch { }
             try { await _deviceTokenService.UnregisterCurrentDeviceAsync(limit.Token).WaitAsync(limit.Token); } catch { }
             try { await _localDb.ClearUserDataAsync(); } catch { }
             ClearCacheDirectory();
