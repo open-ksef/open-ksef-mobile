@@ -30,6 +30,32 @@ public class DeviceTokenServiceTests
         _api.GetDevicesAsync().Returns(tokens.Select(t => new DeviceTokenDto { Id = Guid.NewGuid(), Token = t }).ToList());
 
     [Fact]
+    public async Task ShowHubNotification_OnlyWithoutNativeTokenAndWithPushOn()
+    {
+        Assert.True(_service.ShowHubNotification);
+
+        await _service.EnsureDeviceRegisteredAsync();
+        Assert.StartsWith("device-", Preferences.Default.Get(TokenKey, ""));
+        Assert.True(_service.ShowHubNotification);
+
+        await _service.RegisterTokenAsync("fcm-token-123", "Android");
+        Assert.False(_service.ShowHubNotification);
+
+        await _service.UnregisterCurrentDeviceAsync(CancellationToken.None);
+        Assert.True(_service.ShowHubNotification);
+    }
+
+    [Fact]
+    public async Task ShowHubNotification_False_WhenUserTurnedPushOff()
+    {
+        await _service.EnsureDeviceRegisteredAsync();
+
+        Assert.True(await _service.DisableNotificationsAsync());
+
+        Assert.False(_service.ShowHubNotification);
+    }
+
+    [Fact]
     public async Task IsDeviceRegistered_True_WhenServerHasStoredToken()
     {
         Preferences.Default.Set(TokenKey, "fcm-token-123");

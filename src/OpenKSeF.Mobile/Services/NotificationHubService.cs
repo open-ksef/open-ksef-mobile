@@ -15,6 +15,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
 
     private readonly IAuthService _authService;
     private readonly IServerSettingsService _serverSettings;
+    private readonly IDeviceTokenService _deviceTokenService;
     private readonly ILogger<NotificationHubService> _logger;
     private HubConnection? _connection;
     private bool _isStarted;
@@ -23,10 +24,12 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
     public NotificationHubService(
         IAuthService authService,
         IServerSettingsService serverSettings,
+        IDeviceTokenService deviceTokenService,
         ILogger<NotificationHubService> logger)
     {
         _authService = authService;
         _serverSettings = serverSettings;
+        _deviceTokenService = deviceTokenService;
         _logger = logger;
     }
 
@@ -76,7 +79,8 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         {
             _logger.LogDebug("SignalR notification received: {Title}", payload.Title);
             NotificationReceived?.Invoke(payload.Title, payload.Body, payload.Data);
-            ShowLocalNotification(payload.Title, payload.Body, payload.Data);
+            if (_deviceTokenService.ShowHubNotification)
+                ShowLocalNotification(payload.Title, payload.Body, payload.Data);
         });
 
         _connection.Closed += async (error) =>
