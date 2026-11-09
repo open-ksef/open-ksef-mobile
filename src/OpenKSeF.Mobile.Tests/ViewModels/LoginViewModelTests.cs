@@ -445,7 +445,7 @@ public class PostLoginNavigationServiceTests
     {
         OnboardingComplete(true);
         var post = new TaskCompletionSource();
-        _api.GetDevicesAsync().Returns(new List<DeviceTokenDto>());
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns(new List<DeviceTokenDto>());
         _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>(), Arg.Any<CancellationToken>()).Returns(post.Task);
         var devices = new DeviceTokenService(_api, _auth);
         var serverSettings = Substitute.For<IServerSettingsService>();
@@ -455,11 +455,11 @@ public class PostLoginNavigationServiceTests
 
         var signOut = account.SignOutAsync();
         var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = Preferences.Default.Get("device_stable_id", "") };
-        _api.GetDevicesAsync().Returns([mine]);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine]);
         post.SetResult();
         await signOut.WaitAsync(TimeSpan.FromSeconds(5));
 
-        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>());
     }
 
     [Fact]

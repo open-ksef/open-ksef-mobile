@@ -16,8 +16,8 @@ public interface IApiService
     Task AddOrUpdateCredentialAsync(Guid tenantId, string token);
     Task<SyncResultDto> ForceCredentialSyncAsync(Guid tenantId);
     Task RegisterDeviceTokenAsync(RegisterDeviceTokenRequest request, CancellationToken cancellationToken = default);
-    Task<List<DeviceTokenDto>> GetDevicesAsync(string? accessToken = null);
-    Task UnregisterDeviceAsync(Guid deviceId, string? accessToken = null);
+    Task<List<DeviceTokenDto>> GetDevicesAsync(string? accessToken = null, CancellationToken cancellationToken = default);
+    Task UnregisterDeviceAsync(Guid deviceId, string? accessToken = null, CancellationToken cancellationToken = default);
     Task<SellerProfileDto?> GetSellerProfileAsync(Guid tenantId);
     Task<SellerProfileDto> UpdateSellerProfileAsync(Guid tenantId, SellerProfileRequest request);
     Task<NipLookupDto?> LookupNipAsync(string nip);

@@ -28,7 +28,8 @@ public class DeviceTokenServiceTests : IDisposable
         Preferences.Default.Clear();
         Permissions.Reset();
         DeviceInfo.Platform = DevicePlatform.Android;
-        _api.GetDevicesAsync().Returns(new List<DeviceTokenDto>());
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns(new List<DeviceTokenDto>());
+        _auth.CompleteDeferredLogoutAsync(Arg.Any<string>(), Arg.Any<bool>()).Returns(true);
         _service = new DeviceTokenService(_api, _auth);
     }
 
@@ -37,7 +38,7 @@ public class DeviceTokenServiceTests : IDisposable
     private static string NewSignOutId() => Guid.NewGuid().ToString("N");
 
     private void ServerHas(params string[] tokens) =>
-        _api.GetDevicesAsync().Returns(tokens.Select(t => new DeviceTokenDto { Id = Guid.NewGuid(), Token = t }).ToList());
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns(tokens.Select(t => new DeviceTokenDto { Id = Guid.NewGuid(), Token = t }).ToList());
 
     [Fact]
     public async Task ShowHubNotification_OnlyWithoutNativeTokenAndWithPushOn()
@@ -114,8 +115,8 @@ public class DeviceTokenServiceTests : IDisposable
     private List<DeviceTokenDto> FakeServer()
     {
         var rows = new List<DeviceTokenDto>();
-        _api.GetDevicesAsync(Arg.Any<string?>()).Returns(_ => rows.ToList());
-        _api.UnregisterDeviceAsync(Arg.Any<Guid>(), Arg.Any<string?>()).Returns(call =>
+        _api.GetDevicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(_ => rows.ToList());
+        _api.UnregisterDeviceAsync(Arg.Any<Guid>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             rows.RemoveAll(r => r.Id == call.Arg<Guid>());
             return Task.CompletedTask;
@@ -179,7 +180,7 @@ public class DeviceTokenServiceTests : IDisposable
         await cleanup.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Empty(rows);
-        await _api.Received().UnregisterDeviceAsync(Arg.Any<Guid>(), "old-access");
+        await _api.Received().UnregisterDeviceAsync(Arg.Any<Guid>(), "old-access", Arg.Any<CancellationToken>());
         await _auth.Received(1).CompleteDeferredLogoutAsync(Arg.Any<string>());
         Assert.False(_service.SignOutCleanupPending);
         Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
@@ -193,14 +194,14 @@ public class DeviceTokenServiceTests : IDisposable
         post.SetResult();
         PostsWaitFor(rows, post);
         await _service.RegisterTokenAsync("fcm-abc", "Android");
-        _api.GetDevicesAsync(Arg.Any<string?>()).ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
 
         await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
 
         Assert.True(_service.SignOutCleanupPending);
         Assert.Single(rows);
 
-        _api.GetDevicesAsync(Arg.Any<string?>()).Returns(_ => rows.ToList());
+        _api.GetDevicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(_ => rows.ToList());
         _auth.GetDeferredLogoutAccessTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns("old-access");
         var nextStart = new DeviceTokenService(_api, _auth);
         await nextStart.CompleteSignOutCleanupAsync();
@@ -214,7 +215,7 @@ public class DeviceTokenServiceTests : IDisposable
     public async Task Cleanup_StillOffline_KeepsPendingAndDeferredLogout()
     {
         Preferences.Default.Set(TokenKey, "fcm-abc");
-        _api.GetDevicesAsync(Arg.Any<string?>()).ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
         await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
         _auth.GetDeferredLogoutAccessTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
 
@@ -228,14 +229,14 @@ public class DeviceTokenServiceTests : IDisposable
     public async Task Cleanup_SessionGone_ClearsPendingWithoutDelete()
     {
         Preferences.Default.Set(TokenKey, "fcm-abc");
-        _api.GetDevicesAsync(Arg.Any<string?>()).ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
         await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
         _auth.GetDeferredLogoutAccessTokenAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns((string?)null);
 
         await _service.CompleteSignOutCleanupAsync();
 
         Assert.False(_service.SignOutCleanupPending);
-        await _api.DidNotReceiveWithAnyArgs().UnregisterDeviceAsync(default);
+        await _api.DidNotReceiveWithAnyArgs().UnregisterDeviceAsync(default, null, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -303,10 +304,10 @@ public class DeviceTokenServiceTests : IDisposable
     public async Task SecondDeferredSignOut_KeepsFirst_CleanupDeletesEachWithOwnBearer()
     {
         var rows = new Dictionary<string, List<DeviceTokenDto>> { ["a-access"] = [], ["b-access"] = [] };
-        _api.GetDevicesAsync(Arg.Any<string?>()).Returns(call => call.Arg<string?>() is { } bearer
+        _api.GetDevicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(call => call.Arg<string?>() is { } bearer
             ? rows[bearer].ToList()
             : throw new HttpRequestException("offline"));
-        _api.UnregisterDeviceAsync(Arg.Any<Guid>(), Arg.Any<string?>()).Returns(call =>
+        _api.UnregisterDeviceAsync(Arg.Any<Guid>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(call =>
         {
             rows[call.Arg<string?>()!].RemoveAll(r => r.Id == call.Arg<Guid>());
             return Task.CompletedTask;
@@ -336,10 +337,10 @@ public class DeviceTokenServiceTests : IDisposable
         _auth.GetDeferredLogoutAccessTokenAsync("a", Arg.Any<CancellationToken>()).Returns("a-access");
         Preferences.Default.Set(TokenKey, "fcm-a");
         Preferences.Default.Set(DeviceIdKey, "device-a");
-        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
         Assert.False(await _service.UnregisterCurrentDeviceAsync("a", CancellationToken.None));
 
-        _api.GetDevicesAsync().Returns(_ => new List<DeviceTokenDto>());
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns(_ => new List<DeviceTokenDto>());
         Preferences.Default.Set(TokenKey, "fcm-b");
         Assert.True(await _service.UnregisterCurrentDeviceAsync("b", CancellationToken.None));
         Assert.Equal(["a"], PendingIds());
@@ -348,13 +349,13 @@ public class DeviceTokenServiceTests : IDisposable
         await _service.CompleteSignOutCleanupAsync();
 
         Assert.Empty(rows);
-        await _api.Received(1).UnregisterDeviceAsync(Arg.Any<Guid>(), "a-access");
+        await _api.Received(1).UnregisterDeviceAsync(Arg.Any<Guid>(), "a-access", Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task PendingSignOuts_BoundedToFive_EvictedSessionLoggedOut()
     {
-        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
 
         for (var i = 0; i < 7; i++)
         {
@@ -363,8 +364,8 @@ public class DeviceTokenServiceTests : IDisposable
         }
 
         Assert.Equal(["s2", "s3", "s4", "s5", "s6"], PendingIds());
-        await _auth.Received(1).CompleteDeferredLogoutAsync("s0");
-        await _auth.Received(1).CompleteDeferredLogoutAsync("s1");
+        await _auth.Received(1).CompleteDeferredLogoutAsync("s0", true);
+        await _auth.Received(1).CompleteDeferredLogoutAsync("s1", true);
     }
 
     [Fact]
@@ -372,7 +373,7 @@ public class DeviceTokenServiceTests : IDisposable
     {
         var rows = FakeServer();
         Preferences.Default.Set(TokenKey, "fcm-a");
-        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
         await _service.UnregisterCurrentDeviceAsync("a", CancellationToken.None);
         rows.Add(new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-a" });
         _auth.GetDeferredLogoutAccessTokenAsync("a", Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource<string?>().Task, Task.FromResult<string?>("a-access"));
@@ -398,7 +399,7 @@ public class DeviceTokenServiceTests : IDisposable
     public async Task Cleanup_SkippedWhileSignOutUnderway()
     {
         Preferences.Default.Set(TokenKey, "fcm-a");
-        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
         await _service.UnregisterCurrentDeviceAsync("a", CancellationToken.None);
         _auth.LogoutUnderway.Returns(true);
 
@@ -406,6 +407,66 @@ public class DeviceTokenServiceTests : IDisposable
 
         await _auth.DidNotReceiveWithAnyArgs().GetDeferredLogoutAccessTokenAsync(default!, default);
         Assert.Equal(["a"], PendingIds());
+    }
+
+    [Fact]
+    public async Task Cleanup_KeycloakLogoutFails_KeepsEntry_NextRunLogsOutAndClears()
+    {
+        var rows = FakeServer();
+        Preferences.Default.Set(TokenKey, "fcm-a");
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
+        await _service.UnregisterCurrentDeviceAsync("a", CancellationToken.None);
+        rows.Add(new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-a" });
+        _auth.GetDeferredLogoutAccessTokenAsync("a", Arg.Any<CancellationToken>()).Returns("a-access");
+        _auth.CompleteDeferredLogoutAsync("a", false).Returns(false, true);
+
+        await _service.CompleteSignOutCleanupAsync();
+
+        Assert.Empty(rows);
+        Assert.Equal(["a"], PendingIds());
+
+        await new DeviceTokenService(_api, _auth).CompleteSignOutCleanupAsync();
+
+        await _auth.Received(2).CompleteDeferredLogoutAsync("a", false);
+        Assert.False(_service.SignOutCleanupPending);
+    }
+
+    [Theory]
+    [InlineData("get")]
+    [InlineData("delete")]
+    public async Task Cleanup_LimitFires_CancelsServerCall(string hangs)
+    {
+        Preferences.Default.Set(TokenKey, "fcm-a");
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
+        await _service.UnregisterCurrentDeviceAsync("a", CancellationToken.None);
+        _auth.GetDeferredLogoutAccessTokenAsync("a", Arg.Any<CancellationToken>()).Returns("a-access");
+        var cancelled = new TaskCompletionSource();
+        async Task Hang(CancellationToken ct)
+        {
+            try { await Task.Delay(Timeout.Infinite, ct); }
+            finally { cancelled.TrySetResult(); }
+        }
+        _api.GetDevicesAsync("a-access", Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            if (hangs == "get")
+                await Hang(call.Arg<CancellationToken>());
+            return [new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-a" }];
+        });
+        _api.UnregisterDeviceAsync(Arg.Any<Guid>(), "a-access", Arg.Any<CancellationToken>()).Returns(call => Hang(call.Arg<CancellationToken>()));
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            await _service.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        Assert.Equal(["a"], PendingIds());
+        await _auth.DidNotReceiveWithAnyArgs().CompleteDeferredLogoutAsync(default!);
     }
 
     private static string[] PendingIds() =>
@@ -526,7 +587,7 @@ public class DeviceTokenServiceTests : IDisposable
     [Fact]
     public async Task IsDeviceRegistered_ApiFailure_ReturnsFalse()
     {
-        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
 
         Assert.False(await _service.IsDeviceRegisteredAsync());
     }
@@ -647,13 +708,13 @@ public class DeviceTokenServiceTests : IDisposable
         var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
         var mineById = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "device-abc" };
         var other = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "someone-else" };
-        _api.GetDevicesAsync().Returns([mine, mineById, other]);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine, mineById, other]);
 
         await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
 
-        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
-        await _api.Received(1).UnregisterDeviceAsync(mineById.Id);
-        await _api.DidNotReceive().UnregisterDeviceAsync(other.Id);
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>());
+        await _api.Received(1).UnregisterDeviceAsync(mineById.Id, null, Arg.Any<CancellationToken>());
+        await _api.DidNotReceive().UnregisterDeviceAsync(other.Id, null, Arg.Any<CancellationToken>());
         Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
     }
 
@@ -679,13 +740,13 @@ public class DeviceTokenServiceTests : IDisposable
         var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
         var mineById = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "device-abc" };
         var other = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "other-phone" };
-        _api.GetDevicesAsync().Returns([mine, mineById, other]);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine, mineById, other]);
 
         Assert.True(await _service.DisableNotificationsAsync());
 
-        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
-        await _api.Received(1).UnregisterDeviceAsync(mineById.Id);
-        await _api.DidNotReceive().UnregisterDeviceAsync(other.Id);
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>());
+        await _api.Received(1).UnregisterDeviceAsync(mineById.Id, null, Arg.Any<CancellationToken>());
+        await _api.DidNotReceive().UnregisterDeviceAsync(other.Id, null, Arg.Any<CancellationToken>());
         Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
         Assert.False(Preferences.Default.Get(RegisteredKey, false));
         Assert.Equal("device-abc", Preferences.Default.Get(DeviceIdKey, ""));
@@ -711,7 +772,7 @@ public class DeviceTokenServiceTests : IDisposable
         await _service.RegisterTokenAsync("fcm-rotated", "Android");
 
         await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!);
-        await _api.DidNotReceive().GetDevicesAsync();
+        await _api.DidNotReceive().GetDevicesAsync(null, Arg.Any<CancellationToken>());
         Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
     }
 
@@ -732,7 +793,7 @@ public class DeviceTokenServiceTests : IDisposable
     public async Task Disable_Offline_ReturnsFalse_KeepsChoiceAndToken()
     {
         Preferences.Default.Set(TokenKey, "fcm-abc");
-        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
 
         Assert.False(await _service.DisableNotificationsAsync());
 
@@ -751,12 +812,12 @@ public class DeviceTokenServiceTests : IDisposable
         Assert.True(await _service.DisableNotificationsAsync());
         var deviceId = Preferences.Default.Get(DeviceIdKey, "");
         var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = deviceId };
-        _api.GetDevicesAsync().Returns([mine]);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine]);
 
         post.SetResult();
         await registration;
 
-        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>());
         Assert.False(_service.PushRemovalPending);
     }
 
@@ -766,7 +827,7 @@ public class DeviceTokenServiceTests : IDisposable
         Preferences.Default.Set(TokenKey, "fcm-abc");
         var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
         var devices = new TaskCompletionSource<List<DeviceTokenDto>>();
-        _api.GetDevicesAsync().Returns(devices.Task);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns(devices.Task);
 
         var limit = DeviceTokenService.ServerRemovalLimit;
         DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
@@ -778,17 +839,17 @@ public class DeviceTokenServiceTests : IDisposable
 
             devices.SetResult([mine]);
             await Task.Delay(300);
-            await _api.DidNotReceiveWithAnyArgs().UnregisterDeviceAsync(default);
+            await _api.DidNotReceiveWithAnyArgs().UnregisterDeviceAsync(default, null, Arg.Any<CancellationToken>());
         }
         finally
         {
             DeviceTokenService.ServerRemovalLimit = limit;
         }
 
-        _api.GetDevicesAsync().Returns([mine]);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine]);
         await _service.EnsureDeviceRegisteredAsync();
 
-        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>());
         Assert.False(_service.PushRemovalPending);
     }
 
@@ -796,14 +857,14 @@ public class DeviceTokenServiceTests : IDisposable
     public async Task EnsureDeviceRegistered_AfterOfflineDisable_RetriesDeleteAndClearsKeys()
     {
         Preferences.Default.Set(TokenKey, "fcm-abc");
-        _api.GetDevicesAsync().ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
         await _service.DisableNotificationsAsync();
         var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
-        _api.GetDevicesAsync().Returns([mine]);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine]);
 
         await _service.EnsureDeviceRegisteredAsync();
 
-        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>());
         await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!);
         Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
         Assert.False(_service.PushRemovalPending);
@@ -816,17 +877,17 @@ public class DeviceTokenServiceTests : IDisposable
         Preferences.Default.Set(DeviceIdKey, "device-abc");
         var first = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
         var second = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "device-abc" };
-        _api.GetDevicesAsync().Returns([first, second]);
-        _api.UnregisterDeviceAsync(second.Id).ThrowsAsync(new HttpRequestException("offline"));
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([first, second]);
+        _api.UnregisterDeviceAsync(second.Id, null, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("offline"));
 
         Assert.False(await _service.DisableNotificationsAsync());
         Assert.Equal("fcm-abc", Preferences.Default.Get(TokenKey, ""));
 
-        _api.UnregisterDeviceAsync(second.Id).Returns(Task.CompletedTask);
-        _api.GetDevicesAsync().Returns([second]);
+        _api.UnregisterDeviceAsync(second.Id, null, Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([second]);
         await _service.EnsureDeviceRegisteredAsync();
 
-        await _api.Received(2).UnregisterDeviceAsync(second.Id);
+        await _api.Received(2).UnregisterDeviceAsync(second.Id, null, Arg.Any<CancellationToken>());
         Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
     }
 

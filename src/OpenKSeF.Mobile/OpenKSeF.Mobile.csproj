@@ -55,7 +55,6 @@
     <PackageReference Include="Xamarin.AndroidX.Core.Core.Ktx" Version="1.17.0" />
   </ItemGroup>
 
-  <!-- Android Firebase: enabled only when google-services.json is present -->
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' AND Exists('Platforms\Android\google-services.json')">
     <DefineConstants>$(DefineConstants);FIREBASE_ENABLED</DefineConstants>
   </PropertyGroup>

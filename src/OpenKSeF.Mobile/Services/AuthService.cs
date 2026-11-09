@@ -251,17 +251,18 @@ public class AuthService : IAuthService
         return tokens.AccessToken;
     }
 
-    public async Task CompleteDeferredLogoutAsync(string signOutId)
+    public async Task<bool> CompleteDeferredLogoutAsync(string signOutId, bool dropOnFailure = false)
     {
         EnsureConfiguration();
 
         var refreshToken = await SecureStorage.Default.GetAsync(GetDeferredLogoutKey(signOutId));
-        SecureStorage.Default.Remove(GetDeferredLogoutKey(signOutId));
-        if (refreshToken is not null)
-            await PostLogoutAsync(refreshToken);
+        var ended = refreshToken is null || await PostLogoutAsync(refreshToken);
+        if (ended || dropOnFailure)
+            SecureStorage.Default.Remove(GetDeferredLogoutKey(signOutId));
+        return ended;
     }
 
-    private async Task PostLogoutAsync(string refreshToken)
+    private async Task<bool> PostLogoutAsync(string refreshToken)
     {
         try
         {
@@ -274,9 +275,13 @@ public class AuthService : IAuthService
                     ["refresh_token"] = refreshToken
                 }),
                 cts.Token);
+            return response.IsSuccessStatusCode
+                || (response.StatusCode == HttpStatusCode.BadRequest
+                    && (await response.Content.ReadFromJsonAsync<ErrorResponse>(cts.Token))?.Error == "invalid_grant");
         }
         catch
         {
+            return false;
         }
     }
 
