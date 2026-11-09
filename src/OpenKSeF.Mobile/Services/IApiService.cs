@@ -15,9 +15,9 @@ public interface IApiService
     Task<TransferDetailsDto> GetTransferDetailsAsync(Guid tenantId, Guid invoiceId);
     Task AddOrUpdateCredentialAsync(Guid tenantId, string token);
     Task<SyncResultDto> ForceCredentialSyncAsync(Guid tenantId);
-    Task RegisterDeviceTokenAsync(RegisterDeviceTokenRequest request);
-    Task<List<DeviceTokenDto>> GetDevicesAsync();
-    Task UnregisterDeviceAsync(Guid deviceId);
+    Task RegisterDeviceTokenAsync(RegisterDeviceTokenRequest request, CancellationToken cancellationToken = default);
+    Task<List<DeviceTokenDto>> GetDevicesAsync(string? accessToken = null);
+    Task UnregisterDeviceAsync(Guid deviceId, string? accessToken = null);
     Task<SellerProfileDto?> GetSellerProfileAsync(Guid tenantId);
     Task<SellerProfileDto> UpdateSellerProfileAsync(Guid tenantId, SellerProfileRequest request);
     Task<NipLookupDto?> LookupNipAsync(string nip);

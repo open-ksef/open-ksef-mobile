@@ -894,55 +894,64 @@ public class AuthServiceRestoreTests
             return Json(request.Method == HttpMethod.Delete && request.Headers.Authorization is null ? HttpStatusCode.Unauthorized : HttpStatusCode.NoContent, string.Empty);
         };
 
-        await Navigation(new DeviceTokenService(CreateApi())).SignOutAsync();
+        await Navigation(new DeviceTokenService(CreateApi(), _auth)).SignOutAsync();
 
         var delete = Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Delete);
         Assert.EndsWith($"/api/devices/{deviceId}", delete.RequestUri!.AbsolutePath);
         Assert.Equal("new-access", delete.Headers.Authorization?.Parameter);
     }
 
-    private async Task AssertSignOutDevicesListAfterLimit_NoDeleteAsync(Func<Task> afterSignOut)
+    private async Task AssertSignOutDevicesListAfterLimit_DeletesOnlyWithSignedOutSessionAsync(Func<Task> afterSignOut)
     {
         await LoginAsync();
         Preferences.Default.Clear();
         Preferences.Default.Set("device_push_token", "fcm-token");
         var release = new TaskCompletionSource();
+        var deviceId = Guid.NewGuid();
         _handler.Respond = async request =>
         {
             if (request.Method == HttpMethod.Get)
             {
                 await release.Task;
-                return Json(HttpStatusCode.OK, $$"""[{"id":"{{Guid.NewGuid()}}","token":"fcm-token"}]""");
+                return Json(HttpStatusCode.OK, $$"""[{"id":"{{deviceId}}","token":"fcm-token"}]""");
             }
 
-            return IsTokenRequest(request) ? Json(HttpStatusCode.OK, UserBTokens) : Json(HttpStatusCode.NoContent, string.Empty);
+            if (IsTokenRequest(request))
+                return Json(HttpStatusCode.OK, (await request.Content!.ReadAsStringAsync()).Contains("refresh_token=new-refresh") ? CleanupTokens : UserBTokens);
+
+            return Json(HttpStatusCode.NoContent, string.Empty);
         };
 
+        var device = new DeviceTokenService(CreateApi(), _auth);
         var limit = DeviceTokenService.ServerRemovalLimit;
         DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
         try
         {
-            await Navigation(new DeviceTokenService(CreateApi())).SignOutAsync();
+            await Navigation(device).SignOutAsync();
             await afterSignOut();
             release.SetResult();
-            await Task.Delay(300);
+            await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
         }
         finally
         {
             DeviceTokenService.ServerRemovalLimit = limit;
         }
 
-        Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Get);
-        Assert.DoesNotContain(_handler.Requests, r => r.Method == HttpMethod.Delete);
+        var delete = Assert.Single(_handler.Requests, r => r.Method == HttpMethod.Delete);
+        Assert.Equal("a-cleanup", delete.Headers.Authorization?.Parameter);
+        Assert.Single(_handler.Requests, IsLogoutRequest);
+        Assert.False(device.SignOutCleanupPending);
     }
 
-    [Fact]
-    public Task SignOut_DevicesListAfterLimit_NobodyLoggedIn_NoDelete() =>
-        AssertSignOutDevicesListAfterLimit_NoDeleteAsync(() => Task.CompletedTask);
+    private const string CleanupTokens = """{"access_token":"a-cleanup","refresh_token":"a-cleanup-refresh","expires_in":300}""";
 
     [Fact]
-    public Task SignOut_DevicesListAfterLimit_NextUserLoggedIn_NoDelete() =>
-        AssertSignOutDevicesListAfterLimit_NoDeleteAsync(async () => Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x")));
+    public Task SignOut_DevicesListAfterLimit_NobodyLoggedIn_CleanupDeletesWithOldSession() =>
+        AssertSignOutDevicesListAfterLimit_DeletesOnlyWithSignedOutSessionAsync(() => Task.CompletedTask);
+
+    [Fact]
+    public Task SignOut_DevicesListAfterLimit_NextUserLoggedIn_CleanupDeletesWithOldSession() =>
+        AssertSignOutDevicesListAfterLimit_DeletesOnlyWithSignedOutSessionAsync(async () => Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x")));
 
     [Fact]
     public async Task RestoreInvalidGrant_DoesNotRaiseSessionEnded()

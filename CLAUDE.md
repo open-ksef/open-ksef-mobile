@@ -185,6 +185,9 @@ No skills are committed (`.cursor/skills/` is whitelisted in `.gitignore` but ab
 
 Firebase is optional. If `src/OpenKSeF.Mobile/Platforms/Android/google-services.json` exists, the build automatically includes `Xamarin.Firebase.Messaging` and defines `FIREBASE_ENABLED`. Without it, the app builds normally without push support.
 
+- Hub `ReceiveNotification` carries `nativePush` (server has Relay or FCM configured). The local notification is skipped only when a native token is stored and `nativePush == true`; an absent field (API before T-618) shows it.
+- All device registration POSTs run in one chain in `DeviceTokenService` with a session token that sign-out cancels. If removal is not confirmed (delete failed, budget hit, or a POST ended without a server answer: cancel, timeout, network error, 5xx), sign-out saves `pending_signout_tokens` and `AuthService.DeferLogoutAsync` keeps the refresh token; `CompleteSignOutCleanupAsync` (after the chain settles, and on every start) refreshes it, deletes the rows with that bearer, then logs out of Keycloak.
+
 ## Debugging playbook
 
 | Problem | How to debug |

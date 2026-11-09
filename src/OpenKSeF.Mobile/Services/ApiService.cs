@@ -94,19 +94,19 @@ public class ApiService : IApiService
         return await SendAsync<SyncResultDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/credentials/sync");
     }
 
-    public async Task RegisterDeviceTokenAsync(RegisterDeviceTokenRequest request)
+    public async Task RegisterDeviceTokenAsync(RegisterDeviceTokenRequest request, CancellationToken cancellationToken = default)
     {
-        await SendNoContentAsync(HttpMethod.Post, "/api/devices/register", request);
+        await SendNoContentAsync(HttpMethod.Post, "/api/devices/register", request, cancellationToken: cancellationToken);
     }
 
-    public async Task<List<DeviceTokenDto>> GetDevicesAsync()
+    public async Task<List<DeviceTokenDto>> GetDevicesAsync(string? accessToken = null)
     {
-        return await SendAsync<List<DeviceTokenDto>>(HttpMethod.Get, "/api/devices");
+        return await SendAsync<List<DeviceTokenDto>>(HttpMethod.Get, "/api/devices", accessToken: accessToken);
     }
 
-    public async Task UnregisterDeviceAsync(Guid deviceId)
+    public async Task UnregisterDeviceAsync(Guid deviceId, string? accessToken = null)
     {
-        await SendNoContentAsync(HttpMethod.Delete, $"/api/devices/{deviceId}");
+        await SendNoContentAsync(HttpMethod.Delete, $"/api/devices/{deviceId}", accessToken: accessToken);
     }
 
     public async Task<SellerProfileDto?> GetSellerProfileAsync(Guid tenantId)
@@ -197,9 +197,9 @@ public class ApiService : IApiService
         return await response.Content.ReadAsByteArrayAsync();
     }
 
-    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null)
+    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, string? accessToken = null)
     {
-        using var response = await ExecuteAsync(method, path, body);
+        using var response = await ExecuteAsync(method, path, body, accessToken);
 
         T? result;
         try
@@ -214,21 +214,30 @@ public class ApiService : IApiService
             "Otrzymano pusta odpowiedz z serwera.");
     }
 
-    private async Task SendNoContentAsync(HttpMethod method, string path, object? body = null)
+    private async Task SendNoContentAsync(HttpMethod method, string path, object? body = null, string? accessToken = null, CancellationToken cancellationToken = default)
     {
-        using var response = await ExecuteAsync(method, path, body);
+        using var response = await ExecuteAsync(method, path, body, accessToken, cancellationToken);
     }
 
-    private async Task<HttpResponseMessage> ExecuteAsync(HttpMethod method, string path, object? body = null)
+    /// <summary>An explicit access token belongs to a signed-out session (deferred device cleanup): no refresh and no session check against the current one.</summary>
+    private async Task<HttpResponseMessage> ExecuteAsync(HttpMethod method, string path, object? body = null, string? accessToken = null, CancellationToken cancellationToken = default)
     {
-        var session = _auth.SessionGeneration;
-        var token = await _auth.GetAccessTokenAsync();
-        ThrowIfSessionChanged(session);
+        HttpResponseMessage response;
+        if (accessToken is not null)
+        {
+            response = await SendRequestAsync(method, path, body, accessToken);
+        }
+        else
+        {
+            var session = _auth.SessionGeneration;
+            var token = await _auth.GetAccessTokenAsync();
+            ThrowIfSessionChanged(session);
 
-        var response = await SendRequestAsync(method, path, body, token);
+            response = await SendRequestAsync(method, path, body, token, cancellationToken);
 
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-            response = await RefreshAndRetryAsync(response, method, path, body, session);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+                response = await RefreshAndRetryAsync(response, method, path, body, session);
+        }
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
             throw new ApiException(HttpStatusCode.Forbidden, "Brak uprawnien do tego zasobu.");
@@ -314,7 +323,7 @@ public class ApiService : IApiService
             throw new ApiException(HttpStatusCode.Unauthorized, SessionExpired);
     }
 
-    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string path, object? body, string? token)
+    private async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, string path, object? body, string? token, CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(method, BuildRequestUri(path));
         if (token is not null)
@@ -324,7 +333,7 @@ public class ApiService : IApiService
 
         try
         {
-            return await _http.SendAsync(request);
+            return await _http.SendAsync(request, cancellationToken);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
