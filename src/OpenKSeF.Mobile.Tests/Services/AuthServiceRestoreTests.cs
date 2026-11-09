@@ -1063,13 +1063,127 @@ public class AuthServiceRestoreTests
         Assert.Contains("refresh_token=r1", _handler.Bodies.Last());
     }
 
-    private PostLoginNavigationService Navigation(IDeviceTokenService? device = null) => new(
-        Substitute.For<IApiService>(),
-        _auth,
-        device ?? Substitute.For<IDeviceTokenService>(),
-        Substitute.For<INotificationHubService>(),
-        Substitute.For<IServerSettingsService>(),
-        new LocalDbService());
+    private PostLoginNavigationService Navigation(IDeviceTokenService? device = null)
+    {
+        if (device is null)
+        {
+            device = Substitute.For<IDeviceTokenService>();
+            device.UnregisterCurrentDeviceAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
+        }
+
+        return new(
+            Substitute.For<IApiService>(),
+            _auth,
+            device,
+            Substitute.For<INotificationHubService>(),
+            Substitute.For<IServerSettingsService>(),
+            new LocalDbService());
+    }
+
+    [Theory]
+    [InlineData("ok")]
+    [InlineData("invalid_grant")]
+    [InlineData("5xx")]
+    [InlineData("network")]
+    [InlineData("timeout")]
+    public async Task TwoDeferredSignOuts_ResumeCleansEachUserWithOwnBearer(string firstRefresh)
+    {
+        Preferences.Default.Clear();
+        var rows = new List<(Guid Id, string User, string Token)>();
+        var deletes = new List<(string Bearer, string RowUser)>();
+        var devicesOffline = false;
+        var keycloakOnline = false;
+        var refreshA = firstRefresh;
+        string UserOf(HttpRequestMessage r) => r.Headers.Authorization!.Parameter![..1];
+        _handler.Respond = async request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync();
+            if (IsLogoutRequest(request))
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            if (IsTokenRequest(request) && body.Contains("grant_type=password"))
+                return Json(HttpStatusCode.OK, body.Contains("username=a%40") ? UserATokens : UserBTokens);
+            if (IsTokenRequest(request))
+            {
+                if (!keycloakOnline)
+                    throw new HttpRequestException("offline");
+                if (body.Contains("refresh_token=b-refresh"))
+                    return Json(HttpStatusCode.OK, """{"access_token":"b-cleanup","refresh_token":"b-refresh2","expires_in":300}""");
+                return refreshA switch
+                {
+                    "ok" => Json(HttpStatusCode.OK, """{"access_token":"a-cleanup","refresh_token":"a-refresh2","expires_in":300}"""),
+                    "invalid_grant" => Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}"""),
+                    "5xx" => Json(HttpStatusCode.ServiceUnavailable, string.Empty),
+                    "network" => throw new HttpRequestException("reset"),
+                    _ => await new TaskCompletionSource<HttpResponseMessage>().Task,
+                };
+            }
+            if (request.Method == HttpMethod.Post)
+            {
+                rows.Add((Guid.NewGuid(), UserOf(request), System.Text.Json.JsonDocument.Parse(body).RootElement.GetProperty("token").GetString()!));
+                return Json(HttpStatusCode.NoContent, string.Empty);
+            }
+            if (request.Method == HttpMethod.Get)
+            {
+                if (devicesOffline)
+                    return Json(HttpStatusCode.ServiceUnavailable, string.Empty);
+                var mine = rows.Where(r => r.User == UserOf(request)).Select(r => new { id = r.Id, token = r.Token });
+                return Json(HttpStatusCode.OK, System.Text.Json.JsonSerializer.Serialize(mine));
+            }
+            var row = rows.Single(r => path.EndsWith(r.Id.ToString()));
+            deletes.Add((request.Headers.Authorization!.Parameter!, row.User));
+            if (row.User == UserOf(request))
+                rows.Remove(row);
+            return Json(HttpStatusCode.NoContent, string.Empty);
+        };
+        var device = new DeviceTokenService(CreateApi(), _auth);
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(300);
+        try
+        {
+            Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+            await device.EnsureDeviceRegisteredAsync();
+            devicesOffline = true;
+            await Navigation(device).SignOutAsync();
+            await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+            await device.EnsureDeviceRegisteredAsync();
+            await Navigation(device).SignOutAsync();
+            await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Equal(["a", "b"], rows.Select(r => r.User));
+            Assert.DoesNotContain(_handler.Requests, IsLogoutRequest);
+
+            devicesOffline = false;
+            keycloakOnline = true;
+            await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.DoesNotContain(rows, r => r.User == "b");
+            Assert.Contains(_handler.Bodies, b => b.EndsWith("refresh_token=b-refresh2"));
+            if (firstRefresh is "5xx" or "network" or "timeout")
+            {
+                Assert.Equal(["a"], rows.Select(r => r.User));
+                Assert.True(device.SignOutCleanupPending);
+                refreshA = "ok";
+                await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            }
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        var aCleaned = firstRefresh != "invalid_grant";
+        Assert.Equal(aCleaned ? [] : ["a"], rows.Select(r => r.User));
+        Assert.Equal(aCleaned, _handler.Bodies.Any(b => b.EndsWith("refresh_token=a-refresh2")));
+        Assert.Equal(aCleaned ? 2 : 1, _handler.Requests.Count(IsLogoutRequest));
+        Assert.All(deletes, d => Assert.Equal(d.RowUser, d.Bearer[..1]));
+        Assert.False(device.SignOutCleanupPending);
+        Assert.Equal(0, SecureStorage.Default.Count);
+    }
+
+    private const string UserATokens = """{"access_token":"a-access","refresh_token":"a-refresh","expires_in":300}""";
 
     private async Task EndSessionAsync()
     {
@@ -1116,7 +1230,7 @@ public class AuthServiceRestoreTests
     private IDeviceTokenService DeviceRefreshingOnUnregister()
     {
         var device = Substitute.For<IDeviceTokenService>();
-        device.UnregisterCurrentDeviceAsync(Arg.Any<CancellationToken>()).Returns(async _ => await _auth.GetAccessTokenAsync());
+        device.UnregisterCurrentDeviceAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(async _ => { await _auth.GetAccessTokenAsync(); return true; });
         return device;
     }
 

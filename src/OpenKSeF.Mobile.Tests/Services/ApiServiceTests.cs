@@ -81,6 +81,24 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task RegisterDevice_SignOutDuringRefresh_RetryCancelled()
+    {
+        using var session = new CancellationTokenSource();
+        _auth.RefreshAccessTokenAsync().Returns(_ =>
+        {
+            session.Cancel();
+            return "refreshed-token";
+        });
+        _handler.Respond(HttpStatusCode.Unauthorized);
+        _handler.Respond(HttpStatusCode.OK);
+
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            CreateService().RegisterDeviceTokenAsync(new RegisterDeviceTokenRequest { Token = "fcm-1" }, session.Token));
+
+        Assert.Single(_handler.Requests);
+    }
+
+    [Fact]
     public async Task Unauthorized_ForcesRefreshOnce_RetriesWithNewToken()
     {
         _auth.RefreshAccessTokenAsync().Returns("refreshed-token");

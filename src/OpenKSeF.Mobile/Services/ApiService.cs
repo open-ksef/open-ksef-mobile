@@ -236,7 +236,7 @@ public class ApiService : IApiService
             response = await SendRequestAsync(method, path, body, token, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.Unauthorized)
-                response = await RefreshAndRetryAsync(response, method, path, body, session);
+                response = await RefreshAndRetryAsync(response, method, path, body, session, cancellationToken);
         }
 
         if (response.StatusCode == HttpStatusCode.Forbidden)
@@ -294,7 +294,7 @@ public class ApiService : IApiService
     }
 
     private async Task<HttpResponseMessage> RefreshAndRetryAsync(
-        HttpResponseMessage rejected, HttpMethod method, string path, object? body, int session)
+        HttpResponseMessage rejected, HttpMethod method, string path, object? body, int session, CancellationToken cancellationToken)
     {
         rejected.Dispose();
         ThrowIfSessionChanged(session);
@@ -309,7 +309,7 @@ public class ApiService : IApiService
                 : new ApiException(HttpStatusCode.Unauthorized, SessionExpired);
         }
 
-        var retried = await SendRequestAsync(method, path, body, token);
+        var retried = await SendRequestAsync(method, path, body, token, cancellationToken);
         if (retried.StatusCode != HttpStatusCode.Unauthorized)
             return retried;
 

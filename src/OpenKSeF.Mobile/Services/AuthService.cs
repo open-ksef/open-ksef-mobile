@@ -203,7 +203,7 @@ public class AuthService : IAuthService
             await PostLogoutAsync(refreshToken);
     }
 
-    public async Task DeferLogoutAsync()
+    public async Task DeferLogoutAsync(string signOutId)
     {
         EnsureConfiguration();
 
@@ -214,14 +214,14 @@ public class AuthService : IAuthService
         ClearTokens();
 
         if (refreshToken is not null)
-            await SecureStorage.Default.SetAsync(GetDeferredLogoutKey(), refreshToken);
+            await SecureStorage.Default.SetAsync(GetDeferredLogoutKey(signOutId), refreshToken);
     }
 
-    public async Task<string?> GetDeferredLogoutAccessTokenAsync()
+    public async Task<string?> GetDeferredLogoutAccessTokenAsync(string signOutId, CancellationToken cancellationToken)
     {
         EnsureConfiguration();
 
-        var refreshToken = await SecureStorage.Default.GetAsync(GetDeferredLogoutKey());
+        var refreshToken = await SecureStorage.Default.GetAsync(GetDeferredLogoutKey(signOutId));
         if (refreshToken is null)
             return null;
 
@@ -232,30 +232,31 @@ public class AuthService : IAuthService
                 ["grant_type"] = "refresh_token",
                 ["client_id"] = _options.ClientId,
                 ["refresh_token"] = refreshToken
-            }));
+            }),
+            cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.BadRequest
-            && (await response.Content.ReadFromJsonAsync<ErrorResponse>())?.Error == "invalid_grant")
+            && (await response.Content.ReadFromJsonAsync<ErrorResponse>(cancellationToken))?.Error == "invalid_grant")
         {
-            SecureStorage.Default.Remove(GetDeferredLogoutKey());
+            SecureStorage.Default.Remove(GetDeferredLogoutKey(signOutId));
             return null;
         }
 
         response.EnsureSuccessStatusCode();
-        var tokens = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>()
+        var tokens = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>(cancellationToken)
             ?? throw new HttpRequestException("empty token response");
         if (tokens.RefreshToken is not null)
-            await SecureStorage.Default.SetAsync(GetDeferredLogoutKey(), tokens.RefreshToken);
+            await SecureStorage.Default.SetAsync(GetDeferredLogoutKey(signOutId), tokens.RefreshToken);
 
         return tokens.AccessToken;
     }
 
-    public async Task CompleteDeferredLogoutAsync()
+    public async Task CompleteDeferredLogoutAsync(string signOutId)
     {
         EnsureConfiguration();
 
-        var refreshToken = await SecureStorage.Default.GetAsync(GetDeferredLogoutKey());
-        SecureStorage.Default.Remove(GetDeferredLogoutKey());
+        var refreshToken = await SecureStorage.Default.GetAsync(GetDeferredLogoutKey(signOutId));
+        SecureStorage.Default.Remove(GetDeferredLogoutKey(signOutId));
         if (refreshToken is not null)
             await PostLogoutAsync(refreshToken);
     }
@@ -496,7 +497,7 @@ public class AuthService : IAuthService
     private string GetAccessTokenKey() => $"{_storagePrefix}:access_token";
     private string GetRefreshTokenKey() => $"{_storagePrefix}:refresh_token";
     private string GetTokenExpiryKey() => $"{_storagePrefix}:token_expiry";
-    private string GetDeferredLogoutKey() => $"{_storagePrefix}:deferred_logout_refresh_token";
+    private string GetDeferredLogoutKey(string signOutId) => $"{_storagePrefix}:deferred_logout:{signOutId}";
 
     private sealed class KeycloakTokenResponse
     {

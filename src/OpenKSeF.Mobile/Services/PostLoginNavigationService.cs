@@ -106,18 +106,14 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
     public async Task SignOutAsync()
     {
+        var signOutId = Guid.NewGuid().ToString("N");
         _authService.LogoutUnderway = true;
         try
         {
             using var limit = new CancellationTokenSource(SignOutLimit);
             try { await _notificationHub.StopAsync().WaitAsync(limit.Token); } catch { }
             var unregistered = false;
-            try
-            {
-                await _deviceTokenService.UnregisterCurrentDeviceAsync(limit.Token).WaitAsync(limit.Token);
-                unregistered = !_deviceTokenService.SignOutCleanupPending;
-            }
-            catch { }
+            try { unregistered = await _deviceTokenService.UnregisterCurrentDeviceAsync(signOutId, limit.Token).WaitAsync(limit.Token); } catch { }
             try { await _localDb.ClearUserDataAsync(); } catch { }
             ClearCacheDirectory();
             if (unregistered)
@@ -126,14 +122,14 @@ public class PostLoginNavigationService : IPostLoginNavigationService
             }
             else
             {
-                await _authService.DeferLogoutAsync();
-                _ = _deviceTokenService.CompleteSignOutCleanupAsync();
+                await _authService.DeferLogoutAsync(signOutId);
             }
         }
         finally
         {
             _authService.LogoutUnderway = false;
         }
+        _ = _deviceTokenService.CompleteSignOutCleanupAsync();
     }
 
     /// <summary>The whole directory, not named files: shared PDF, XML and UPO hold private buyers' data, and the share sheet may keep its own copies here.</summary>
