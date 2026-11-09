@@ -13,6 +13,7 @@ using Xunit;
 namespace OpenKSeF.Mobile.Tests.Services;
 
 /// <summary>Consumer contract: backend golden field list (open-ksef MobileContract/responses.json) and fake payloads in its shape, read by the app's ApiService into the app's Models.</summary>
+[Collection("Shell")]
 public class MobileContractTests
 {
     private const string Detail = "GET /api/tenants/{id}/invoices/{invoiceId}";
@@ -22,7 +23,9 @@ public class MobileContractTests
     private const string IssuedDetail = "GET /api/tenants/{id}/issued-invoices/{invoiceId}";
     private const string NipLookup = "GET /api/nip-lookup/{nip}";
     private const string NipLookupInvalid = "GET /api/nip-lookup/{nip} (invalid)";
-    private const string GoldenSha256 = "46F925DC98F831B500A091C169CCD0577532ED363B3DFF38DC52825822427EE2";
+    private const string Hub = "SignalR ReceiveNotification";
+    private const string HubSummary = "SignalR ReceiveNotification (newInvoicesSummary)";
+    private const string GoldenSha256 = "FFBBD803CD866B41174C6E00CAFDD80056EADE87F36B54418FDD4C8E21633098";
 
     private static readonly JsonObject Golden = Load("responses.json");
     private static readonly JsonObject Payloads = Load("payloads.json");
@@ -58,21 +61,56 @@ public class MobileContractTests
     [Fact]
     public void Golden_CoversEveryMappedEndpoint()
     {
-        var mapped = GoldenTypes.Select(row => (string)row[0]).Append("SignalR ReceiveNotification");
+        var mapped = GoldenTypes.Select(row => (string)row[0]).Append(Hub).Append(HubSummary);
 
         Assert.Equal(Golden.Select(p => p.Key).Order(), mapped.Order());
     }
 
-    [Fact]
-    public void GoldenHubArguments_BindToNotificationPayload()
+    [Theory]
+    [InlineData(Hub)]
+    [InlineData(HubSummary)]
+    public void GoldenHubArguments_BindToNotificationPayload(string entry)
     {
-        var missing = Golden["SignalR ReceiveNotification"]!.AsObject()
+        var missing = Golden[entry]!.AsObject()
             .Select(f => f.Key)
             .Where(path => path.StartsWith("arguments[].") && !path.StartsWith("arguments[].data."))
             .Where(path => Resolve(typeof(NotificationHubService.NotificationPayload), path["arguments[].".Length..]) is null)
             .ToList();
 
         Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void GoldenSummaryHubPayload_ParsesWithoutInvoiceId_AndOpensTenantList()
+    {
+        var data = Golden[HubSummary]!.AsObject()
+            .Select(f => f.Key)
+            .Where(path => path.StartsWith("arguments[].data."))
+            .Select(path => path["arguments[].data.".Length..])
+            .ToList();
+        Assert.DoesNotContain("invoiceId", data);
+        var values = new Dictionary<string, string> { ["type"] = "newInvoicesSummary", ["tenantId"] = TenantId.ToString(), ["count"] = "15" };
+        var json = new JsonObject
+        {
+            ["title"] = "Więcej nowych faktur",
+            ["body"] = "Firma: pozostałe nowe faktury: 15. Zobacz je w aplikacji.",
+            ["data"] = new JsonObject(data.Select(k => KeyValuePair.Create(k, (JsonNode?)values[k]))),
+            ["nativePush"] = true
+        };
+
+        var payload = json.Deserialize<NotificationHubService.NotificationPayload>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        Assert.Equal(["count", "tenantId", "type"], payload.Data!.Keys.Order());
+        Assert.True(payload.NativePush);
+        try
+        {
+            Assert.True(NotificationHubService.OnNotificationTapped(payload.Data["type"], payload.Data["tenantId"]));
+            Assert.Equal(TenantId, NotificationHubService.TakeTappedTenantId());
+        }
+        finally
+        {
+            NotificationHubService.TakeTappedTenantId();
+        }
     }
 
     [Theory]

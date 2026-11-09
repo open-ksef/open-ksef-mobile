@@ -49,6 +49,16 @@ public class LoginViewModelTests
         Assert.False(vm.IsRestoringSession);
     }
 
+    [Theory]
+    [InlineData("https://example.com.", "example.com")]
+    [InlineData("https://bаnk.pl", "xn--bnk-6cd.pl")]
+    [InlineData("http://10.0.2.2:8080", "10.0.2.2:8080")]
+    [InlineData("https://example.com:443", "example.com")]
+    public void ActiveServerHost_ShowsNormalizedHost(string url, string expected)
+    {
+        Assert.Equal(expected, CreateViewModel(CreateServerSettings(url, isConfigured: true)).ActiveServerHost);
+    }
+
     [Fact]
     public void Constructor_InitializesFromServerSettings()
     {

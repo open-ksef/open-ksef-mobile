@@ -20,9 +20,14 @@ public class InvoiceListViewModelTests : IDisposable
         Preferences.Default.Set("SelectedTenantId", TenantId.ToString());
         Preferences.Default.Set("SelectedTenantNip", "1111111111");
         _api.GetInvoicesAsync(TenantId, 1).Returns(Page());
+        NotificationHubService.TakeTappedTenantId();
     }
 
-    public void Dispose() => Preferences.Default.Clear();
+    public void Dispose()
+    {
+        Preferences.Default.Clear();
+        NotificationHubService.TakeTappedTenantId();
+    }
 
     private static PagedResult<InvoiceDto> Page() => new()
     {
@@ -92,6 +97,84 @@ public class InvoiceListViewModelTests : IDisposable
     }
 
     private static readonly Guid OtherTenantId = Guid.Parse("2b9e4f61-8c3d-4e7a-a1b2-c3d4e5f60718");
+
+    private void OwnsTenants() => _api.GetTenantsAsync().Returns(
+    [
+        new TenantDto { Id = TenantId, Nip = "1111111111" },
+        new TenantDto { Id = OtherTenantId, Nip = "1111111112" }
+    ]);
+
+    private void OtherTenantHas(string vendor) => _api.GetInvoicesAsync(OtherTenantId, 1).Returns(
+        new PagedResult<InvoiceDto> { Items = [new InvoiceDto { Id = Guid.NewGuid(), VendorName = vendor }], PageSize = 20, TotalCount = 1 });
+
+    [Fact]
+    public async Task SummaryTap_OwnedTenant_OpensThatTenantsList()
+    {
+        OwnsTenants();
+        OtherTenantHas("Other");
+        Assert.True(NotificationHubService.OnNotificationTapped("newInvoicesSummary", OtherTenantId.ToString()));
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Other"], vm.Invoices.Select(i => i.VendorName));
+        Assert.Equal("1111111112", vm.TenantNip);
+        Assert.Equal(OtherTenantId.ToString(), Preferences.Default.Get("SelectedTenantId", ""));
+        Assert.False(NotificationHubService.HasTappedTenant);
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("4xx")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    [InlineData("cancel")]
+    public async Task SummaryTap_TenantsCallFailsOrTenantNotOwned_KeepsCurrentTenant(string outcome)
+    {
+        _api.GetTenantsAsync().Returns(outcome == "success"
+            ? Task.FromResult(new List<TenantDto> { new() { Id = TenantId, Nip = "1111111111" } })
+            : Outcome(outcome).ContinueWith(t => { t.Wait(); return new List<TenantDto>(); }));
+        NotificationHubService.OnNotificationTapped("newInvoicesSummary", OtherTenantId.ToString());
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Test"], vm.Invoices.Select(i => i.VendorName));
+        Assert.Equal(TenantId.ToString(), Preferences.Default.Get("SelectedTenantId", ""));
+        await _api.DidNotReceive().GetInvoicesAsync(OtherTenantId, Arg.Any<int>());
+    }
+
+    [Fact]
+    public async Task SummaryTap_DuringLoad_ReloadsForTappedTenant()
+    {
+        OwnsTenants();
+        OtherTenantHas("Other");
+        var first = new TaskCompletionSource();
+        _api.GetInvoicesAsync(TenantId, 1).Returns(async _ => { await first.Task; return Page(); });
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        NotificationHubService.OnNotificationTapped("newInvoicesSummary", OtherTenantId.ToString());
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+        first.SetResult();
+        await load;
+
+        Assert.Equal(["Other"], vm.Invoices.Select(i => i.VendorName));
+        Assert.False(vm.IsBusy);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(null, "7d1c3a52-1f7e-4a59-9b0c-2f3d4e5a6b7c")]
+    [InlineData("newInvoicesSummary", null)]
+    [InlineData("newInvoicesSummary", "not-a-guid")]
+    [InlineData("newInvoice", "7d1c3a52-1f7e-4a59-9b0c-2f3d4e5a6b7c")]
+    public void NotificationTap_NotASummaryWithTenant_Ignored(string? type, string? tenantId)
+    {
+        Assert.False(NotificationHubService.OnNotificationTapped(type, tenantId));
+        Assert.False(NotificationHubService.HasTappedTenant);
+    }
 
     private static Task<PagedResult<InvoiceDto>> Outcome(string outcome) => outcome switch
     {

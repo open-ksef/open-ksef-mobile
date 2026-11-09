@@ -1178,6 +1178,50 @@ public class IssuingViewModelTests : IDisposable
     [InlineData("timeout")]
     [InlineData("network")]
     [InlineData("cancel")]
+    public async Task List_StatusChangedDuringLoad_ReloadsForNewStatus(string outcome)
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        var first = new TaskCompletionSource();
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null).Returns(async _ => { await first.Task; return await IssuedOutcome(outcome); });
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, "Accepted", null, null).Returns(IssuedPage("Accepted"));
+        var vm = new IssuedInvoiceListViewModel(_api);
+
+        var load = vm.LoadCommand.ExecuteAsync(null);
+        vm.SelectedStatus = "Accepted";
+        first.SetResult();
+        await load;
+
+        Assert.Equal(["Accepted"], vm.Invoices.Select(r => r.Buyer));
+        Assert.Null(vm.ErrorMessage);
+        Assert.False(vm.IsBusy);
+        await _api.Received(1).GetIssuedInvoicesAsync(TenantId, 1, 20, "Accepted", null, null);
+    }
+
+    [Fact]
+    public async Task List_StatusChangedAndBackDuringLoad_NoSecondRequest()
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        var first = new TaskCompletionSource();
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null).Returns(async _ => { await first.Task; return IssuedPage(); });
+        var vm = new IssuedInvoiceListViewModel(_api);
+
+        var load = vm.LoadCommand.ExecuteAsync(null);
+        vm.SelectedStatus = "Accepted";
+        vm.SelectedStatus = "";
+        first.SetResult();
+        await load;
+
+        await _api.Received(1).GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null);
+        await _api.DidNotReceive().GetIssuedInvoicesAsync(TenantId, 1, 20, "Accepted", null, null);
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("4xx")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    [InlineData("cancel")]
     public async Task List_LoadMore_TenantSwitchedDuringAwait_DiscardsStaleResult(string outcome)
     {
         var vm = await LoadedList();

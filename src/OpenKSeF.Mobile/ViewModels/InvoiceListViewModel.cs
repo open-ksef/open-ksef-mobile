@@ -67,7 +67,7 @@ public partial class InvoiceListViewModel : ObservableObject
             IsEmpty = false;
             _currentPage = 1;
 
-            var tenantId = GetSelectedTenantId();
+            var tenantId = await TakeTappedTenantAsync() ?? GetSelectedTenantId();
             if (tenantId is null && !_autoSelectAttempted)
             {
                 _autoSelectAttempted = true;
@@ -111,6 +111,31 @@ public partial class InvoiceListViewModel : ObservableObject
         {
             IsBusy = false;
             IsRefreshing = false;
+            if (NotificationHubService.HasTappedTenant)
+                await LoadInvoicesAsync();
+        }
+    }
+
+    private async Task<Guid?> TakeTappedTenantAsync()
+    {
+        if (NotificationHubService.TakeTappedTenantId() is not { } tapped)
+            return null;
+        if (tapped == GetSelectedTenantId())
+            return tapped;
+
+        try
+        {
+            var tenant = (await _apiService.GetTenantsAsync()).FirstOrDefault(t => t.Id == tapped);
+            if (tenant is null)
+                return null;
+
+            Preferences.Default.Set("SelectedTenantId", tenant.Id.ToString());
+            Preferences.Default.Set("SelectedTenantNip", tenant.Nip);
+            return tenant.Id;
+        }
+        catch
+        {
+            return null;
         }
     }
 
