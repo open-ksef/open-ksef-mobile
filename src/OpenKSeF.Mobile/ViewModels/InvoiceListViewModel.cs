@@ -57,6 +57,7 @@ public partial class InvoiceListViewModel : ObservableObject
         if (IsBusy)
             return;
 
+        (Guid? TenantId, Guid InvoiceId)? openInvoice = null;
         try
         {
             IsBusy = true;
@@ -67,7 +68,12 @@ public partial class InvoiceListViewModel : ObservableObject
             IsEmpty = false;
             _currentPage = 1;
 
-            var tenantId = await TakeTappedTenantAsync() ?? GetSelectedTenantId();
+            var tapped = NotificationHubService.TakeTapped();
+            var tappedTenant = tapped is null ? null : await OwnedTenantAsync(tapped.Value.TenantId);
+            if (tapped?.InvoiceId is { } tappedInvoice)
+                openInvoice = (tappedTenant, tappedInvoice);
+
+            var tenantId = tappedTenant ?? GetSelectedTenantId();
             if (tenantId is null && !_autoSelectAttempted)
             {
                 _autoSelectAttempted = true;
@@ -111,15 +117,15 @@ public partial class InvoiceListViewModel : ObservableObject
         {
             IsBusy = false;
             IsRefreshing = false;
+            if (openInvoice is { } open && !NotificationHubService.HasTappedTenant)
+                await OpenTappedInvoiceAsync(open.TenantId, open.InvoiceId);
             if (NotificationHubService.HasTappedTenant)
                 await LoadInvoicesAsync();
         }
     }
 
-    private async Task<Guid?> TakeTappedTenantAsync()
+    private async Task<Guid?> OwnedTenantAsync(Guid tapped)
     {
-        if (NotificationHubService.TakeTappedTenantId() is not { } tapped)
-            return null;
         if (tapped == GetSelectedTenantId())
             return tapped;
 
@@ -137,6 +143,24 @@ public partial class InvoiceListViewModel : ObservableObject
         {
             return null;
         }
+    }
+
+    private async Task OpenTappedInvoiceAsync(Guid? tenantId, Guid invoiceId)
+    {
+        if (tenantId is not null)
+        {
+            try
+            {
+                await _apiService.GetInvoiceDetailsAsync(tenantId.Value, invoiceId);
+                try { await Shell.Current.GoToAsync($"invoiceDetails?tenantId={tenantId}&invoiceId={invoiceId}"); } catch { }
+                return;
+            }
+            catch
+            {
+            }
+        }
+
+        await Shell.Current.DisplayAlertAsync("Faktura niedostępna", "Nie udało się otworzyć faktury z powiadomienia.", "OK");
     }
 
     private async Task<bool> TryLoadFromCacheAsync(Guid tenantId)

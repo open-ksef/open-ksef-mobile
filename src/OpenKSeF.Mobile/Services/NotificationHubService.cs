@@ -148,21 +148,25 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
 
     internal const string SummaryType = "newInvoicesSummary";
 
-    private static Guid? _tappedTenantId;
+    private static (Guid TenantId, Guid? InvoiceId)? _tapped;
 
-    /// <summary>A summary tap opens the tenant's received list, now or after sign-in; a per-invoice tap only brings the app forward.</summary>
-    internal static bool OnNotificationTapped(string? type, string? tenantId)
+    /// <summary>A summary tap opens the tenant's received list, a per-invoice tap opens that invoice, now or after sign-in.</summary>
+    internal static bool OnNotificationTapped(string? type, string? tenantId, string? invoiceId = null)
     {
-        if (type != SummaryType || !Guid.TryParse(tenantId, out var id))
+        if (!Guid.TryParse(tenantId, out var tenant))
+            return false;
+        Guid? invoice = type == SummaryType ? null : Guid.TryParse(invoiceId, out var id) ? id : null;
+        if (type != SummaryType && invoice is null)
             return false;
 
-        _tappedTenantId = id;
+        _tapped = (tenant, invoice);
 #if ANDROID || IOS
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             if (Shell.Current?.CurrentState?.Location?.OriginalString.StartsWith("//main", StringComparison.Ordinal) != true)
                 return;
-            try { await Shell.Current.GoToAsync("//main/invoices"); } catch { }
+            try { await Shell.Current.GoToAsync("//main/invoices"); }
+            catch (Exception ex) { System.Diagnostics.Trace.WriteLine($"[OpenKSeF] Notification tap navigation failed: {ex}"); }
             if (Shell.Current.CurrentPage?.BindingContext is ViewModels.InvoiceListViewModel list)
                 list.LoadInvoicesCommand.Execute(null);
         });
@@ -170,13 +174,13 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         return true;
     }
 
-    internal static bool HasTappedTenant => _tappedTenantId is not null;
+    internal static bool HasTappedTenant => _tapped is not null;
 
-    internal static Guid? TakeTappedTenantId()
+    internal static (Guid TenantId, Guid? InvoiceId)? TakeTapped()
     {
-        var id = _tappedTenantId;
-        _tappedTenantId = null;
-        return id;
+        var tapped = _tapped;
+        _tapped = null;
+        return tapped;
     }
 
     /// <summary>The backend sends one event over SignalR and FCM/APNs; the same key replaces the shown notification instead of adding a second one.</summary>

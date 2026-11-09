@@ -170,6 +170,33 @@ public class PostLoginNavigationServiceTests
         _api.GetOnboardingStatusAsync().Returns(new OnboardingStatusDto { IsComplete = complete });
 
     [Fact]
+    public async Task SignOut_DropsPendingNotificationTap()
+    {
+        NotificationHubService.OnNotificationTapped(null, Guid.NewGuid().ToString(), Guid.NewGuid().ToString());
+
+        await _nav.SignOutAsync();
+
+        Assert.False(NotificationHubService.HasTappedTenant);
+    }
+
+    [Fact]
+    public async Task SessionEnded_KeepsPendingNotificationTapForNextSignIn()
+    {
+        var tenant = Guid.NewGuid();
+        NotificationHubService.OnNotificationTapped("newInvoicesSummary", tenant.ToString());
+        try
+        {
+            await _nav.HandleSessionEndedAsync();
+
+            Assert.Equal((tenant, (Guid?)null), NotificationHubService.TakeTapped());
+        }
+        finally
+        {
+            NotificationHubService.TakeTapped();
+        }
+    }
+
+    [Fact]
     public async Task SignOut_RemovesInvoiceFilesAndShareCopiesFromCache()
     {
         var cache = FileSystem.CacheDirectory;

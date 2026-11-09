@@ -47,7 +47,7 @@ public class AppDelegate : MauiUIApplicationDelegate, IUNUserNotificationCenterD
         Action completionHandler)
     {
         var data = response.Notification.Request.Content.UserInfo["data"] as NSDictionary;
-        NotificationHubService.OnNotificationTapped(data?["type"]?.ToString(), data?["tenantId"]?.ToString());
+        NotificationHubService.OnNotificationTapped(data?["type"]?.ToString(), data?["tenantId"]?.ToString(), data?["invoiceId"]?.ToString());
         completionHandler();
     }
 

@@ -26,5 +26,5 @@ public class MainActivity : MauiAppCompatActivity
     }
 
     private static void OnNotificationTapped(Intent? intent) =>
-        NotificationHubService.OnNotificationTapped(intent?.GetStringExtra("type"), intent?.GetStringExtra("tenantId"));
+        NotificationHubService.OnNotificationTapped(intent?.GetStringExtra("type"), intent?.GetStringExtra("tenantId"), intent?.GetStringExtra("invoiceId"));
 }
