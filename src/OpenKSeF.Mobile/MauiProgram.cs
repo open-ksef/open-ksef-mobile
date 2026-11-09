@@ -25,45 +25,24 @@ public static class MauiProgram
                 fonts.AddFont("JetBrainsMono-Regular.ttf", "JetBrainsMono");
             });
 
-        // Auth
         builder.Services.AddSingleton<IServerSettingsService, ServerSettingsService>();
-        builder.Services.AddSingleton(sp =>
-        {
-            var settings = sp.GetRequiredService<IServerSettingsService>();
-            return new AuthOptions
-            {
-                Authority = settings.Authority,
-                ClientId = "openksef-mobile",
-                RedirectUri = "openksef://auth/callback",
-                PostLogoutRedirectUri = "openksef://auth/logout"
-            };
-        });
+        builder.Services.AddSingleton(new AuthOptions());
         builder.Services.AddSingleton<OidcBrowser, WebAuthenticatorBrowser>();
         builder.Services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
         builder.Services.AddSingleton<IAuthService, AuthService>();
 
-        // API
-        builder.Services.AddSingleton(sp =>
-        {
-            var settings = sp.GetRequiredService<IServerSettingsService>();
-            return new ApiOptions { BaseUrl = settings.ServerUrl };
-        });
         builder.Services.AddHttpClient<IApiService, ApiService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(30);
         });
 
-        // Local cache
         builder.Services.AddSingleton<LocalDbService>();
 
-        // Push notifications
         builder.Services.AddSingleton<IDeviceTokenService, DeviceTokenService>();
         builder.Services.AddSingleton<INotificationHubService, NotificationHubService>();
 
-        // Post-login navigation
         builder.Services.AddTransient<IPostLoginNavigationService, PostLoginNavigationService>();
 
-        // ViewModels
         builder.Services.AddTransient<LoginViewModel>();
         builder.Services.AddTransient<OnboardingViewModel>();
         builder.Services.AddTransient<TenantsViewModel>();
@@ -78,7 +57,6 @@ public static class MauiProgram
         builder.Services.AddTransient<InvoiceDraftViewModel>();
         builder.Services.AddTransient<IssuedInvoiceDetailsViewModel>();
 
-        // Pages
         builder.Services.AddTransient<LoginPage>();
         builder.Services.AddTransient<OnboardingPage>();
         builder.Services.AddTransient<TenantsPage>();

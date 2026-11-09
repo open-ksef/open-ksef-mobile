@@ -37,17 +37,13 @@ public partial class InvoiceDetailsViewModel : ObservableObject
     partial void OnInvoiceIdChanged(string? value)
     {
         if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(TenantId))
-            _ = LoadInvoiceAsync().ContinueWith(
-                t => ErrorMessage = t.Exception?.InnerException?.Message,
-                TaskContinuationOptions.OnlyOnFaulted);
+            _ = LoadInvoiceAsync();
     }
 
     partial void OnTenantIdChanged(string? value)
     {
         if (!string.IsNullOrEmpty(value) && !string.IsNullOrEmpty(InvoiceId))
-            _ = LoadInvoiceAsync().ContinueWith(
-                t => ErrorMessage = t.Exception?.InnerException?.Message,
-                TaskContinuationOptions.OnlyOnFaulted);
+            _ = LoadInvoiceAsync();
     }
 
     [RelayCommand]

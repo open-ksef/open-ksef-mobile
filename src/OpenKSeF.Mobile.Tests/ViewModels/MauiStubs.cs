@@ -2,6 +2,7 @@ global using Microsoft.Maui.ApplicationModel;
 global using Microsoft.Maui.ApplicationModel.DataTransfer;
 global using Microsoft.Maui.Controls;
 global using Microsoft.Maui.Devices;
+global using Microsoft.Maui.Graphics;
 global using Microsoft.Maui.Storage;
 
 namespace Microsoft.Maui.Controls
@@ -276,9 +277,9 @@ namespace Microsoft.Maui.Storage
         public static string CacheDirectory { get; } = Directory.CreateTempSubdirectory("openksef-tests-cache-").FullName;
     }
 
-    public class FileResult
+    public class FileResult(Func<Stream>? open = null)
     {
-        public Task<Stream> OpenReadAsync() => Task.FromResult<Stream>(new MemoryStream());
+        public Task<Stream> OpenReadAsync() => Task.FromResult(open?.Invoke() ?? new MemoryStream());
     }
 
     public class FilePickerFileType
@@ -296,6 +297,16 @@ namespace Microsoft.Maui.Storage
     {
         public static FilePicker Default { get; } = new();
 
-        public Task<FileResult?> PickAsync(PickOptions? options = null) => Task.FromResult<FileResult?>(null);
+        public FileResult? Result { get; set; }
+
+        public Task<FileResult?> PickAsync(PickOptions? options = null) => Task.FromResult(Result);
+    }
+}
+
+namespace Microsoft.Maui.Graphics
+{
+    public class Color
+    {
+        public static Color FromArgb(string colorAsHex) => new();
     }
 }

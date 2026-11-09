@@ -9,20 +9,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <!-- Source Link for release debugging -->
     <DebugType>embedded</DebugType>
     <EmbedAllSources>true</EmbedAllSources>
 
-    <!-- Display settings -->
     <ApplicationTitle>OpenKSeF</ApplicationTitle>
     <ApplicationId>com.openksef.mobile</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <ApplicationVersion>1</ApplicationVersion>
 
-    <!-- Platform versions -->
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 
-    <!-- Android signing (Release) -->
     <AndroidKeyStore Condition="'$(Configuration)' == 'Release'">true</AndroidKeyStore>
     <AndroidSigningKeyStore Condition="'$(Configuration)' == 'Release'">openksef.keystore</AndroidSigningKeyStore>
     <AndroidSigningKeyAlias Condition="'$(Configuration)' == 'Release'">openksef</AndroidSigningKeyAlias>

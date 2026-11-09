@@ -62,7 +62,6 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
         }
         catch
         {
-            // Best-effort registration
         }
     }
 

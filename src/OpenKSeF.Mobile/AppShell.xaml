@@ -5,7 +5,6 @@
        x:Class="OpenKSeF.Mobile.AppShell"
        Title="OpenKSeF">
 
-    <!-- Login is the initial route (unauthenticated) -->
     <TabBar Route="login">
         <ShellContent
             ContentTemplate="{DataTemplate views:LoginPage}"
@@ -13,7 +12,6 @@
             Shell.TabBarIsVisible="False" />
     </TabBar>
 
-    <!-- Onboarding (post-login, pre-tenant) -->
     <TabBar Route="onboarding">
         <ShellContent
             ContentTemplate="{DataTemplate views:OnboardingPage}"
@@ -21,7 +19,6 @@
             Shell.TabBarIsVisible="False" />
     </TabBar>
 
-    <!-- Main app tabs (post-login) -->
     <TabBar Route="main">
         <Tab Title="Otrzymane" Route="invoices" Icon="tab_invoices.png">
             <ShellContent ContentTemplate="{DataTemplate views:InvoiceListPage}" />

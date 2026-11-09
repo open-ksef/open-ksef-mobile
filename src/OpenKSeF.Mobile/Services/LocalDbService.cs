@@ -47,7 +47,7 @@ public class LocalDbService
         });
     }
 
-    public async Task ClearExpiredCacheAsync()
+    private async Task ClearExpiredCacheAsync()
     {
         if (_db is null)
             return;
@@ -68,7 +68,7 @@ public class LocalDbService
             tenantIdStr);
     }
 
-    public async Task ClearAllCacheAsync()
+    private async Task ClearAllCacheAsync()
     {
         await InitAsync();
         await _db!.DeleteAllAsync<CachedInvoice>();

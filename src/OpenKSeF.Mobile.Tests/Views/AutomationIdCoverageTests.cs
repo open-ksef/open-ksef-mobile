@@ -112,6 +112,18 @@ public class AutomationIdCoverageTests
             "AccountPageRowDeleteAccount");
     }
 
+    [Theory]
+    [InlineData("InvoiceListPageButtonRefreshEmptyState")]
+    [InlineData("InvoiceListPageButtonGoToTenants")]
+    public void InvoiceList_StateButtons_DrawAboveRefreshView(string automationId)
+    {
+        var content = File.ReadAllText(GetViewPath("InvoiceListPage.xaml"));
+
+        Assert.True(
+            content.IndexOf($"AutomationId=\"{automationId}\"", StringComparison.Ordinal) > content.IndexOf("</RefreshView>", StringComparison.Ordinal),
+            $"{automationId} sits under the RefreshView, which takes its taps.");
+    }
+
     private static void AssertFileContainsAll(string fileName, params string[] automationIds)
     {
         var filePath = GetViewPath(fileName);

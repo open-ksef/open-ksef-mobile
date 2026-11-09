@@ -31,7 +31,6 @@
 
             <VerticalStackLayout Spacing="12">
 
-                <!-- Logo + title -->
                 <Label Text="⚡"
                        FontSize="40"
                        HorizontalOptions="Center"
@@ -49,7 +48,6 @@
                        TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                        Margin="0,0,0,8" />
 
-                <!-- Error message -->
                 <Frame BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}"
                        CornerRadius="8"
                        Padding="12"
@@ -63,7 +61,6 @@
                            HorizontalTextAlignment="Center" />
                 </Frame>
 
-                <!-- ===== LOGIN MODE ===== -->
                 <VerticalStackLayout Spacing="10"
                                      IsVisible="{Binding IsLoginMode}">
                     <VerticalStackLayout Spacing="4">
@@ -94,7 +91,6 @@
                             Margin="0,8,0,0" />
                 </VerticalStackLayout>
 
-                <!-- ===== REGISTER MODE ===== -->
                 <VerticalStackLayout Spacing="10"
                                      IsVisible="{Binding IsLoginMode, Converter={StaticResource InvertedBoolConverter}}">
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
@@ -154,14 +150,12 @@
                             Margin="0,8,0,0" />
                 </VerticalStackLayout>
 
-                <!-- Divider -->
                 <Grid ColumnDefinitions="*,Auto,*" Margin="0,4">
                     <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" />
                     <Label Text="lub" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" Margin="12,0" Grid.Column="1" />
                     <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" Grid.Column="2" />
                 </Grid>
 
-                <!-- Google button -->
                 <Button Text="Zaloguj przez Google"
                         AutomationId="LoginPageButtonGoogle"
                         Command="{Binding LoginWithGoogleCommand}"
@@ -169,7 +163,6 @@
                         HorizontalOptions="Fill"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
 
-                <!-- Tab switch -->
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="4" Margin="0,8,0,0">
                     <Label Text="{Binding SwitchPromptText}"
                            FontSize="13"
@@ -189,7 +182,6 @@
                     </Label>
                 </HorizontalStackLayout>
 
-                <!-- Activity indicator -->
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
                                    AutomationId="LoginPageActivityIndicatorBusy"
                                    IsVisible="{Binding IsBusy}"

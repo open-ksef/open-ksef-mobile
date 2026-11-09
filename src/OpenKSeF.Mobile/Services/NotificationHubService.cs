@@ -98,9 +98,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             _logger.LogWarning(ex, "SignalR initial connection failed, will retry");
-            _ = RetryConnectAsync(ct).ContinueWith(
-                t => _logger.LogError(t.Exception, "RetryConnectAsync faulted"),
-                TaskContinuationOptions.OnlyOnFaulted);
+            _ = RetryConnectAsync(ct);
         }
     }
 

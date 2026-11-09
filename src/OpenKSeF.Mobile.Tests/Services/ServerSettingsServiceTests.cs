@@ -27,7 +27,7 @@ public class ServerSettingsServiceTests
     }
 
     private AuthService CreateAuthService(IServerSettingsService settings) => new(
-        new AuthOptions { Authority = settings.Authority, ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
+        new AuthOptions { ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
         Substitute.For<OidcBrowser>(),
         settings,
         new HttpClient(_handler));

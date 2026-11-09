@@ -8,8 +8,10 @@ namespace OpenKSeF.Mobile.ViewModels;
 [QueryProperty(nameof(TenantId), "tenantId")]
 public partial class TenantFormViewModel : ObservableObject
 {
+    private const string NotLoadedMessage = "Nie udało się załadować danych firmy. Wróć i spróbuj ponownie.";
     private readonly IApiService _apiService;
     private string? _notificationEmail;
+    private bool _tenantLoaded;
 
     [ObservableProperty]
     private string? _tenantId;
@@ -45,9 +47,7 @@ public partial class TenantFormViewModel : ObservableObject
         {
             IsEditMode = true;
             OnPropertyChanged(nameof(Title));
-            _ = LoadTenantAsync(Guid.Parse(value)).ContinueWith(
-                t => ErrorMessage = t.Exception?.InnerException?.Message,
-                TaskContinuationOptions.OnlyOnFaulted);
+            _ = LoadTenantAsync(Guid.Parse(value));
         }
     }
 
@@ -58,16 +58,24 @@ public partial class TenantFormViewModel : ObservableObject
             IsBusy = true;
             var tenants = await _apiService.GetTenantsAsync();
             var tenant = tenants.FirstOrDefault(t => t.Id == id);
-            if (tenant is not null)
+            if (tenant is null)
             {
-                Nip = tenant.Nip;
-                DisplayName = tenant.DisplayName ?? string.Empty;
-                _notificationEmail = tenant.NotificationEmail;
+                ErrorMessage = NotLoadedMessage;
+                return;
             }
+
+            Nip = tenant.Nip;
+            DisplayName = tenant.DisplayName ?? string.Empty;
+            _notificationEmail = tenant.NotificationEmail;
+            _tenantLoaded = true;
         }
         catch (ApiException ex)
         {
             ErrorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            ErrorMessage = NotLoadedMessage;
         }
         finally
         {
@@ -83,6 +91,12 @@ public partial class TenantFormViewModel : ObservableObject
 
         NipError = null;
         ErrorMessage = null;
+
+        if (IsEditMode && !_tenantLoaded)
+        {
+            ErrorMessage = NotLoadedMessage;
+            return;
+        }
 
         if (!ValidateNip())
             return;
@@ -141,14 +155,14 @@ public partial class TenantFormViewModel : ObservableObject
 
         if (!IsValidNipChecksum(Nip))
         {
-            NipError = "Nieprawidlowa suma kontrolna NIP.";
+            NipError = "Nieprawidłowa suma kontrolna NIP.";
             return false;
         }
 
         return true;
     }
 
-    private static bool IsValidNipChecksum(string nip)
+    public static bool IsValidNipChecksum(string nip)
     {
         int[] weights = [6, 5, 7, 2, 3, 4, 5, 6, 7];
         var sum = 0;
