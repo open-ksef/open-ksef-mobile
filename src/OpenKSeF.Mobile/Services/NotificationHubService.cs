@@ -146,6 +146,39 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         return true;
     }
 
+    internal const string SummaryType = "newInvoicesSummary";
+
+    private static Guid? _tappedTenantId;
+
+    /// <summary>A summary tap opens the tenant's received list, now or after sign-in; a per-invoice tap only brings the app forward.</summary>
+    internal static bool OnNotificationTapped(string? type, string? tenantId)
+    {
+        if (type != SummaryType || !Guid.TryParse(tenantId, out var id))
+            return false;
+
+        _tappedTenantId = id;
+#if ANDROID || IOS
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            if (Shell.Current?.CurrentState?.Location?.OriginalString.StartsWith("//main", StringComparison.Ordinal) != true)
+                return;
+            try { await Shell.Current.GoToAsync("//main/invoices"); } catch { }
+            if (Shell.Current.CurrentPage?.BindingContext is ViewModels.InvoiceListViewModel list)
+                list.LoadInvoicesCommand.Execute(null);
+        });
+#endif
+        return true;
+    }
+
+    internal static bool HasTappedTenant => _tappedTenantId is not null;
+
+    internal static Guid? TakeTappedTenantId()
+    {
+        var id = _tappedTenantId;
+        _tappedTenantId = null;
+        return id;
+    }
+
     /// <summary>The backend sends one event over SignalR and FCM/APNs; the same key replaces the shown notification instead of adding a second one.</summary>
     internal static void ShowLocalNotification(string title, string body, IDictionary<string, string>? data)
     {
@@ -172,7 +205,10 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         }
 
         var intent = new Android.Content.Intent(context, typeof(MainActivity));
-        intent.AddFlags(Android.Content.ActivityFlags.ClearTop);
+        intent.AddFlags(Android.Content.ActivityFlags.ClearTop | Android.Content.ActivityFlags.SingleTop);
+        if (data is not null)
+            foreach (var (name, value) in data)
+                intent.PutExtra(name, value);
         var pendingIntent = Android.App.PendingIntent.GetActivity(
             context, notificationId, intent,
             Android.App.PendingIntentFlags.OneShot | Android.App.PendingIntentFlags.Immutable);
@@ -193,6 +229,8 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
             Body = body,
             Sound = UserNotifications.UNNotificationSound.Default
         };
+        if (data is not null)
+            content.UserInfo = new Foundation.NSDictionary("data", Foundation.NSDictionary.FromObjectsAndKeys(data.Values.ToArray<object>(), data.Keys.ToArray<object>()));
         var trigger = UserNotifications.UNTimeIntervalNotificationTrigger.CreateTrigger(1, false);
         var request = UserNotifications.UNNotificationRequest.FromIdentifier(
             key, content, trigger);

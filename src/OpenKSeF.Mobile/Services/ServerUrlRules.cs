@@ -27,7 +27,8 @@ public static class ServerUrlRules
         }
 
         if (!Uri.TryCreate(normalizedUrl, UriKind.Absolute, out var uri)
-            || (uri.Scheme != "http" && uri.Scheme != "https"))
+            || (uri.Scheme != "http" && uri.Scheme != "https")
+            || uri.Port <= 0)
         {
             validationError = "Podaj poprawny adres URL (http:// lub https://).";
             return false;
@@ -52,7 +53,10 @@ public static class ServerUrlRules
     }
 
     public static bool IsDifferentServer(string currentUrl, string newNormalizedUrl) =>
-        !string.Equals(currentUrl.TrimEnd('/'), newNormalizedUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        !string.Equals(
+            TryNormalize(currentUrl, allowDevCleartext: true, out var current, out _) ? current : currentUrl.TrimEnd('/'),
+            newNormalizedUrl.TrimEnd('/'),
+            StringComparison.OrdinalIgnoreCase);
 
     public static string DisplayHost(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) ? DisplayHost(uri) : url;

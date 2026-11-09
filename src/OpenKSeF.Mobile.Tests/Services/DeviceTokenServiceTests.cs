@@ -103,6 +103,22 @@ public class DeviceTokenServiceTests : IDisposable
         Assert.Equal(1, raised);
     }
 
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task HubHandler_SummaryWithoutInvoiceId_SameGate(bool? nativePush, bool shown)
+    {
+        await _service.RegisterTokenAsync("fcm-token-123", "Android");
+        var hub = new NotificationHubService(Substitute.For<IAuthService>(), Substitute.For<IServerSettingsService>(), _service, NullLogger<NotificationHubService>.Instance);
+        IDictionary<string, string>? received = null;
+        hub.NotificationReceived += (_, _, data) => received = data;
+        var data = new Dictionary<string, string> { ["type"] = "newInvoicesSummary", ["tenantId"] = Guid.NewGuid().ToString(), ["count"] = "15" };
+
+        Assert.Equal(shown, hub.Receive(new NotificationHubService.NotificationPayload("Więcej nowych faktur", "Firma: pozostałe nowe faktury: 15. Zobacz je w aplikacji.", data, nativePush)));
+        Assert.Same(data, received);
+    }
+
     [Fact]
     public void HubPayload_OldApiWithoutNativePush_BindsNull_NewApiBindsFlag()
     {

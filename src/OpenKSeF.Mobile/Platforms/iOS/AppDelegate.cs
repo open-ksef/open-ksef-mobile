@@ -40,6 +40,17 @@ public class AppDelegate : MauiUIApplicationDelegate, IUNUserNotificationCenterD
         completionHandler(UNNotificationPresentationOptions.Banner | UNNotificationPresentationOptions.Sound);
     }
 
+    [Export("userNotificationCenter:didReceiveNotificationResponse:withCompletionHandler:")]
+    public void DidReceiveNotificationResponse(
+        UNUserNotificationCenter center,
+        UNNotificationResponse response,
+        Action completionHandler)
+    {
+        var data = response.Notification.Request.Content.UserInfo["data"] as NSDictionary;
+        NotificationHubService.OnNotificationTapped(data?["type"]?.ToString(), data?["tenantId"]?.ToString());
+        completionHandler();
+    }
+
     private static async Task RegisterTokenAsync(string token)
     {
         try

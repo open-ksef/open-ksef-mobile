@@ -112,9 +112,21 @@ public class ServerSettingsValidationTests
     [InlineData("http://10.0.2.2:8080", "https://10.0.2.2:8080", true)]
     [InlineData("https://example.com", "https://EXAMPLE.com", false)]
     [InlineData("https://example.com/", "https://example.com", false)]
+    [InlineData("https://example.com.", "https://example.com", false)]
+    [InlineData("https://bаnk.pl", "https://xn--bnk-6cd.pl", false)]
+    [InlineData("https://example.com:443/", "https://example.com", false)]
     public void IsDifferentServer_ComparesSchemeHostPort(string current, string scanned, bool expected)
     {
         Assert.Equal(expected, ServerUrlRules.IsDifferentServer(current, scanned));
+    }
+
+    [Theory]
+    [InlineData("https://example.com:0")]
+    [InlineData("http://localhost:0")]
+    public void TryNormalize_PortZero_Rejected(string input)
+    {
+        Assert.False(ServerUrlRules.TryNormalize(input, allowDevCleartext: true, out _, out var error));
+        Assert.NotNull(error);
     }
 
     [Theory]

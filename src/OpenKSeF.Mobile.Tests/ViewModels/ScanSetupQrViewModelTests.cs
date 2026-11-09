@@ -61,6 +61,21 @@ public class ScanSetupQrViewModelTests
             typeof(ScanSetupQrViewModel).GetConstructors().Single().GetParameters().Select(p => p.ParameterType));
     }
 
+    [Theory]
+    [InlineData("https://example.com.")]
+    [InlineData("https://EXAMPLE.com:443/")]
+    public async Task ProcessBarcode_StoredUrlNotNormalized_SameServer_NoPrompt(string stored)
+    {
+        _serverSettings.ServerUrl.Returns(stored);
+        var vm = CreateVm();
+
+        await vm.ProcessBarcodeAsync(BuildQrPayload("https://example.com"));
+
+        Assert.Empty(Shell.Current.Alerts);
+        Assert.Empty(_postLoginNav.ReceivedCalls());
+        Assert.Equal("//login", Shell.Current.LastRoute);
+    }
+
     [Fact]
     public async Task ProcessBarcode_NoSetupToken_SetsServerAndNavigatesToLogin()
     {

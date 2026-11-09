@@ -29,6 +29,7 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     private int _loadVersion;
     private string? _loadedStatus;
     private string? _loadedSearch;
+    private bool _statusChangedDuringLoad;
 
     public IReadOnlyList<StatusFilter> Filters { get; } =
     [
@@ -80,7 +81,13 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
         _apiService = apiService;
     }
 
-    partial void OnSelectedStatusChanged(string value) => _ = LoadAsync();
+    partial void OnSelectedStatusChanged(string value)
+    {
+        if (IsBusy)
+            _statusChangedDuringLoad = true;
+        else
+            _ = LoadAsync();
+    }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -137,6 +144,12 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
         {
             IsBusy = false;
             IsRefreshing = false;
+            if (_statusChangedDuringLoad)
+            {
+                _statusChangedDuringLoad = false;
+                if (Status() != _loadedStatus)
+                    await LoadAsync();
+            }
         }
     }
 
