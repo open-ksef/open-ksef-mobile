@@ -7,7 +7,7 @@ public interface IDeviceTokenService
     Task EnsureDeviceRegisteredAsync();
     Task<bool> EnableNotificationsAsync();
     Task<bool> AreNotificationsEnabledAsync();
-    Task UnregisterCurrentDeviceAsync();
+    Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken);
     bool PushDisabledByUser { get; }
     bool PushRemovalPending { get; }
     Task<bool> DisableNotificationsAsync();

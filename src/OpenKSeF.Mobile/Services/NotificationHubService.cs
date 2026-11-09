@@ -76,7 +76,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         {
             _logger.LogDebug("SignalR notification received: {Title}", payload.Title);
             NotificationReceived?.Invoke(payload.Title, payload.Body, payload.Data);
-            ShowLocalNotification(payload.Title, payload.Body);
+            ShowLocalNotification(payload.Title, payload.Body, payload.Data);
         });
 
         _connection.Closed += async (error) =>
@@ -139,9 +139,14 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         }
     }
 
-    private static void ShowLocalNotification(string title, string body)
+    /// <summary>The backend sends one event over SignalR and FCM/APNs; the same key replaces the shown notification instead of adding a second one.</summary>
+    internal static void ShowLocalNotification(string title, string body, IDictionary<string, string>? data)
     {
+        var key = data is not null && (data.TryGetValue("invoiceId", out var id) || data.TryGetValue("issuedInvoiceId", out id))
+            ? id
+            : $"{title}\n{body}";
 #if ANDROID
+        var notificationId = key.GetHashCode();
         var context = Android.App.Application.Context;
         const string channelId = "openksef_invoices";
 
@@ -162,7 +167,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         var intent = new Android.Content.Intent(context, typeof(MainActivity));
         intent.AddFlags(Android.Content.ActivityFlags.ClearTop);
         var pendingIntent = Android.App.PendingIntent.GetActivity(
-            context, 0, intent,
+            context, notificationId, intent,
             Android.App.PendingIntentFlags.OneShot | Android.App.PendingIntentFlags.Immutable);
 
         var builder = new Android.App.Notification.Builder(context, channelId)
@@ -170,9 +175,10 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
             .SetContentText(body)
             .SetSmallIcon(Android.Resource.Drawable.IcDialogInfo)
             .SetAutoCancel(true)
+            .SetOnlyAlertOnce(true)
             .SetContentIntent(pendingIntent);
 
-        notificationManager.Notify(DateTime.UtcNow.Millisecond, builder!.Build());
+        notificationManager.Notify(notificationId, builder!.Build());
 #elif IOS
         var content = new UserNotifications.UNMutableNotificationContent
         {
@@ -182,7 +188,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         };
         var trigger = UserNotifications.UNTimeIntervalNotificationTrigger.CreateTrigger(1, false);
         var request = UserNotifications.UNNotificationRequest.FromIdentifier(
-            Guid.NewGuid().ToString(), content, trigger);
+            key, content, trigger);
         UserNotifications.UNUserNotificationCenter.Current.AddNotificationRequest(request, null);
 #endif
     }

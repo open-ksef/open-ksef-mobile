@@ -186,7 +186,7 @@ public class DeviceTokenServiceTests
         var other = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "someone-else" };
         _api.GetDevicesAsync().Returns([mine, mineById, other]);
 
-        await _service.UnregisterCurrentDeviceAsync();
+        await _service.UnregisterCurrentDeviceAsync(CancellationToken.None);
 
         await _api.Received(1).UnregisterDeviceAsync(mine.Id);
         await _api.Received(1).UnregisterDeviceAsync(mineById.Id);
@@ -258,7 +258,7 @@ public class DeviceTokenServiceTests
         Preferences.Default.Set(DeviceIdKey, "device-abc");
         await _service.DisableNotificationsAsync();
 
-        await _service.UnregisterCurrentDeviceAsync();
+        await _service.UnregisterCurrentDeviceAsync(CancellationToken.None);
         await _service.EnsureDeviceRegisteredAsync();
 
         Assert.True(_service.PushDisabledByUser);
@@ -276,6 +276,25 @@ public class DeviceTokenServiceTests
         Assert.True(_service.PushDisabledByUser);
         Assert.True(_service.PushRemovalPending);
         Assert.Equal("fcm-abc", Preferences.Default.Get(TokenKey, ""));
+    }
+
+    [Fact]
+    public async Task EnsureDeviceRegistered_TurnedOffDuringPost_RemovesDeviceAfterPost()
+    {
+        var post = new TaskCompletionSource();
+        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>()).Returns(post.Task);
+
+        var registration = _service.EnsureDeviceRegisteredAsync();
+        Assert.True(await _service.DisableNotificationsAsync());
+        var deviceId = Preferences.Default.Get(DeviceIdKey, "");
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = deviceId };
+        _api.GetDevicesAsync().Returns([mine]);
+
+        post.SetResult();
+        await registration;
+
+        await _api.Received(1).UnregisterDeviceAsync(mine.Id);
+        Assert.False(_service.PushRemovalPending);
     }
 
     [Fact]

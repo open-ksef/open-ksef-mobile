@@ -49,9 +49,7 @@ public class DeviceTokenService : IDeviceTokenService
                 TenantId = null
             });
 
-            Preferences.Default.Set(TokenStorageKey, token);
-            Preferences.Default.Set(PlatformStorageKey, platform);
-            Preferences.Default.Set(DeviceRegisteredKey, true);
+            await SaveRegistrationAsync(token, platform);
         }
         catch
         {
@@ -118,9 +116,7 @@ public class DeviceTokenService : IDeviceTokenService
                 TenantId = null
             });
 
-            Preferences.Default.Set(TokenStorageKey, deviceId);
-            Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
-            Preferences.Default.Set(DeviceRegisteredKey, true);
+            await SaveRegistrationAsync(deviceId, GetCurrentPlatformName());
         }
         catch
         {
@@ -183,11 +179,21 @@ public class DeviceTokenService : IDeviceTokenService
         return true;
     }
 
-    public async Task UnregisterCurrentDeviceAsync()
+    public async Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken)
     {
         var tokens = StoredTokens();
         RemoveTokenKeys();
-        await TryDeleteServerDevicesAsync(tokens);
+        await TryDeleteServerDevicesAsync(tokens, cancellationToken);
+    }
+
+    // Registration no longer blocks login, so the user can turn push off while the POST is in flight.
+    private async Task SaveRegistrationAsync(string token, string platform)
+    {
+        Preferences.Default.Set(TokenStorageKey, token);
+        Preferences.Default.Set(PlatformStorageKey, platform);
+        Preferences.Default.Set(DeviceRegisteredKey, true);
+        if (PushDisabledByUser)
+            await DisableNotificationsAsync();
     }
 
     private static HashSet<string> StoredTokens() =>
@@ -203,9 +209,10 @@ public class DeviceTokenService : IDeviceTokenService
         Preferences.Default.Remove(DeviceRegisteredKey);
     }
 
-    private async Task<bool> TryDeleteServerDevicesAsync(HashSet<string> tokens)
+    private async Task<bool> TryDeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken cancellationToken = default)
     {
-        using var limit = new CancellationTokenSource(ServerRemovalLimit);
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        limit.CancelAfter(ServerRemovalLimit);
         try
         {
             await DeleteServerDevicesAsync(tokens, limit.Token).WaitAsync(limit.Token);
@@ -219,11 +226,10 @@ public class DeviceTokenService : IDeviceTokenService
 
     private async Task DeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken limit)
     {
-        var nativeToken = await TryGetNativePushTokenAsync();
-        if (!string.IsNullOrEmpty(nativeToken))
+        tokens.Remove(string.Empty);
+        if (tokens.Count == 0 && await TryGetNativePushTokenAsync().WaitAsync(limit) is { Length: > 0 } nativeToken)
             tokens.Add(nativeToken);
 
-        tokens.Remove(string.Empty);
         if (tokens.Count == 0)
             return;
 

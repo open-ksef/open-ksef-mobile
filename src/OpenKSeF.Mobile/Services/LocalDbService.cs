@@ -80,6 +80,7 @@ public class LocalDbService
         Preferences.Default.Remove("SelectedTenantNip");
         Preferences.Default.Remove(LastUserKey);
         await ClearAllCacheAsync();
+        await _db!.ExecuteAsync("VACUUM");
     }
 
     public async Task EnsureCurrentUserAsync(string userKey)
