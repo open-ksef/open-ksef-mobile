@@ -500,6 +500,42 @@ public class AuthServiceRestoreTests
 
     private const string UserBTokens = """{"access_token":"b-access","refresh_token":"b-refresh","expires_in":300}""";
 
+    [Theory]
+    [InlineData("204", false, true, 0)]
+    [InlineData("200", false, true, 0)]
+    [InlineData("invalid_grant", false, true, 0)]
+    [InlineData("400", false, false, 1)]
+    [InlineData("401", false, false, 1)]
+    [InlineData("500", false, false, 1)]
+    [InlineData("timeout", false, false, 1)]
+    [InlineData("network", false, false, 1)]
+    [InlineData("cancel", false, false, 1)]
+    [InlineData("network", true, false, 0)]
+    [InlineData("500", true, false, 0)]
+    public async Task CompleteDeferredLogout_RemovesRefreshTokenOnlyWhenKeycloakEndedSession(string outcome, bool dropOnFailure, bool ended, int keysLeft)
+    {
+        await LoginAsync();
+        await _auth.DeferLogoutAsync("s");
+        Assert.Equal(1, SecureStorage.Default.Count);
+        _handler.Respond = _ => outcome switch
+        {
+            "204" => Task.FromResult(Json(HttpStatusCode.NoContent, string.Empty)),
+            "200" => Task.FromResult(Json(HttpStatusCode.OK, "{}")),
+            "invalid_grant" => Task.FromResult(Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""")),
+            "400" => Task.FromResult(Json(HttpStatusCode.BadRequest, """{"error":"invalid_request"}""")),
+            "401" => Task.FromResult(Json(HttpStatusCode.Unauthorized, """{"error":"unauthorized_client"}""")),
+            "500" => Task.FromResult(Json(HttpStatusCode.InternalServerError, "boom")),
+            "timeout" => Task.FromException<HttpResponseMessage>(new TaskCanceledException("timeout", new TimeoutException())),
+            "network" => Task.FromException<HttpResponseMessage>(new HttpRequestException("offline")),
+            _ => Task.FromCanceled<HttpResponseMessage>(new CancellationToken(true))
+        };
+
+        Assert.Equal(ended, await _auth.CompleteDeferredLogoutAsync("s", dropOnFailure));
+
+        Assert.EndsWith("/protocol/openid-connect/logout", _handler.Requests.Single().RequestUri!.AbsolutePath);
+        Assert.Equal(keysLeft, SecureStorage.Default.Count);
+    }
+
     private static bool IsLogoutRequest(HttpRequestMessage request) => request.RequestUri!.AbsolutePath.EndsWith("/logout");
 
     private async Task SwitchToUserBAsync()

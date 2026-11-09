@@ -13,6 +13,7 @@ public partial class InvoiceListViewModel : ObservableObject
     private int _currentPage = 1;
     private int _totalPages;
     private bool _autoSelectAttempted;
+    private int _loadVersion;
 
     [ObservableProperty]
     private ObservableCollection<InvoiceDto> _invoices = [];
@@ -59,9 +60,11 @@ public partial class InvoiceListViewModel : ObservableObject
         try
         {
             IsBusy = true;
+            _loadVersion++;
             ErrorMessage = null;
             IsOfflineMode = false;
             IsNoTenantSelected = false;
+            IsEmpty = false;
             _currentPage = 1;
 
             var tenantId = GetSelectedTenantId();
@@ -141,9 +144,10 @@ public partial class InvoiceListViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadMoreAsync()
     {
-        if (IsLoadingMore || !HasMorePages)
+        if (IsLoadingMore || IsBusy || !HasMorePages)
             return;
 
+        var load = _loadVersion;
         try
         {
             IsLoadingMore = true;
@@ -153,20 +157,27 @@ public partial class InvoiceListViewModel : ObservableObject
                 return;
 
             var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage + 1);
+            if (load != _loadVersion || tenantId != GetSelectedTenantId())
+                return;
+
             _currentPage++;
             foreach (var invoice in result.Items)
                 Invoices.Add(invoice);
 
             _totalPages = result.TotalPages;
             HasMorePages = _currentPage < _totalPages;
+            ErrorMessage = null;
         }
-        catch (ApiException ex)
+        catch (ApiException ex) when (load == _loadVersion)
         {
             ErrorMessage = ex.Message;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (load == _loadVersion)
         {
             ErrorMessage = $"Nie udało się załadować faktur: {ex.Message}";
+        }
+        catch
+        {
         }
         finally
         {

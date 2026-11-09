@@ -498,6 +498,30 @@ public class ApiServiceTests
         Assert.Equal(HttpStatusCode.Created, ex.StatusCode);
     }
 
+    [Theory]
+    [InlineData("get")]
+    [InlineData("delete")]
+    public async Task ExplicitTokenDeviceCalls_HonourCancellation(string call)
+    {
+        var api = new ApiService(new HttpClient(new HangingHandler()), _auth, _serverSettings, _logger);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        Task request = call == "get"
+            ? api.GetDevicesAsync("old-access", cts.Token)
+            : api.UnregisterDeviceAsync(Guid.NewGuid(), "old-access", cts.Token);
+
+        Assert.IsType<ApiException>(await Record.ExceptionAsync(() => request.WaitAsync(TimeSpan.FromSeconds(5))));
+    }
+
+    private sealed class HangingHandler : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.Infinite, cancellationToken);
+            throw new InvalidOperationException();
+        }
+    }
+
     private sealed class RecordingLogger : ILogger<ApiService>
     {
         public List<string> Lines { get; } = [];

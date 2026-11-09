@@ -284,7 +284,9 @@ public class DeviceTokenService : IDeviceTokenService
                 if (accessToken is not null)
                     await DeleteServerDevicesAsync([.. signOut.Tokens], limit.Token, accessToken).WaitAsync(limit.Token);
 
-                await _authService.CompleteDeferredLogoutAsync(signOut.Id);
+                if (!await _authService.CompleteDeferredLogoutAsync(signOut.Id))
+                    continue;
+
                 UpdatePendingSignOuts(list => list.RemoveAll(p => p.Id == signOut.Id));
             }
             catch
@@ -331,7 +333,7 @@ public class DeviceTokenService : IDeviceTokenService
             list.RemoveRange(0, evicted.Count);
         });
         foreach (var old in evicted)
-            _ = _authService.CompleteDeferredLogoutAsync(old.Id);
+            _ = _authService.CompleteDeferredLogoutAsync(old.Id, dropOnFailure: true);
     }
 
     private Task<T> Enqueue<T>(Func<CancellationToken, Task<T>> work)
@@ -422,11 +424,11 @@ public class DeviceTokenService : IDeviceTokenService
         if (tokens.Count == 0)
             return;
 
-        var devices = await _apiService.GetDevicesAsync(accessToken);
+        var devices = await _apiService.GetDevicesAsync(accessToken, limit);
         foreach (var device in devices.Where(d => tokens.Contains(d.Token)))
         {
             limit.ThrowIfCancellationRequested();
-            await _apiService.UnregisterDeviceAsync(device.Id, accessToken);
+            await _apiService.UnregisterDeviceAsync(device.Id, accessToken, limit);
         }
     }
 

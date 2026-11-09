@@ -31,7 +31,6 @@ public class AppDelegate : MauiUIApplicationDelegate, IUNUserNotificationCenterD
         System.Diagnostics.Debug.WriteLine($"APNs registration failed: {error.LocalizedDescription}");
     }
 
-    // Handle notification when app is in foreground
     [Export("userNotificationCenter:willPresentNotification:withCompletionHandler:")]
     public void WillPresentNotification(
         UNUserNotificationCenter center,
@@ -51,7 +50,6 @@ public class AppDelegate : MauiUIApplicationDelegate, IUNUserNotificationCenterD
         }
         catch
         {
-            // Best-effort registration
         }
     }
 }

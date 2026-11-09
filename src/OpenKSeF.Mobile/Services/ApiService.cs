@@ -99,14 +99,14 @@ public class ApiService : IApiService
         await SendNoContentAsync(HttpMethod.Post, "/api/devices/register", request, cancellationToken: cancellationToken);
     }
 
-    public async Task<List<DeviceTokenDto>> GetDevicesAsync(string? accessToken = null)
+    public async Task<List<DeviceTokenDto>> GetDevicesAsync(string? accessToken = null, CancellationToken cancellationToken = default)
     {
-        return await SendAsync<List<DeviceTokenDto>>(HttpMethod.Get, "/api/devices", accessToken: accessToken);
+        return await SendAsync<List<DeviceTokenDto>>(HttpMethod.Get, "/api/devices", accessToken: accessToken, cancellationToken: cancellationToken);
     }
 
-    public async Task UnregisterDeviceAsync(Guid deviceId, string? accessToken = null)
+    public async Task UnregisterDeviceAsync(Guid deviceId, string? accessToken = null, CancellationToken cancellationToken = default)
     {
-        await SendNoContentAsync(HttpMethod.Delete, $"/api/devices/{deviceId}", accessToken: accessToken);
+        await SendNoContentAsync(HttpMethod.Delete, $"/api/devices/{deviceId}", accessToken: accessToken, cancellationToken: cancellationToken);
     }
 
     public async Task<SellerProfileDto?> GetSellerProfileAsync(Guid tenantId)
@@ -197,14 +197,14 @@ public class ApiService : IApiService
         return await response.Content.ReadAsByteArrayAsync();
     }
 
-    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, string? accessToken = null)
+    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, string? accessToken = null, CancellationToken cancellationToken = default)
     {
-        using var response = await ExecuteAsync(method, path, body, accessToken);
+        using var response = await ExecuteAsync(method, path, body, accessToken, cancellationToken);
 
         T? result;
         try
         {
-            result = await response.Content.ReadFromJsonAsync<T>();
+            result = await response.Content.ReadFromJsonAsync<T>(cancellationToken);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
@@ -225,7 +225,7 @@ public class ApiService : IApiService
         HttpResponseMessage response;
         if (accessToken is not null)
         {
-            response = await SendRequestAsync(method, path, body, accessToken);
+            response = await SendRequestAsync(method, path, body, accessToken, cancellationToken);
         }
         else
         {
