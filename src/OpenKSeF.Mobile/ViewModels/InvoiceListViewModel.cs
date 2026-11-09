@@ -71,9 +71,19 @@ public partial class InvoiceListViewModel : ObservableObject
             var tapped = NotificationHubService.TakeTapped();
             var tappedTenant = tapped is null ? null : await OwnedTenantAsync(tapped.Value.TenantId);
             if (tapped?.InvoiceId is { } tappedInvoice)
-                openInvoice = (tappedTenant, tappedInvoice);
+            {
+                if (tappedTenant is { } owner && !await InvoiceAvailableAsync(owner.Id, tappedInvoice))
+                    tappedTenant = null;
+                openInvoice = (tappedTenant?.Id, tappedInvoice);
+            }
 
-            var tenantId = tappedTenant ?? GetSelectedTenantId();
+            if (tappedTenant is { } selected)
+            {
+                Preferences.Default.Set("SelectedTenantId", selected.Id.ToString());
+                Preferences.Default.Set("SelectedTenantNip", selected.Nip);
+            }
+
+            var tenantId = tappedTenant?.Id ?? GetSelectedTenantId();
             if (tenantId is null && !_autoSelectAttempted)
             {
                 _autoSelectAttempted = true;
@@ -124,20 +134,15 @@ public partial class InvoiceListViewModel : ObservableObject
         }
     }
 
-    private async Task<Guid?> OwnedTenantAsync(Guid tapped)
+    private async Task<(Guid Id, string Nip)?> OwnedTenantAsync(Guid tapped)
     {
         if (tapped == GetSelectedTenantId())
-            return tapped;
+            return (tapped, Preferences.Default.Get("SelectedTenantNip", string.Empty));
 
         try
         {
             var tenant = (await _apiService.GetTenantsAsync()).FirstOrDefault(t => t.Id == tapped);
-            if (tenant is null)
-                return null;
-
-            Preferences.Default.Set("SelectedTenantId", tenant.Id.ToString());
-            Preferences.Default.Set("SelectedTenantNip", tenant.Nip);
-            return tenant.Id;
+            return tenant is null ? null : (tenant.Id, tenant.Nip);
         }
         catch
         {
@@ -145,19 +150,26 @@ public partial class InvoiceListViewModel : ObservableObject
         }
     }
 
+    private async Task<bool> InvoiceAvailableAsync(Guid tenantId, Guid invoiceId)
+    {
+        try
+        {
+            await _apiService.GetInvoiceDetailsAsync(tenantId, invoiceId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Trace.WriteLine($"[OpenKSeF] Notification tap invoice pre-check failed: {(ex is ApiException api ? $"HTTP {(int)api.StatusCode}" : ex.GetType().Name)}");
+            return false;
+        }
+    }
+
     private async Task OpenTappedInvoiceAsync(Guid? tenantId, Guid invoiceId)
     {
         if (tenantId is not null)
         {
-            try
-            {
-                await _apiService.GetInvoiceDetailsAsync(tenantId.Value, invoiceId);
-                try { await Shell.Current.GoToAsync($"invoiceDetails?tenantId={tenantId}&invoiceId={invoiceId}"); } catch { }
-                return;
-            }
-            catch
-            {
-            }
+            try { await Shell.Current.GoToAsync($"invoiceDetails?tenantId={tenantId}&invoiceId={invoiceId}"); } catch { }
+            return;
         }
 
         await Shell.Current.DisplayAlertAsync("Faktura niedostępna", "Nie udało się otworzyć faktury z powiadomienia.", "OK");
