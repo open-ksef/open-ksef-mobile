@@ -1142,6 +1142,144 @@ public class IssuingViewModelTests : IDisposable
         Assert.Equal("Accepted", vm.SelectedStatus);
     }
 
+    private static readonly Guid OtherTenantId = Guid.Parse("2b9e4f61-8c3d-4e7a-a1b2-c3d4e5f60718");
+
+    private static PagedResult<IssuedInvoiceListItemDto> IssuedPage(string buyer = "Nabywca") => new()
+    {
+        Items = [new() { Id = Guid.NewGuid(), Status = "Draft", BuyerName = buyer }],
+        PageSize = 20,
+        TotalCount = 60
+    };
+
+    private static Task<PagedResult<IssuedInvoiceListItemDto>> IssuedOutcome(string outcome) => outcome switch
+    {
+        "success" => Task.FromResult(IssuedPage("Stale")),
+        "4xx" => Task.FromException<PagedResult<IssuedInvoiceListItemDto>>(new ApiException(HttpStatusCode.BadRequest, "4xx")),
+        "5xx" => Task.FromException<PagedResult<IssuedInvoiceListItemDto>>(new ApiException(HttpStatusCode.InternalServerError, "5xx")),
+        "timeout" => Task.FromException<PagedResult<IssuedInvoiceListItemDto>>(new TaskCanceledException("timeout", new TimeoutException())),
+        "network" => Task.FromException<PagedResult<IssuedInvoiceListItemDto>>(new HttpRequestException("reset")),
+        _ => Task.FromCanceled<PagedResult<IssuedInvoiceListItemDto>>(new CancellationToken(true))
+    };
+
+    private async Task<IssuedInvoiceListViewModel> LoadedList()
+    {
+        _api.GetSellerProfileAsync(Arg.Any<Guid>()).Returns(Profile());
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null).Returns(IssuedPage());
+        var vm = new IssuedInvoiceListViewModel(_api);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.True(vm.HasMorePages);
+        return vm;
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("4xx")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    [InlineData("cancel")]
+    public async Task List_LoadMore_TenantSwitchedDuringAwait_DiscardsStaleResult(string outcome)
+    {
+        var vm = await LoadedList();
+        var stale = new TaskCompletionSource();
+        _api.GetIssuedInvoicesAsync(TenantId, 2, 20, null, null, null).Returns(async _ => { await stale.Task; return await IssuedOutcome(outcome); });
+        _api.GetIssuedInvoicesAsync(OtherTenantId, 1, 20, null, null, null).Returns(IssuedPage("Other"));
+
+        var loadMore = vm.LoadMoreCommand.ExecuteAsync(null);
+        Preferences.Default.Set("SelectedTenantId", OtherTenantId.ToString());
+        await vm.LoadCommand.ExecuteAsync(null);
+        stale.SetResult();
+        await loadMore;
+
+        Assert.Equal(["Other"], vm.Invoices.Select(r => r.Buyer));
+        Assert.Null(vm.ErrorMessage);
+        Assert.False(vm.IsLoadingMore);
+    }
+
+    [Theory]
+    [InlineData("success")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("cancel")]
+    public async Task List_LoadMore_RefreshDuringAwait_DiscardsStaleResultAndKeepsPage(string outcome)
+    {
+        var vm = await LoadedList();
+        var stale = new TaskCompletionSource();
+        _api.GetIssuedInvoicesAsync(TenantId, 2, 20, null, null, null).Returns(async _ => { await stale.Task; return await IssuedOutcome(outcome); }, _ => Task.FromResult(IssuedPage("Page2")));
+
+        var loadMore = vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.LoadCommand.ExecuteAsync(null);
+        stale.SetResult();
+        await loadMore;
+
+        Assert.Equal(["Nabywca"], vm.Invoices.Select(r => r.Buyer));
+        Assert.Null(vm.ErrorMessage);
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await _api.Received(2).GetIssuedInvoicesAsync(TenantId, 2, 20, null, null, null);
+        Assert.Equal(["Nabywca", "Page2"], vm.Invoices.Select(r => r.Buyer));
+    }
+
+    [Fact]
+    public async Task List_LoadMore_SuccessAfterError_ClearsError()
+    {
+        var vm = await LoadedList();
+        _api.GetIssuedInvoicesAsync(TenantId, 2, 20, null, null, null).Returns(
+            _ => throw new ApiException(HttpStatusCode.InternalServerError, "Błąd serwera"),
+            _ => IssuedPage("Page2"));
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        Assert.Equal("Błąd serwera", vm.ErrorMessage);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        Assert.Equal(2, vm.Invoices.Count);
+    }
+
+    [Fact]
+    public async Task List_LoadMore_DuringFullLoad_IsNoOp()
+    {
+        var vm = await LoadedList();
+        var gate = new TaskCompletionSource<PagedResult<IssuedInvoiceListItemDto>>();
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null).Returns(gate.Task);
+
+        var load = vm.LoadCommand.ExecuteAsync(null);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        gate.SetResult(IssuedPage());
+        await load;
+
+        await _api.DidNotReceive().GetIssuedInvoicesAsync(TenantId, 2, Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>());
+    }
+
+    [Fact]
+    public async Task List_LoadMore_UsesQueryOfLoadedList()
+    {
+        var vm = await LoadedList();
+        _api.GetIssuedInvoicesAsync(default).ReturnsForAnyArgs(IssuedPage("Page2"));
+
+        vm.Search = "typed, not submitted";
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        await _api.Received(1).GetIssuedInvoicesAsync(TenantId, 2, 20, null, null, null);
+    }
+
+    [Fact]
+    public async Task List_TenantCleared_ShowsOnlyNoTenantBlock()
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null).Returns(new PagedResult<IssuedInvoiceListItemDto> { Items = [], PageSize = 20 });
+        var vm = new IssuedInvoiceListViewModel(_api);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.True(vm.IsEmpty);
+
+        Preferences.Default.Remove("SelectedTenantId");
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsNoTenantSelected);
+        Assert.False(vm.IsEmpty);
+        Assert.False(vm.IsUnsupported);
+    }
+
     private static ValidationEnvelope Invalid(string code, string field) =>
         new() { Errors = [new ValidationIssue { Code = code, Field = field, Message = code }] };
 

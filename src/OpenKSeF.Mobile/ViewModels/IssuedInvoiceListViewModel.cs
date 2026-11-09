@@ -26,6 +26,9 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     private const int PageSize = 20;
     private readonly IApiService _apiService;
     private int _currentPage = 1;
+    private int _loadVersion;
+    private string? _loadedStatus;
+    private string? _loadedSearch;
 
     public IReadOnlyList<StatusFilter> Filters { get; } =
     [
@@ -95,12 +98,15 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
         try
         {
             IsBusy = true;
+            _loadVersion++;
             ErrorMessage = null;
             IsNoTenantSelected = false;
+            IsEmpty = false;
 
             if (SelectedTenantId() is not { } tenantId)
             {
                 IsNoTenantSelected = true;
+                IsUnsupported = false;
                 Invoices = [];
                 return;
             }
@@ -116,7 +122,9 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
 
             Environment = profile.KsefEnvironment;
             _currentPage = 1;
-            var result = await _apiService.GetIssuedInvoicesAsync(tenantId, _currentPage, PageSize, Status(), q: Search);
+            _loadedStatus = Status();
+            _loadedSearch = Search;
+            var result = await _apiService.GetIssuedInvoicesAsync(tenantId, _currentPage, PageSize, _loadedStatus, q: _loadedSearch);
             Invoices = new ObservableCollection<IssuedInvoiceRow>(result.Items.Select(i => new IssuedInvoiceRow(i)));
             HasMorePages = _currentPage < result.TotalPages;
             IsEmpty = Invoices.Count == 0;
@@ -135,21 +143,29 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     [RelayCommand]
     private async Task LoadMoreAsync()
     {
-        if (IsLoadingMore || !HasMorePages || SelectedTenantId() is not { } tenantId)
+        if (IsLoadingMore || IsBusy || !HasMorePages || SelectedTenantId() is not { } tenantId)
             return;
 
+        var load = _loadVersion;
         try
         {
             IsLoadingMore = true;
-            var result = await _apiService.GetIssuedInvoicesAsync(tenantId, _currentPage + 1, PageSize, Status(), q: Search);
+            var result = await _apiService.GetIssuedInvoicesAsync(tenantId, _currentPage + 1, PageSize, _loadedStatus, q: _loadedSearch);
+            if (load != _loadVersion || tenantId != SelectedTenantId())
+                return;
+
             _currentPage++;
             foreach (var item in result.Items)
                 Invoices.Add(new IssuedInvoiceRow(item));
             HasMorePages = _currentPage < result.TotalPages;
+            ErrorMessage = null;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (load == _loadVersion)
         {
             ErrorMessage = ex.Message;
+        }
+        catch
+        {
         }
         finally
         {
