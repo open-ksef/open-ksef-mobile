@@ -30,19 +30,29 @@ public class DeviceTokenServiceTests
         _api.GetDevicesAsync().Returns(tokens.Select(t => new DeviceTokenDto { Id = Guid.NewGuid(), Token = t }).ToList());
 
     [Fact]
-    public async Task HasNativePushToken_OnlyForRegisteredNativeToken()
+    public async Task ShowHubNotification_OnlyWithoutNativeTokenAndWithPushOn()
     {
-        Assert.False(_service.HasNativePushToken);
+        Assert.True(_service.ShowHubNotification);
 
         await _service.EnsureDeviceRegisteredAsync();
         Assert.StartsWith("device-", Preferences.Default.Get(TokenKey, ""));
-        Assert.False(_service.HasNativePushToken);
+        Assert.True(_service.ShowHubNotification);
 
         await _service.RegisterTokenAsync("fcm-token-123", "Android");
-        Assert.True(_service.HasNativePushToken);
+        Assert.False(_service.ShowHubNotification);
 
         await _service.UnregisterCurrentDeviceAsync(CancellationToken.None);
-        Assert.False(_service.HasNativePushToken);
+        Assert.True(_service.ShowHubNotification);
+    }
+
+    [Fact]
+    public async Task ShowHubNotification_False_WhenUserTurnedPushOff()
+    {
+        await _service.EnsureDeviceRegisteredAsync();
+
+        Assert.True(await _service.DisableNotificationsAsync());
+
+        Assert.False(_service.ShowHubNotification);
     }
 
     [Fact]

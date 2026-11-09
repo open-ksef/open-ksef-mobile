@@ -19,7 +19,7 @@ public class InvoiceDetailsViewModelTests
 
     private InvoiceDetailsViewModel Loaded() => new(_api)
     {
-        Invoice = new InvoiceDto { Id = InvoiceId, VendorName = "Test Sp. z o.o.", VendorNip = "5261040828", AmountGross = 1230.50m, KSeFInvoiceNumber = "KSEF-001" },
+        Invoice = new InvoiceDto { Id = InvoiceId, VendorName = "Test Sp. z o.o.", VendorNip = "1111111111", AmountGross = 1230.50m, KSeFInvoiceNumber = "KSEF-001" },
         TenantId = TenantId.ToString()
     };
 

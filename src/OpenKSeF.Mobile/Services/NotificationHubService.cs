@@ -79,7 +79,7 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         {
             _logger.LogDebug("SignalR notification received: {Title}", payload.Title);
             NotificationReceived?.Invoke(payload.Title, payload.Body, payload.Data);
-            if (!_deviceTokenService.HasNativePushToken)
+            if (_deviceTokenService.ShowHubNotification)
                 ShowLocalNotification(payload.Title, payload.Body, payload.Data);
         });
 

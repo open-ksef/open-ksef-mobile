@@ -26,9 +26,10 @@ public class DeviceTokenService : IDeviceTokenService
     public bool PushRemovalPending =>
         PushDisabledByUser && !string.IsNullOrEmpty(Preferences.Default.Get(TokenStorageKey, string.Empty));
 
-    public bool HasNativePushToken =>
-        Preferences.Default.Get(TokenStorageKey, string.Empty) is { Length: > 0 } token
-        && token != Preferences.Default.Get(DeviceIdKey, string.Empty);
+    public bool ShowHubNotification =>
+        !PushDisabledByUser
+        && (Preferences.Default.Get(TokenStorageKey, string.Empty) is not { Length: > 0 } token
+            || token == Preferences.Default.Get(DeviceIdKey, string.Empty));
 
     public async Task RegisterTokenAsync(string token, string platform)
     {

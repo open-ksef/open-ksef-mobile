@@ -10,6 +10,6 @@ public interface IDeviceTokenService
     Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken);
     bool PushDisabledByUser { get; }
     bool PushRemovalPending { get; }
-    bool HasNativePushToken { get; }
+    bool ShowHubNotification { get; }
     Task<bool> DisableNotificationsAsync();
 }
