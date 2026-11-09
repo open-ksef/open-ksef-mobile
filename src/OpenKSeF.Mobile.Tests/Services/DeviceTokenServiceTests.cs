@@ -30,6 +30,22 @@ public class DeviceTokenServiceTests
         _api.GetDevicesAsync().Returns(tokens.Select(t => new DeviceTokenDto { Id = Guid.NewGuid(), Token = t }).ToList());
 
     [Fact]
+    public async Task HasNativePushToken_OnlyForRegisteredNativeToken()
+    {
+        Assert.False(_service.HasNativePushToken);
+
+        await _service.EnsureDeviceRegisteredAsync();
+        Assert.StartsWith("device-", Preferences.Default.Get(TokenKey, ""));
+        Assert.False(_service.HasNativePushToken);
+
+        await _service.RegisterTokenAsync("fcm-token-123", "Android");
+        Assert.True(_service.HasNativePushToken);
+
+        await _service.UnregisterCurrentDeviceAsync(CancellationToken.None);
+        Assert.False(_service.HasNativePushToken);
+    }
+
+    [Fact]
     public async Task IsDeviceRegistered_True_WhenServerHasStoredToken()
     {
         Preferences.Default.Set(TokenKey, "fcm-token-123");

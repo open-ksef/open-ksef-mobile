@@ -11,7 +11,7 @@ namespace OpenKSeF.Mobile.Tests.ViewModels;
 [Collection("Shell")]
 public class InvoiceDetailsViewModelTests
 {
-    private const string TransferText = "Odbiorca: Inny niz lokalnie\nRachunek: PL61 1090 1014 0000 0712 1981 2874\nKwota: 1,476.00 EUR\nTytul: FV 1/2026";
+    private const string TransferText = "Odbiorca: Inny niz lokalnie\nNIP: 1111111111\nNr rachunku: 00 0000 0000 0000 0000 0000 0000\nKwota: 1 476,00 EUR\nTytul: FV 1/2026";
     private static readonly Guid TenantId = Guid.Parse("304f3ff7-06b6-43e8-bdf4-a0ad77f194e3");
     private static readonly Guid InvoiceId = Guid.Parse("0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a");
 
