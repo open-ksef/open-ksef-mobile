@@ -256,6 +256,44 @@ public class DeviceTokenServiceTests
     }
 
     [Fact]
+    public async Task PostTimedOutBeforeSignOut_SignOutDefersCleanup_NextStartRemovesLateRow()
+    {
+        var rows = FakeServer();
+        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ApiException(System.Net.HttpStatusCode.ServiceUnavailable, "no connection"));
+        _auth.GetDeferredLogoutAccessTokenAsync().Returns("old-access");
+
+        await _service.EnsureDeviceRegisteredAsync();
+        await _service.UnregisterCurrentDeviceAsync(CancellationToken.None);
+        await _service.CompleteSignOutCleanupAsync();
+
+        Assert.True(_service.SignOutCleanupPending);
+        await _auth.DidNotReceive().CompleteDeferredLogoutAsync();
+
+        var deviceId = Preferences.Default.Get(DeviceIdKey, "");
+        rows.Add(new DeviceTokenDto { Id = Guid.NewGuid(), Token = deviceId });
+        var nextStart = new DeviceTokenService(_api, _auth);
+        await nextStart.CompleteSignOutCleanupAsync();
+
+        Assert.Empty(rows);
+        await _auth.Received(1).CompleteDeferredLogoutAsync();
+        Assert.False(nextStart.SignOutCleanupPending);
+    }
+
+    [Fact]
+    public async Task PostRejectedByServer_SignOutStaysClean()
+    {
+        FakeServer();
+        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ApiException(System.Net.HttpStatusCode.BadRequest, "rejected"));
+
+        await _service.EnsureDeviceRegisteredAsync();
+        await _service.UnregisterCurrentDeviceAsync(CancellationToken.None);
+
+        Assert.False(_service.SignOutCleanupPending);
+    }
+
+    [Fact]
     public async Task SignOut_WaitsForTokenRefreshRegistration()
     {
         var rows = FakeServer();

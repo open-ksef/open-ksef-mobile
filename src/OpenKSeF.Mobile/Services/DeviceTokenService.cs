@@ -1,3 +1,4 @@
+using System.Net;
 using OpenKSeF.Mobile.Models;
 
 namespace OpenKSeF.Mobile.Services;
@@ -213,13 +214,12 @@ public class DeviceTokenService : IDeviceTokenService
         return true;
     }
 
-    /// <summary>Leaves the device tokens saved for <see cref="CompleteSignOutCleanupAsync"/> until removal is confirmed: a POST cancelled in flight or still running may land on the server after the delete.</summary>
+    /// <summary>Leaves the device tokens saved for <see cref="CompleteSignOutCleanupAsync"/> until removal is confirmed: a POST cancelled, timed out or still running may land on the server after the delete.</summary>
     public async Task UnregisterCurrentDeviceAsync(CancellationToken cancellationToken)
     {
         HashSet<string> tokens;
         lock (_gate)
         {
-            _postAbandoned = false;
             _session?.Cancel();
             _session = null;
             tokens = StoredTokens();
@@ -293,7 +293,8 @@ public class DeviceTokenService : IDeviceTokenService
         {
             await _apiService.RegisterDeviceTokenAsync(request, ct);
         }
-        catch when (ct.IsCancellationRequested)
+        // Timeout, network error, cancel or 5xx: the server may still insert the row, so it stays unknown for this process.
+        catch (Exception ex) when (ct.IsCancellationRequested || ex is not ApiException { StatusCode: < HttpStatusCode.InternalServerError })
         {
             _postAbandoned = true;
             throw;
