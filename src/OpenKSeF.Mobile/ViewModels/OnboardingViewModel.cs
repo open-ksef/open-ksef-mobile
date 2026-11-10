@@ -188,6 +188,18 @@ public partial class OnboardingViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task OpenTokenDocsAsync()
+    {
+        try
+        {
+            await Browser.Default.OpenAsync(
+                "https://open-ksef.pl/docs/token-ksef",
+                BrowserLaunchMode.SystemPreferred);
+        }
+        catch { }
+    }
+
+    [RelayCommand]
     private async Task GoToInvoicesAsync()
     {
         if (_tenantId.HasValue)
