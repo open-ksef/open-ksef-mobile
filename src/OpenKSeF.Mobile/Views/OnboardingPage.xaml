@@ -116,11 +116,17 @@
                             <Label.FormattedText>
                                 <FormattedString>
                                     <Span Text="Jak uzyskać token KSeF:" FontFamily="InterBold" />
-                                    <Span FontFamily="Inter" Text="&#10;1. Przejdź na ksef-test.mf.gov.pl" />
-                                    <Span FontFamily="Inter" Text="&#10;2. Zaloguj się danymi firmy" />
-                                    <Span FontFamily="Inter" Text="&#10;3. Sekcja Tokeny autoryzacyjne" />
-                                    <Span FontFamily="Inter" Text="&#10;4. Wygeneruj token z uprawnieniami" />
-                                    <Span FontFamily="Inter" Text="&#10;5. Skopiuj i wklej poniżej" />
+                                    <Span FontFamily="Inter" Text="&#10;1. Otwórz Aplikację Podatnika KSeF 2.0" />
+                                    <Span FontFamily="Inter" Text="&#10;2. Zaloguj się jako firma lub osoba z uprawnieniami" />
+                                    <Span FontFamily="Inter" Text="&#10;3. Wygeneruj token z uprawnieniami: odczyt i wystawianie faktur" />
+                                    <Span FontFamily="Inter" Text="&#10;4. Skopiuj token od razu i wklej poniżej" />
+                                    <Span FontFamily="Inter" Text="&#10;&#10;" />
+                                    <Span FontFamily="InterBold" Text="Instrukcja krok po kroku" TextDecorations="Underline"
+                                          AutomationId="OnboardingLinkTokenDocs">
+                                        <Span.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding OpenTokenDocsCommand}" />
+                                        </Span.GestureRecognizers>
+                                    </Span>
                                 </FormattedString>
                             </Label.FormattedText>
                         </Label>

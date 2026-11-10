@@ -6,6 +6,7 @@ using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.ViewModels;
 
+[Collection("Shell")]
 public class OnboardingViewModelTests
 {
     private readonly IApiService _api = Substitute.For<IApiService>();
@@ -35,5 +36,15 @@ public class OnboardingViewModelTests
         Assert.Null(vm.ErrorMessage);
         Assert.Equal(2, vm.CurrentStep);
         await _api.Received(1).CreateTenantAsync(Arg.Is<CreateTenantRequest>(r => r.Nip == "1111111111"));
+    }
+
+    [Fact]
+    public async Task OpenTokenDocs_OpensSiteTokenPage()
+    {
+        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>());
+
+        await vm.OpenTokenDocsCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://open-ksef.pl/docs/token-ksef", Browser.Default.LastUri);
     }
 }
