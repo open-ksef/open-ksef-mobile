@@ -38,6 +38,7 @@ namespace Microsoft.Maui.Controls
         public string? LastAlertMessage { get; private set; }
         public List<(string Title, string Message)> Alerts { get; } = [];
         public string? LastRoute { get; private set; }
+        public List<string> Routes { get; } = [];
         public Exception? GoToFailure { get; set; }
         public Func<Task>? WhileConfirming { get; set; }
         public Action? OnAlert { get; set; }
@@ -52,6 +53,7 @@ namespace Microsoft.Maui.Controls
             WhileConfirming = null;
             OnAlert = null;
             Alerts.Clear();
+            Routes.Clear();
         }
 
         public Task GoToAsync(string state)
@@ -59,6 +61,7 @@ namespace Microsoft.Maui.Controls
             if (GoToFailure is not null)
                 return Task.FromException(GoToFailure);
             LastRoute = state;
+            Routes.Add(state);
             return Task.CompletedTask;
         }
 

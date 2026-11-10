@@ -271,6 +271,79 @@ public class InvoiceListViewModelTests : IDisposable
         await _api.DidNotReceive().GetInvoiceDetailsAsync(Arg.Any<Guid>(), Arg.Any<Guid>());
     }
 
+    private static Task<InvoiceDto> DetailsOutcome(string outcome) => outcome switch
+    {
+        "403" => Task.FromException<InvoiceDto>(new ApiException(System.Net.HttpStatusCode.Forbidden, "Faktura 1111111111")),
+        "404" => Task.FromException<InvoiceDto>(new ApiException(System.Net.HttpStatusCode.NotFound, "Faktura 1111111111")),
+        "5xx" => Task.FromException<InvoiceDto>(new ApiException(System.Net.HttpStatusCode.InternalServerError, "Faktura 1111111111")),
+        "timeout" => Task.FromException<InvoiceDto>(new TaskCanceledException("Faktura 1111111111", new TimeoutException())),
+        "network" => Task.FromException<InvoiceDto>(new HttpRequestException("Faktura 1111111111")),
+        _ => Task.FromCanceled<InvoiceDto>(new CancellationToken(true))
+    };
+
+    private sealed class TraceCapture : System.Diagnostics.TraceListener
+    {
+        public List<string> Lines { get; } = [];
+        public override void Write(string? message) { }
+        public override void WriteLine(string? message)
+        {
+            if (message?.Contains("invoice pre-check") == true)
+                lock (Lines) Lines.Add(message);
+        }
+    }
+
+    [Theory]
+    [InlineData("403", "HTTP 403")]
+    [InlineData("404", "HTTP 404")]
+    [InlineData("5xx", "HTTP 500")]
+    [InlineData("timeout", "TaskCanceledException")]
+    [InlineData("network", "HttpRequestException")]
+    [InlineData("cancel", "TaskCanceledException")]
+    public async Task InvoiceTap_PreCheckFails_LogsStatusOrExceptionTypeWithoutIds(string outcome, string reason)
+    {
+        _api.GetInvoiceDetailsAsync(TenantId, TappedInvoiceId).Returns(DetailsOutcome(outcome));
+        NotificationHubService.OnNotificationTapped(null, TenantId.ToString(), TappedInvoiceId.ToString());
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+        var capture = new TraceCapture();
+        System.Diagnostics.Trace.Listeners.Add(capture);
+        try
+        {
+            await vm.LoadInvoicesCommand.ExecuteAsync(null);
+        }
+        finally
+        {
+            System.Diagnostics.Trace.Listeners.Remove(capture);
+        }
+
+        Assert.Equal([$"[OpenKSeF] Notification tap invoice pre-check failed: {reason}"], capture.Lines);
+        Assert.Equal("Faktura niedostępna", Shell.Current.LastAlertTitle);
+    }
+
+    [Theory]
+    [InlineData("403")]
+    [InlineData("404")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    [InlineData("cancel")]
+    public async Task InvoiceTap_OwnedTenantInvoiceUnavailable_KeepsSelectedTenant(string outcome)
+    {
+        OwnsTenants();
+        OtherTenantHas("Other");
+        _api.GetInvoiceDetailsAsync(OtherTenantId, TappedInvoiceId).Returns(DetailsOutcome(outcome));
+        NotificationHubService.OnNotificationTapped(null, OtherTenantId.ToString(), TappedInvoiceId.ToString());
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal(TenantId.ToString(), Preferences.Default.Get("SelectedTenantId", ""));
+        Assert.Equal("1111111111", Preferences.Default.Get("SelectedTenantNip", ""));
+        Assert.Equal(["Test"], vm.Invoices.Select(i => i.VendorName));
+        await _api.DidNotReceive().GetInvoicesAsync(OtherTenantId, Arg.Any<int>());
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.Equal("Faktura niedostępna", Shell.Current.LastAlertTitle);
+    }
+
     [Fact]
     public async Task InvoiceTap_NewerTapDuringLoad_OpensOnlyTheNewerInvoice()
     {
@@ -286,8 +359,7 @@ public class InvoiceListViewModelTests : IDisposable
         first.SetResult();
         await load;
 
-        Assert.Equal($"invoiceDetails?tenantId={TenantId}&invoiceId={newer}", Shell.Current.LastRoute);
-        await _api.DidNotReceive().GetInvoiceDetailsAsync(TenantId, TappedInvoiceId);
+        Assert.Equal([$"invoiceDetails?tenantId={TenantId}&invoiceId={newer}"], Shell.Current.Routes);
     }
 
     private static Task<PagedResult<InvoiceDto>> Outcome(string outcome) => outcome switch
