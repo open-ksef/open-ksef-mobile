@@ -4,7 +4,7 @@ description: Pinned .NET SDK, Xcode and MAUI iOS workload shared by ios-build.ym
 runs:
   using: composite
   steps:
-    - uses: actions/setup-dotnet@v4
+    - uses: actions/setup-dotnet@v6
       with:
         dotnet-version: '10.0.3xx'
 
