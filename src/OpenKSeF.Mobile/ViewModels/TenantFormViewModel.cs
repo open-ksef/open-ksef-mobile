@@ -149,13 +149,13 @@ public partial class TenantFormViewModel : ObservableObject
 
         if (Nip.Length != 10 || !Nip.All(char.IsDigit))
         {
-            NipError = "NIP musi składać się z 10 cyfr.";
+            NipError = "NIP musi zawierać dokładnie 10 cyfr";
             return false;
         }
 
         if (!IsValidNipChecksum(Nip))
         {
-            NipError = "Nieprawidłowa suma kontrolna NIP.";
+            NipError = "Niepoprawny NIP. Wpisz 10 cyfr z poprawną sumą kontrolną.";
             return false;
         }
 

@@ -20,7 +20,7 @@ public class OnboardingViewModelTests
 
         await vm.SubmitStep1Command.ExecuteAsync(null);
 
-        Assert.Equal("Nieprawidłowa suma kontrolna NIP.", vm.ErrorMessage);
+        Assert.Equal("Niepoprawny NIP. Wpisz 10 cyfr z poprawną sumą kontrolną.", vm.ErrorMessage);
         Assert.Equal(1, vm.CurrentStep);
         await _api.DidNotReceiveWithAnyArgs().CreateTenantAsync(default!);
     }

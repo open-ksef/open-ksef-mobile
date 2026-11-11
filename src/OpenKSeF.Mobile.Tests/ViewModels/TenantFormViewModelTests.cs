@@ -77,16 +77,16 @@ public class TenantFormViewModelTests
 
         await vm.SaveCommand.ExecuteAsync(null);
 
-        Assert.Equal("Nieprawidłowa suma kontrolna NIP.", vm.NipError);
+        Assert.Equal("Niepoprawny NIP. Wpisz 10 cyfr z poprawną sumą kontrolną.", vm.NipError);
         await api.DidNotReceiveWithAnyArgs().CreateTenantAsync(default!);
     }
 
     [Theory]
     [InlineData("", "NIP jest wymagany.")]
-    [InlineData("123456789", "NIP musi składać się z 10 cyfr.")]
-    [InlineData("12345678901", "NIP musi składać się z 10 cyfr.")]
-    [InlineData("abcdefghij", "NIP musi składać się z 10 cyfr.")]
-    [InlineData("526-104-08-28", "NIP musi składać się z 10 cyfr.")]
+    [InlineData("123456789", "NIP musi zawierać dokładnie 10 cyfr")]
+    [InlineData("12345678901", "NIP musi zawierać dokładnie 10 cyfr")]
+    [InlineData("abcdefghij", "NIP musi zawierać dokładnie 10 cyfr")]
+    [InlineData("526-104-08-28", "NIP musi zawierać dokładnie 10 cyfr")]
     public async Task Save_InvalidNipFormat_RejectsWithoutApiCall(string nip, string expectedError)
     {
         var api = Substitute.For<IApiService>();
