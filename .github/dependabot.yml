@@ -5,6 +5,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "Microsoft.Maui.*"
+      - dependency-name: "Xamarin.AndroidX.*"
+      - dependency-name: "Xamarin.Firebase.*"
+      - dependency-name: "CommunityToolkit.Maui"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-patch:
         update-types: [minor, patch]
