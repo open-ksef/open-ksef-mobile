@@ -105,13 +105,13 @@ public partial class OnboardingViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(Nip) || Nip.Trim().Length != 10 || !Nip.Trim().All(char.IsDigit))
         {
-            ErrorMessage = "NIP musi zawierać dokładnie 10 cyfr.";
+            ErrorMessage = "NIP musi zawierać dokładnie 10 cyfr";
             return;
         }
 
         if (!TenantFormViewModel.IsValidNipChecksum(Nip.Trim()))
         {
-            ErrorMessage = "Nieprawidłowa suma kontrolna NIP.";
+            ErrorMessage = "Niepoprawny NIP. Wpisz 10 cyfr z poprawną sumą kontrolną.";
             return;
         }
 
