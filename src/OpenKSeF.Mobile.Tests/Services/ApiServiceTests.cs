@@ -218,6 +218,7 @@ public class ApiServiceTests
     [InlineData(HttpStatusCode.Conflict, """{"error":"A tenant with this NIP already exists for your account."}""", "A tenant with this NIP already exists for your account.")]
     [InlineData(HttpStatusCode.BadRequest, """{"error":"Invalid NIP format. Must be 10 digits."}""", "Invalid NIP format. Must be 10 digits.")]
     [InlineData(HttpStatusCode.Conflict, """{"message":"Numer jest już użyty."}""", "Numer jest już użyty.")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, """{"error":"Serwer nie ma prawidłowego klucza szyfrowania, więc nie może zapisać ani odczytać poświadczeń KSeF. Skontaktuj się z administratorem serwera."}""", "Serwer nie ma prawidłowego klucza szyfrowania, więc nie może zapisać ani odczytać poświadczeń KSeF. Skontaktuj się z administratorem serwera.")]
     public async Task ServerRuleMessage_ReachesUser_NotLogged(HttpStatusCode status, string body, string shown)
     {
         _handler.RespondJson(status, body);
@@ -231,6 +232,8 @@ public class ApiServiceTests
     [Theory]
     [InlineData(HttpStatusCode.BadGateway, """{"error":"KSeF said: secret upstream detail"}""", "Błąd serwera (502). Spróbuj ponownie później.")]
     [InlineData(HttpStatusCode.BadRequest, "<html>proxy secret upstream detail</html>", "Serwer odrzucił żądanie (400).")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, "<html>proxy secret upstream detail</html>", "Błąd serwera (503). Spróbuj ponownie później.")]
+    [InlineData(HttpStatusCode.ServiceUnavailable, """{"title":"secret upstream detail"}""", "Błąd serwera (503). Spróbuj ponownie później.")]
     [InlineData(HttpStatusCode.BadRequest, """{"title":"secret upstream detail","errors":{"Nip":["Invalid"]}}""", "Serwer odrzucił żądanie (400).")]
     public async Task UnstructuredBody_ShowsFixedText_BodyOnlyLogged(HttpStatusCode status, string body, string shown)
     {

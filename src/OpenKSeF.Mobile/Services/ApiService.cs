@@ -246,7 +246,7 @@ public class ApiService : IApiService
         {
             var responseBody = await response.Content.ReadAsStringAsync();
             var rejected = response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict;
-            var ruleMessage = rejected ? ParseRuleMessage(responseBody) : null;
+            var ruleMessage = rejected || response.StatusCode == HttpStatusCode.ServiceUnavailable ? ParseRuleMessage(responseBody) : null;
             var validation = rejected ? ParseValidation(responseBody) : null;
 
             if (ruleMessage is null && validation is not { Errors.Count: > 0 })
