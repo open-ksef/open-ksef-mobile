@@ -60,6 +60,7 @@ Do not merge responsibilities across services. New features should fit into an e
 
 - `Models/` contains DTOs that mirror the backend REST API contracts (`open-ksef` repo, `Api/Models/`).
 - When the backend API changes a response shape, update the corresponding mobile model to match.
+- Contract rules (additive only, `Platform` stays int, store release after prod): [ADR-004](https://github.com/open-ksef/open-ksef/blob/main/docs/adr/adr-004-contract-and-migration-policy.md).
 - Document any intentional deviation from the backend contract (e.g. `CachedInvoice` is a local-only SQLite entity, `QrSetupPayload` is client-only).
 - `TenantDto` mirrors backend `TenantResponse`, `UpdateTenantRequest` sends `NotificationEmail` (backend PUT overwrites it, so the edit form round-trips the loaded value). `InvoiceDto` carries `IsPaid`/`PaidAt`.
 - `TransferDetailsDto` mirrors `TransferDetailsResponse`. One deviation: `[JsonIgnore] ServerHasQrRules`, set by the `QrMessage` setter. System.Text.Json calls that setter for an explicit null and not for an absent key. v0.0.7 has no `qrMessage` key and draws a QR with no rules, also for EUR, so `QrCodeViewModel` ignores `qrCodeBase64` when the flag is false. The API must keep writing the key. Remove the guard once no supported server is older than the T-019 tag. Mobile tags follow the backend tag on prod.
