@@ -333,9 +333,10 @@ public class ApiService : IApiService
 
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return await _http.SendAsync(request, cancellationToken);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
         {
             _logger.LogWarning("{Method} {Path} failed: {Error}", method, Redact(StripQuery(path)), ex.GetType().Name);
             throw new ApiException(HttpStatusCode.ServiceUnavailable, NoConnection);

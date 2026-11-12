@@ -4,7 +4,7 @@ using NSubstitute;
 using OpenKSeF.Mobile.Services;
 using OpenKSeF.Mobile.ViewModels;
 using Xunit;
-using OidcBrowser = IdentityModel.OidcClient.Browser.IBrowser;
+using OidcBrowser = Duende.IdentityModel.OidcClient.Browser.IBrowser;
 
 namespace OpenKSeF.Mobile.Tests.Services;
 

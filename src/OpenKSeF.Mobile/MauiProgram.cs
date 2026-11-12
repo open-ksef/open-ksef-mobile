@@ -2,7 +2,7 @@ using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using OpenKSeF.Mobile.Services;
 using OpenKSeF.Mobile.ViewModels;
-using OidcBrowser = IdentityModel.OidcClient.Browser.IBrowser;
+using OidcBrowser = Duende.IdentityModel.OidcClient.Browser.IBrowser;
 using OpenKSeF.Mobile.Views;
 using ZXing.Net.Maui.Controls;
 
