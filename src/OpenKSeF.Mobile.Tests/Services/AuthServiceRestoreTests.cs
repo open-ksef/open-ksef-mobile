@@ -3,17 +3,17 @@ using System.Reflection;
 using System.Security.Claims;
 using System.Text;
 using System.Text.RegularExpressions;
-using IdentityModel.Jwk;
-using IdentityModel.OidcClient;
-using IdentityModel.OidcClient.Browser;
-using IdentityModel.OidcClient.Results;
+using Duende.IdentityModel.Jwk;
+using Duende.IdentityModel.OidcClient;
+using Duende.IdentityModel.OidcClient.Browser;
+using Duende.IdentityModel.OidcClient.Results;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.Services;
 using OpenKSeF.Mobile.ViewModels;
 using Xunit;
-using OidcBrowser = IdentityModel.OidcClient.Browser.IBrowser;
+using OidcBrowser = Duende.IdentityModel.OidcClient.Browser.IBrowser;
 
 namespace OpenKSeF.Mobile.Tests.Services;
 

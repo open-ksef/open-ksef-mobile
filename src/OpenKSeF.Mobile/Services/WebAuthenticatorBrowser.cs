@@ -1,11 +1,11 @@
-using IdentityModel.OidcClient.Browser;
+using Duende.IdentityModel.OidcClient.Browser;
 
 namespace OpenKSeF.Mobile.Services;
 
 /// <summary>
 /// OIDC browser implementation using MAUI's WebAuthenticator (system browser).
 /// </summary>
-public class WebAuthenticatorBrowser : IdentityModel.OidcClient.Browser.IBrowser
+public class WebAuthenticatorBrowser : Duende.IdentityModel.OidcClient.Browser.IBrowser
 {
     public async Task<BrowserResult> InvokeAsync(BrowserOptions options, CancellationToken cancellationToken = default)
     {

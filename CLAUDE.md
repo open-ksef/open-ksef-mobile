@@ -8,7 +8,7 @@ OpenKSeF Mobile is a .NET 10 MAUI app for KSeF invoice sync and browsing. Androi
 
 Main projects:
 - `src/OpenKSeF.Mobile` - MAUI app (targets `net10.0-android`, `net10.0-ios`)
-- `src/OpenKSeF.Mobile.Tests` - xUnit unit tests (net8.0, no device required)
+- `src/OpenKSeF.Mobile.Tests` - xUnit unit tests (net10.0, no device required)
 - `src/OpenKSeF.Mobile.E2E.Shared` - shared Appium E2E infrastructure
 - `src/OpenKSeF.Mobile.E2E.Android` - Android E2E tests (NUnit + Appium WebDriver)
 

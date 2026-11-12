@@ -1,11 +1,11 @@
-using IdentityModel.OidcClient;
+using Duende.IdentityModel.OidcClient;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using OidcBrowser = IdentityModel.OidcClient.Browser.IBrowser;
+using OidcBrowser = Duende.IdentityModel.OidcClient.Browser.IBrowser;
 
 namespace OpenKSeF.Mobile.Services;
 
