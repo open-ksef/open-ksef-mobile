@@ -56,6 +56,16 @@ jobs:
       - name: Unit tests
         run: dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj --no-build -c Release --logger "trx;LogFileName=unit-test-results.trx" --nologo
 
+      - name: Unit tests (pl-PL)
+        env:
+          TEST_CULTURE: pl-PL
+        run: dotnet test src/OpenKSeF.Mobile.Tests/OpenKSeF.Mobile.Tests.csproj --no-build -c Release --logger "trx;LogFileName=unit-test-results-pl-PL.trx" --nologo
+
+      - name: E2E infrastructure tests (device-free)
+        run: |
+          dotnet test src/OpenKSeF.Mobile.E2E.Shared/OpenKSeF.Mobile.E2E.Shared.csproj --no-build -c Release --logger "trx;LogFileName=e2e-shared-test-results.trx" --nologo
+          dotnet test src/OpenKSeF.Mobile.E2E.Android/OpenKSeF.Mobile.E2E.Android.csproj --no-build -c Release --filter "Category=DeviceFree" --logger "trx;LogFileName=e2e-android-test-results.trx" --nologo
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
