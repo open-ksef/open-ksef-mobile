@@ -3,6 +3,7 @@ using OpenKSeF.Mobile.E2E.Shared.Configuration;
 
 namespace OpenKSeF.Mobile.E2E.Android.ConfigurationTests;
 
+[Category("DeviceFree")]
 public class AndroidE2ETestOptionsTests
 {
     [Test]
@@ -29,7 +30,7 @@ public class AndroidE2ETestOptionsTests
             Assert.That(options.PlatformName, Is.EqualTo("Android"));
             Assert.That(options.AutomationName, Is.EqualTo("UiAutomator2"));
             Assert.That(options.DeviceName, Is.EqualTo("Pixel_8_API_35"));
-            Assert.That(options.AppPath, Is.EqualTo("/tmp/openksef-android.apk"));
+            Assert.That(options.AppPath, Is.EqualTo(Path.GetFullPath("/tmp/openksef-android.apk")));
             Assert.That(options.AppPackage, Is.EqualTo("com.openksef.mobile"));
             Assert.That(options.AppActivity, Is.EqualTo(".MainActivity"));
             Assert.That(options.CommandTimeoutSeconds, Is.EqualTo(300));
@@ -57,6 +58,6 @@ public class AndroidE2ETestOptionsTests
 
         var options = AndroidE2ETestOptions.From(baseConfig);
 
-        Assert.That(options.AppPath, Is.EqualTo("/tmp/shared.apk"));
+        Assert.That(options.AppPath, Is.EqualTo(Path.GetFullPath("/tmp/shared.apk")));
     }
 }
