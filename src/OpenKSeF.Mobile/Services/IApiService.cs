@@ -4,6 +4,7 @@ namespace OpenKSeF.Mobile.Services;
 
 public interface IApiService
 {
+    Task<SetupStatusDto?> GetSetupStatusAsync();
     Task<UserInfo> GetMeAsync();
     Task<OnboardingStatusDto> GetOnboardingStatusAsync();
     Task<List<TenantDto>> GetTenantsAsync();

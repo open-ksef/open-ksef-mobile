@@ -41,6 +41,13 @@ public class ApiService : IApiService
         _logger = logger;
     }
 
+    public async Task<SetupStatusDto?> GetSetupStatusAsync()
+    {
+        using var response = await SendRequestAsync(HttpMethod.Get, "/api/system/setup-status", null, null);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<SetupStatusDto>();
+    }
+
     public async Task<UserInfo> GetMeAsync()
     {
         return await SendAsync<UserInfo>(HttpMethod.Get, "/api/account/me");
