@@ -343,7 +343,7 @@ public class AuthService : IAuthService
         if (_refreshToken is not null && await RefreshOnceAsync() == SessionRestoreResult.Restored)
             return _accessToken;
 
-        return null;
+        return _accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow ? _accessToken : null;
     }
 
     public async Task<string?> RefreshAccessTokenAsync()

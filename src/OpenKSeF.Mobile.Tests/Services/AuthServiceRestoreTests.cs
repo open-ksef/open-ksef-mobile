@@ -152,6 +152,14 @@ public class AuthServiceRestoreTests
         _handler.Bodies.Clear();
     }
 
+    private async Task LoginExpiredAsync()
+    {
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":0}"""));
+        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        _handler.Requests.Clear();
+        _handler.Bodies.Clear();
+    }
+
     private async Task<string?[]> ParallelCallersAsync(TaskCompletionSource release, int count = 20)
     {
         var callers = Enumerable.Range(0, count).Select(_ => Task.Run(_auth.GetAccessTokenAsync)).ToArray();
@@ -207,7 +215,7 @@ public class AuthServiceRestoreTests
 
         var tokens = await ParallelCallersAsync(release);
 
-        Assert.All(tokens, Assert.Null);
+        Assert.All(tokens, token => Assert.Equal("old", token));
         Assert.Single(_handler.Requests);
 
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}"""));
@@ -310,10 +318,81 @@ public class AuthServiceRestoreTests
         _auth.SessionEnded += () => ended++;
         _handler.Respond = problem;
 
+        Assert.Equal("old", await _auth.GetAccessTokenAsync());
+
+        Assert.Equal(0, ended);
+        Assert.Equal(stored, SecureStorage.Default.Count);
+    }
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task ServerProblemDuringUse_ExpiredAccessToken_ReturnsNull_KeepsTokens(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        await LoginExpiredAsync();
+        var stored = SecureStorage.Default.Count;
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = problem;
+
         Assert.Null(await _auth.GetAccessTokenAsync());
 
         Assert.Equal(0, ended);
         Assert.Equal(stored, SecureStorage.Default.Count);
+    }
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task ApiCall_RefreshFails_AccessTokenNotExpired_SendsThatToken_Succeeds(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        await LoginExpiringAsync();
+        _handler.Respond = request => IsTokenRequest(request)
+            ? problem(request)
+            : Task.FromResult(request.Headers.Authorization?.Parameter == "old"
+                ? Json(HttpStatusCode.OK, "[]")
+                : Json(HttpStatusCode.Unauthorized, string.Empty));
+
+        Assert.Empty(await CreateApi().GetTenantsAsync());
+
+        var api = _handler.Requests.Single(r => !IsTokenRequest(r));
+        Assert.Equal("old", api.Headers.Authorization?.Parameter);
+    }
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task ApiCall_RefreshFails_AccessTokenExpired_NoBearer_ShowsNoConnection(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        await LoginExpiredAsync();
+        _handler.Respond = request => IsTokenRequest(request)
+            ? problem(request)
+            : Task.FromResult(request.Headers.Authorization is null
+                ? Json(HttpStatusCode.Unauthorized, string.Empty)
+                : Json(HttpStatusCode.OK, "[]"));
+
+        var ex = await Assert.ThrowsAsync<ApiException>(CreateApi().GetTenantsAsync);
+
+        Assert.Equal("Brak połączenia z serwerem. Spróbuj ponownie po powrocie sieci.", ex.Message);
+        Assert.All(_handler.Requests.Where(r => !IsTokenRequest(r)), r => Assert.Null(r.Headers.Authorization));
+        Assert.True(_auth.HasSession);
+    }
+
+    [Fact]
+    public async Task ApiCall_RefreshInvalidGrant_AccessTokenNotExpired_ClearsTokens_SessionExpired()
+    {
+        await LoginExpiringAsync();
+        var ended = 0;
+        _auth.SessionEnded += () => ended++;
+        _handler.Respond = request => Task.FromResult(IsTokenRequest(request)
+            ? Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""")
+            : Json(HttpStatusCode.Unauthorized, string.Empty));
+
+        var ex = await Assert.ThrowsAsync<ApiException>(CreateApi().GetTenantsAsync);
+
+        Assert.Equal("Sesja wygasła. Zaloguj się ponownie.", ex.Message);
+        Assert.Single(_handler.Requests, IsTokenRequest);
+        Assert.Empty(ApiRequests);
+        Assert.Equal(1, ended);
+        Assert.Equal(0, SecureStorage.Default.Count);
+        Assert.Null(await _auth.GetAccessTokenAsync());
     }
 
     [Fact]
