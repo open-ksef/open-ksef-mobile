@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using OpenKSeF.Mobile.Models;
@@ -226,6 +227,31 @@ public class ApiServiceTests
         Assert.Null(await CreateService().LookupNipAsync("5261040828"));
 
         Assert.DoesNotContain("5261040828", Assert.Single(_logger.Lines));
+    }
+
+    [Fact]
+    public async Task RegisteredClient_LogsMaskedRoute_NoLineAtAnyLevelCarriesNip()
+    {
+        var lines = new List<string>();
+        var services = new ServiceCollection();
+        services.AddLogging(logging => logging.SetMinimumLevel(LogLevel.Trace).AddProvider(new RecordingProvider(lines)));
+        services.AddSingleton(_auth);
+        services.AddSingleton(_serverSettings);
+        ApiService.Register(services).ConfigurePrimaryHttpMessageHandler(() => _handler);
+        using var provider = services.BuildServiceProvider();
+        var api = provider.GetRequiredService<IApiService>();
+        var tenantId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.InternalServerError, "{}");
+        _handler.Respond(HttpStatusCode.NotFound);
+
+        await Assert.ThrowsAsync<ApiException>(() => api.GetIssuedInvoiceAsync(tenantId, invoiceId));
+        Assert.Null(await api.LookupNipAsync("1111111111"));
+
+        Assert.Contains(lines, l => l.Contains("GET /api/tenants/{id}/issued-invoices/{id} returned 500"));
+        Assert.Contains(lines, l => l.Contains("GET /api/nip-lookup/{id} returned 404"));
+        Assert.DoesNotContain(lines, l => l.Contains(tenantId.ToString()) || l.Contains(invoiceId.ToString()));
+        Assert.DoesNotContain(lines, l => l.Contains("1111111111"));
     }
 
     [Theory]
@@ -575,6 +601,26 @@ public class ApiServiceTests
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
             Lines.Add(formatter(state, exception));
+    }
+
+    private sealed class RecordingProvider(List<string> lines) : ILoggerProvider, ILogger
+    {
+        public ILogger CreateLogger(string categoryName) => this;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
+        {
+            lines.Add(state.ToString()!);
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
+            lines.Add(formatter(state, exception));
+
+        public void Dispose()
+        {
+        }
     }
 
     private sealed record SentRequest(string Method, string Uri, string? Authorization, string? Body);

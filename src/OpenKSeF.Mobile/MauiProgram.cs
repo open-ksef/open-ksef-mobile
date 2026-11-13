@@ -31,10 +31,7 @@ public static class MauiProgram
         builder.Services.AddSingleton(new HttpClient { Timeout = TimeSpan.FromSeconds(30) });
         builder.Services.AddSingleton<IAuthService, AuthService>();
 
-        builder.Services.AddHttpClient<IApiService, ApiService>(client =>
-        {
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        ApiService.Register(builder.Services);
 
         builder.Services.AddSingleton<LocalDbService>();
 
