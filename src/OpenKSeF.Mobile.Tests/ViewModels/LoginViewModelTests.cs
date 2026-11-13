@@ -126,7 +126,7 @@ public class LoginViewModelTests
     }
 
     [Theory]
-    [InlineData(AuthResult.AccountNotSetUp, "Konto nie jest jeszcze aktywne. Potwierdź adres e-mail linkiem z wiadomości i zaloguj się ponownie.", false)]
+    [InlineData(AuthResult.AccountNotSetUp, "Konto wymaga dokończenia konfiguracji. Potwierdź adres e-mail linkiem z wiadomości albo zaloguj się raz w portalu i wykonaj wskazane kroki, potem zaloguj się ponownie.", false)]
     [InlineData(AuthResult.AccountDisabled, "Konto jest wyłączone. Skontaktuj się z administratorem serwera.", false)]
     [InlineData(AuthResult.ClientRejected, "Serwer ksef.example.com odrzucił aplikację mobilną. Skontaktuj się z administratorem serwera.", true)]
     public async Task LoginWithCredentials_AccountOrClientRefused_ShowsSpecificMessage(AuthResult result, string expected, bool serverVisible)

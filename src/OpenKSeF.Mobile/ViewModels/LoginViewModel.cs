@@ -152,7 +152,7 @@ public partial class LoginViewModel : ObservableObject
             else if (result == AuthResult.ClientRejected)
                 ShowClientRejected();
             else if (result == AuthResult.AccountNotSetUp)
-                ErrorMessage = "Konto nie jest jeszcze aktywne. Potwierdź adres e-mail linkiem z wiadomości i zaloguj się ponownie.";
+                ErrorMessage = "Konto wymaga dokończenia konfiguracji. Potwierdź adres e-mail linkiem z wiadomości albo zaloguj się raz w portalu i wykonaj wskazane kroki, potem zaloguj się ponownie.";
             else if (result == AuthResult.AccountDisabled)
                 ErrorMessage = "Konto jest wyłączone. Skontaktuj się z administratorem serwera.";
             else
