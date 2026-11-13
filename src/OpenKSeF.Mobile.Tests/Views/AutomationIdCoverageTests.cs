@@ -13,8 +13,7 @@ public class AutomationIdCoverageTests
             "LoginPageButtonLogin",
             "LoginPageButtonRegister",
             "LoginPageButtonGoogle",
-            "LoginPageEntryEmail",
-            "LoginPageEntryPassword",
+            "LoginPageButtonPair",
             "LoginPageEntryServerUrl",
             "LoginPageButtonSaveServer",
             "LoginPageButtonScanQr",
@@ -22,6 +21,14 @@ public class AutomationIdCoverageTests
             "LoginPageLabelError",
             "LoginPageLabelServerHost",
             "LoginPageButtonChangeServer");
+
+        AssertFileContainsAll(
+            "PairingPage.xaml",
+            "PairingPageLabelCode",
+            "PairingPageLabelCountdown",
+            "PairingPageLabelError",
+            "PairingPageButtonNewCode",
+            "PairingPageButtonCancel");
 
         AssertFileContainsAll(
             "TenantsPage.xaml",

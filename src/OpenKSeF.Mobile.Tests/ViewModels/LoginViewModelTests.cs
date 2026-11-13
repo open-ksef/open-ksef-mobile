@@ -97,46 +97,34 @@ public class LoginViewModelTests
         Assert.True(vm.IsServerVisible);
     }
 
-    [Fact]
-    public async Task LoginWithCredentials_Success_NavigatesPostLogin()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BrowserLogin_Success_NavigatesPostLogin(bool register)
     {
-        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(AuthResult.Success);
+        _auth.LoginInBrowserAsync(register).Returns(AuthResult.Success);
         var vm = CreateViewModel();
-        vm.Email = " user@example.com ";
-        vm.Password = "secret";
 
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+        await (register ? vm.RegisterCommand : vm.LoginCommand).ExecuteAsync(null);
 
+        await _auth.Received(1).LoginInBrowserAsync(register);
         await _postLoginNav.Received(1).NavigateAsync();
         Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task LoginWithCredentials_WrongPassword_ShowsErrorWithoutNavigation()
-    {
-        var vm = CreateViewModel();
-        vm.Email = "user@example.com";
-        vm.Password = "wrong";
-
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
-
-        Assert.Equal("Nieprawidłowy email lub hasło.", vm.ErrorMessage);
-        await _postLoginNav.DidNotReceive().NavigateAsync();
         Assert.False(vm.IsBusy);
     }
 
     [Theory]
-    [InlineData(AuthResult.AccountNotSetUp, "Konto wymaga dokończenia konfiguracji. Potwierdź adres e-mail linkiem z wiadomości albo zaloguj się raz w portalu i wykonaj wskazane kroki, potem zaloguj się ponownie.", false)]
-    [InlineData(AuthResult.AccountDisabled, "Konto jest wyłączone. Skontaktuj się z administratorem serwera.", false)]
-    [InlineData(AuthResult.ClientRejected, "Serwer ksef.example.com odrzucił aplikację mobilną. Skontaktuj się z administratorem serwera.", true)]
-    public async Task LoginWithCredentials_AccountOrClientRefused_ShowsSpecificMessage(AuthResult result, string expected, bool serverVisible)
+    [InlineData(false, AuthResult.Cancelled, null, false)]
+    [InlineData(false, AuthResult.Rejected, "Logowanie nie powiodło się.", false)]
+    [InlineData(true, AuthResult.Rejected, "Rejestracja nie powiodła się.", false)]
+    [InlineData(false, AuthResult.ClientRejected, "Serwer ksef.example.com odrzucił aplikację mobilną. Skontaktuj się z administratorem serwera.", true)]
+    [InlineData(true, AuthResult.ServerUnreachable, "Nie można połączyć się z serwerem ksef.example.com. Sprawdź adres serwera i połączenie z siecią.", true)]
+    public async Task BrowserLogin_Failure_ShowsMessageWithoutNavigation(bool register, AuthResult result, string? expected, bool serverVisible)
     {
-        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(result);
+        _auth.LoginInBrowserAsync(register).Returns(result);
         var vm = CreateViewModel(CreateServerSettings("https://ksef.example.com", isConfigured: true));
-        vm.Email = "user@example.com";
-        vm.Password = "secret";
 
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+        await (register ? vm.RegisterCommand : vm.LoginCommand).ExecuteAsync(null);
 
         Assert.Equal(expected, vm.ErrorMessage);
         Assert.Equal(serverVisible, vm.IsServerVisible);
@@ -151,34 +139,18 @@ public class LoginViewModelTests
 
         await vm.LoginWithGoogleCommand.ExecuteAsync(null);
 
-        Assert.Equal("Logowanie przez Google wymaga serwera z adresem https://. Zaloguj się emailem i hasłem.", vm.ErrorMessage);
+        Assert.Equal("Logowanie przez Google wymaga serwera z adresem https://. Użyj przycisku Zaloguj się.", vm.ErrorMessage);
     }
 
     [Fact]
-    public async Task LoginWithCredentials_EmptyFields_DoesNotCallAuth()
+    public async Task Pair_OpensPairingPage_WithoutCallingAuth()
     {
         var vm = CreateViewModel();
 
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+        await vm.PairCommand.ExecuteAsync(null);
 
-        Assert.Equal("Podaj email i hasło.", vm.ErrorMessage);
-        await _auth.DidNotReceiveWithAnyArgs().LoginWithCredentialsAsync(default!, default!);
-    }
-
-    [Theory]
-    [InlineData("short", "short", "Hasło musi mieć co najmniej 8 znaków.")]
-    [InlineData("password1", "password2", "Hasła nie są identyczne.")]
-    public async Task Register_InvalidPassword_DoesNotCallAuth(string password, string confirm, string expectedError)
-    {
-        var vm = CreateViewModel();
-        vm.RegEmail = "new@example.com";
-        vm.RegPassword = password;
-        vm.RegConfirmPassword = confirm;
-
-        await vm.RegisterCommand.ExecuteAsync(null);
-
-        Assert.Equal(expectedError, vm.ErrorMessage);
-        await _auth.DidNotReceiveWithAnyArgs().RegisterAsync(default!, default!, default, default);
+        Assert.Equal("pairing", Shell.Current.LastRoute);
+        Assert.Empty(_auth.ReceivedCalls());
     }
 }
 

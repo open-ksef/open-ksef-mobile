@@ -23,47 +23,13 @@ public partial class LoginViewModel : ObservableObject
     private string _serverUrl;
 
     [ObservableProperty]
-    private bool _isLoginMode = true;
-
-    [ObservableProperty]
     private bool _isServerVisible;
-
-    [ObservableProperty]
-    private string _email = string.Empty;
-
-    [ObservableProperty]
-    private string _password = string.Empty;
-
-    [ObservableProperty]
-    private string _regFirstName = string.Empty;
-
-    [ObservableProperty]
-    private string _regLastName = string.Empty;
-
-    [ObservableProperty]
-    private string _regEmail = string.Empty;
-
-    [ObservableProperty]
-    private string _regPassword = string.Empty;
-
-    [ObservableProperty]
-    private string _regConfirmPassword = string.Empty;
-
-    public string SubtitleText => IsLoginMode
-        ? "Zaloguj się do portalu OpenKSeF"
-        : "Utwórz nowe konto";
 
     public string ActiveServerHost => ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
 
     public bool HasActiveServerHost => ActiveServerHost.Length > 0;
 
     public string LoginButtonText => IsBusy ? "Logowanie..." : "Zaloguj się";
-    public string RegisterButtonText => IsBusy ? "Tworzenie konta..." : "Utwórz konto";
-    public string SwitchPromptText => IsLoginMode ? "Nie masz konta?" : "Masz już konto?";
-    public string SwitchLinkText => IsLoginMode ? "Zarejestruj się" : "Zaloguj się";
-    public string SwitchButtonAutomationId => IsLoginMode
-        ? "LoginPageButtonSwitchToRegister"
-        : "LoginPageButtonSwitchToLogin";
 
     public LoginViewModel(IAuthService authService, IServerSettingsService serverSettings, IPostLoginNavigationService postLoginNav)
     {
@@ -95,26 +61,7 @@ public partial class LoginViewModel : ObservableObject
         }
     }
 
-    partial void OnIsLoginModeChanged(bool value)
-    {
-        OnPropertyChanged(nameof(SubtitleText));
-        OnPropertyChanged(nameof(SwitchPromptText));
-        OnPropertyChanged(nameof(SwitchLinkText));
-        OnPropertyChanged(nameof(SwitchButtonAutomationId));
-    }
-
-    partial void OnIsBusyChanged(bool value)
-    {
-        OnPropertyChanged(nameof(LoginButtonText));
-        OnPropertyChanged(nameof(RegisterButtonText));
-    }
-
-    [RelayCommand]
-    private void ToggleMode()
-    {
-        IsLoginMode = !IsLoginMode;
-        ErrorMessage = null;
-    }
+    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(LoginButtonText));
 
     [RelayCommand]
     private void ToggleServer()
@@ -125,7 +72,30 @@ public partial class LoginViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task LoginWithCredentialsAsync()
+    private Task LoginAsync() =>
+        RunBrowserLoginAsync(() => _authService.LoginInBrowserAsync(), "Logowanie nie powiodło się.");
+
+    [RelayCommand]
+    private Task RegisterAsync() =>
+        RunBrowserLoginAsync(() => _authService.LoginInBrowserAsync(register: true), "Rejestracja nie powiodła się.");
+
+    [RelayCommand]
+    private Task LoginWithGoogleAsync() =>
+        RunBrowserLoginAsync(_authService.LoginWithGoogleAsync, "Logowanie przez Google nie powiodło się.");
+
+    [RelayCommand]
+    private async Task PairAsync()
+    {
+        if (IsBusy) return;
+
+        ErrorMessage = null;
+        if (!EnsureServerConfigured())
+            return;
+
+        try { await Shell.Current.GoToAsync("pairing"); } catch { }
+    }
+
+    private async Task RunBrowserLoginAsync(Func<Task<AuthResult>> login, string rejectedMessage)
     {
         if (IsBusy) return;
 
@@ -137,13 +107,7 @@ public partial class LoginViewModel : ObservableObject
             if (!EnsureServerConfigured())
                 return;
 
-            if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
-            {
-                ErrorMessage = "Podaj email i hasło.";
-                return;
-            }
-
-            var result = await _authService.LoginWithCredentialsAsync(Email.Trim(), Password);
+            var result = await login();
 
             if (result == AuthResult.Success)
                 await _postLoginNav.NavigateAsync();
@@ -151,117 +115,14 @@ public partial class LoginViewModel : ObservableObject
                 ShowServerUnreachable();
             else if (result == AuthResult.ClientRejected)
                 ShowClientRejected();
-            else if (result == AuthResult.AccountNotSetUp)
-                ErrorMessage = "Konto wymaga dokończenia konfiguracji. Potwierdź adres e-mail linkiem z wiadomości albo zaloguj się raz w portalu i wykonaj wskazane kroki, potem zaloguj się ponownie.";
-            else if (result == AuthResult.AccountDisabled)
-                ErrorMessage = "Konto jest wyłączone. Skontaktuj się z administratorem serwera.";
-            else
-                ErrorMessage = "Nieprawidłowy email lub hasło.";
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"Błąd logowania: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task LoginWithGoogleAsync()
-    {
-        if (IsBusy) return;
-
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = null;
-
-            if (!EnsureServerConfigured())
-                return;
-
-            var result = await _authService.LoginWithGoogleAsync();
-
-            if (result == AuthResult.Success)
-                await _postLoginNav.NavigateAsync();
-            else if (result == AuthResult.ServerUnreachable)
-                ShowServerUnreachable();
             else if (result == AuthResult.GoogleRequiresHttps)
-                ErrorMessage = "Logowanie przez Google wymaga serwera z adresem https://. Zaloguj się emailem i hasłem.";
-            else
-                ErrorMessage = "Logowanie przez Google nie powiodło się.";
+                ErrorMessage = "Logowanie przez Google wymaga serwera z adresem https://. Użyj przycisku Zaloguj się.";
+            else if (result != AuthResult.Cancelled)
+                ErrorMessage = rejectedMessage;
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Błąd logowania: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    [RelayCommand]
-    private async Task RegisterAsync()
-    {
-        if (IsBusy) return;
-
-        try
-        {
-            IsBusy = true;
-            ErrorMessage = null;
-
-            if (!EnsureServerConfigured())
-                return;
-
-            if (string.IsNullOrWhiteSpace(RegEmail) || string.IsNullOrWhiteSpace(RegPassword))
-            {
-                ErrorMessage = "Podaj email i hasło.";
-                return;
-            }
-
-            if (RegPassword.Length < 8)
-            {
-                ErrorMessage = "Hasło musi mieć co najmniej 8 znaków.";
-                return;
-            }
-
-            if (RegPassword != RegConfirmPassword)
-            {
-                ErrorMessage = "Hasła nie są identyczne.";
-                return;
-            }
-
-            var result = await _authService.RegisterAsync(
-                RegEmail.Trim(),
-                RegPassword,
-                string.IsNullOrWhiteSpace(RegFirstName) ? null : RegFirstName.Trim(),
-                string.IsNullOrWhiteSpace(RegLastName) ? null : RegLastName.Trim());
-
-            if (result == AuthResult.Success)
-                await _postLoginNav.NavigateAsync();
-            else if (result == AuthResult.ServerUnreachable)
-                ShowServerUnreachable();
-            else
-            {
-                ErrorMessage = "Rejestracja nie powiodła się. Sprawdź adres serwera.";
-                IsServerVisible = true;
-            }
-        }
-        catch (InvalidOperationException ex)
-        {
-            ErrorMessage = ex.Message;
-            if (ex.Message.Contains("Konto zostało utworzone"))
-            {
-                Email = RegEmail;
-                Password = string.Empty;
-                IsLoginMode = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            ErrorMessage = $"Błąd rejestracji: {ex.Message}";
         }
         finally
         {

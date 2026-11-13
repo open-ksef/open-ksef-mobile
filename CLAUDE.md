@@ -131,11 +131,11 @@ dotnet test src/OpenKSeF.Mobile.E2E.Android/OpenKSeF.Mobile.E2E.Android.csproj -
 | Context | Server URL | Notes |
 |---------|-----------|-------|
 | Host (unit/integration tests, portal) | `http://localhost:8080` | Direct to Docker gateway |
-| Android emulator (ROPC login) | `http://10.0.2.2:8080` | Emulator special IP for host localhost |
-| Android emulator (Google/OIDC login) | ngrok HTTPS URL | OIDC redirect requires HTTPS |
+| Android emulator (pairing, API) | `http://10.0.2.2:8080` | Emulator special IP for host localhost |
+| Android emulator (browser/Google login) | ngrok HTTPS URL | Keycloak in the browser must be reachable from the emulator; Google requires HTTPS |
 | Physical device (any login) | ngrok HTTPS URL | Device can't reach localhost |
 
-**Why ngrok?** Android OIDC (Google login via Keycloak) requires HTTPS redirect URIs. ROPC login (email/password) works over plain HTTP. For emulator E2E tests that only use ROPC, set the server URL to `http://10.0.2.2:8080` -- no ngrok needed.
+**Login (T-137/T-138).** No in-app password form. `LoginInBrowserAsync` runs code+PKCE in the system browser (`/registrations` for Załóż konto); `LoginWithGoogleAsync` adds `kc_idp_hint=google` and needs HTTPS. Pairing is the RFC 8628 device grant with S256 PKCE on `openksef-mobile`: `StartPairingAsync`, then `CompletePairingAsync` polls every `interval` (+5 s on `slow_down`) until `expires_in`; network/5xx keep polling, `unauthorized_client` = server without the device grant. Old ROPC E2E helpers need T-411.
 
 ### Test tiers
 

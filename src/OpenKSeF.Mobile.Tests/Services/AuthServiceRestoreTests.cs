@@ -41,6 +41,17 @@ public class AuthServiceRestoreTests
             _browser,
             _settings,
             new HttpClient(_handler)) { Clock = _clock };
+        _auth.Delay = (interval, _) =>
+        {
+            _clock.Advance(interval);
+            return Task.CompletedTask;
+        };
+    }
+
+    private async Task<AuthResult> PairAsync()
+    {
+        var (result, pairing) = await _auth.StartPairingAsync(CancellationToken.None);
+        return pairing is null ? result : await _auth.CompletePairingAsync(pairing, CancellationToken.None);
     }
 
     private sealed class ManualClock : TimeProvider
@@ -55,7 +66,7 @@ public class AuthServiceRestoreTests
     private async Task LoginAsync()
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Bodies.Clear();
     }
@@ -64,18 +75,8 @@ public class AuthServiceRestoreTests
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
     [Fact]
-    public async Task PasswordLogin_RequestsOfflineAccess()
-    {
-        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
-
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
-
-        Assert.Contains("scope=openid+profile+email+offline_access", _handler.Bodies.Single());
-    }
-
-    [Fact]
-    public void GoogleLogin_RequestsOfflineAccess() =>
-        Assert.Equal("openid profile email offline_access", _auth.GoogleLoginScope);
+    public void BrowserLogin_RequestsOfflineAccess() =>
+        Assert.Equal("openid profile email offline_access", _auth.BrowserLoginScope);
 
     [Fact]
     public async Task NoStoredTokens_NoRequest()
@@ -157,7 +158,7 @@ public class AuthServiceRestoreTests
     private async Task LoginExpiringAsync()
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":30}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Bodies.Clear();
     }
@@ -165,7 +166,7 @@ public class AuthServiceRestoreTests
     private async Task LoginExpiredAsync()
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":0}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Bodies.Clear();
     }
@@ -268,7 +269,7 @@ public class AuthServiceRestoreTests
         Assert.Equal("old", await _auth.GetAccessTokenAsync());
 
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"b1","refresh_token":"rb","expires_in":30}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("c@d.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"b2","refresh_token":"rb2","expires_in":300}"""));
 
@@ -454,7 +455,7 @@ public class AuthServiceRestoreTests
     public async Task IssuedInvoiceDetails_PermanentUnauthorized_AtMostOneRefreshPerScreenOpen(HttpStatusCode refreshStatus, string refreshBody)
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":300}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         var invoiceId = Guid.NewGuid();
         var apiCalls = 0;
@@ -705,7 +706,7 @@ public class AuthServiceRestoreTests
     private async Task SwitchToUserBAsync()
     {
         await _auth.LogoutAsync();
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
     }
 
     private IEnumerable<HttpRequestMessage> ApiRequests => _handler.Requests.Where(r => r.RequestUri!.AbsolutePath.StartsWith("/api/"));
@@ -882,7 +883,7 @@ public class AuthServiceRestoreTests
         await LoginAsync();
         UseServer("other.example.com");
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, UserBTokens));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         UseServer("ksef.example.com");
 
         var sent = new TaskCompletionSource();
@@ -946,8 +947,8 @@ public class AuthServiceRestoreTests
     }
 
     [Fact]
-    public Task FirstPasswordLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
-        AssertNoBearerRequestNotRetriedAcrossLoginAsync(() => _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+    public Task FirstPairing_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
+        AssertNoBearerRequestNotRetriedAcrossLoginAsync(() => PairAsync());
 
     private const string TestAuthority = "https://ksef.example.com/auth/realms/openksef";
 
@@ -1008,45 +1009,85 @@ public class AuthServiceRestoreTests
         await _browser.DidNotReceiveWithAnyArgs().InvokeAsync(default!, default);
     }
 
-    [Theory]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account is not fully set up"}""", AuthResult.AccountNotSetUp)]
-    [InlineData(HttpStatusCode.Unauthorized, """{"error":"invalid_grant","error_description":"Invalid user credentials"}""", AuthResult.Rejected)]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account disabled"}""", AuthResult.AccountDisabled)]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""", AuthResult.Rejected)]
-    [InlineData(HttpStatusCode.Unauthorized, """{"error":"invalid_client","error_description":"Invalid client or Invalid client credentials"}""", AuthResult.ClientRejected)]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"unauthorized_client","error_description":"Client not allowed for direct access grants"}""", AuthResult.ClientRejected)]
-    [InlineData(HttpStatusCode.ServiceUnavailable, """{"error":"temporarily_unavailable"}""", AuthResult.ServerUnreachable)]
-    [InlineData(HttpStatusCode.Unauthorized, "<html>proxy</html>", AuthResult.ServerUnreachable)]
-    public async Task PasswordLogin_KeycloakError_MapsToResult(HttpStatusCode status, string body, AuthResult expected)
-    {
-        _handler.Respond = _ => Task.FromResult(Json(status, body));
-
-        Assert.Equal(expected, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
-
-        Assert.False(_auth.HasSession);
-        Assert.Equal(0, SecureStorage.Default.Count);
-    }
-
     [Fact]
-    public async Task Register_LoginNeedsEmailVerification_SaysConfirmEmail()
-    {
-        _handler.Respond = request => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/api/account/register")
-            ? Json(HttpStatusCode.OK, "{}")
-            : Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account is not fully set up"}"""));
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.RegisterAsync("a@b.pl", "password1", null, null));
-
-        Assert.Equal("Konto zostało utworzone. Potwierdź adres e-mail linkiem z wiadomości, potem zaloguj się.", ex.Message);
-    }
-
-    [Fact]
-    public async Task GoogleLogin_UserCancels_IsRejected()
+    public async Task GoogleLogin_UserCancels_IsCancelled()
     {
         UseOidcClient(KnownProvider);
         _browser.InvokeAsync(Arg.Any<BrowserOptions>(), Arg.Any<CancellationToken>())
             .Returns(new BrowserResult { ResultType = BrowserResultType.UserCancel });
 
-        Assert.Equal(AuthResult.Rejected, await _auth.LoginWithGoogleAsync());
+        Assert.Equal(AuthResult.Cancelled, await _auth.LoginWithGoogleAsync());
+    }
+
+    private void BrowserReturns(string query) =>
+        _browser.InvokeAsync(Arg.Any<BrowserOptions>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            var state = Regex.Match(call.Arg<BrowserOptions>().StartUrl, "state=([^&]+)").Groups[1].Value;
+            return new BrowserResult { ResultType = BrowserResultType.Success, Response = $"openksef://auth/callback?{query}&state={state}" };
+        });
+
+    private string BrowserStartUrl() =>
+        ((BrowserOptions)_browser.ReceivedCalls().Single(c => c.GetMethodInfo().Name == nameof(OidcBrowser.InvokeAsync)).GetArguments()[0]!).StartUrl;
+
+    [Theory]
+    [InlineData(false, "/protocol/openid-connect/auth?")]
+    [InlineData(true, "/protocol/openid-connect/registrations?")]
+    public async Task BrowserLogin_CodeWithPkce_StoresTokens_NoIdpHint(bool register, string endpoint)
+    {
+        UseOidcClient(KnownProvider);
+        BrowserReturns("code=c");
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"b-access","refresh_token":"b-refresh","id_token":"i","token_type":"Bearer","expires_in":300}"""));
+
+        Assert.Equal(AuthResult.Success, await _auth.LoginInBrowserAsync(register));
+
+        var startUrl = BrowserStartUrl();
+        Assert.StartsWith($"{TestAuthority}{endpoint}", startUrl);
+        Assert.Contains("code_challenge_method=S256", startUrl);
+        Assert.DoesNotContain("kc_idp_hint", startUrl);
+        Assert.Contains("code_verifier=", _handler.Bodies.Single());
+        Assert.True(_auth.HasSession);
+        Assert.Equal("b-access", await _auth.GetAccessTokenAsync());
+    }
+
+    [Fact]
+    public async Task GoogleLogin_SendsIdpHint()
+    {
+        UseOidcClient(KnownProvider);
+        _browser.InvokeAsync(Arg.Any<BrowserOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new BrowserResult { ResultType = BrowserResultType.UserCancel });
+
+        await _auth.LoginWithGoogleAsync();
+
+        Assert.Contains("kc_idp_hint=google", BrowserStartUrl());
+    }
+
+    [Theory]
+    [InlineData("unauthorized_client", AuthResult.ClientRejected)]
+    [InlineData("invalid_client", AuthResult.ClientRejected)]
+    [InlineData("access_denied", AuthResult.Rejected)]
+    [InlineData("temporarily_unavailable", AuthResult.Rejected)]
+    public async Task BrowserLogin_CallbackError_MapsToResult(string error, AuthResult expected)
+    {
+        UseOidcClient(KnownProvider);
+        BrowserReturns($"error={error}");
+
+        Assert.Equal(expected, await _auth.LoginInBrowserAsync());
+
+        Assert.False(_auth.HasSession);
+        Assert.Empty(_handler.Requests);
+    }
+
+    [Theory]
+    [MemberData(nameof(DiscoveryFailures))]
+    public async Task BrowserLogin_DiscoveryFails_IsServerUnreachable(Func<HttpRequestMessage, Task<HttpResponseMessage>> failure)
+    {
+        UseOidcClient(null);
+        _handler.Respond = failure;
+
+        Assert.Equal(AuthResult.ServerUnreachable, await _auth.LoginInBrowserAsync());
+
+        Assert.False(_auth.HasSession);
+        await _browser.DidNotReceiveWithAnyArgs().InvokeAsync(default!, default);
     }
 
     [Fact]
@@ -1055,23 +1096,11 @@ public class AuthServiceRestoreTests
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
         SecureStorage.Default.WritesLeft = 1;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PairAsync());
 
         Assert.False(_auth.HasSession);
         Assert.False(_auth.IsAuthenticated);
         Assert.Equal(0, SecureStorage.Default.Count);
-    }
-
-    [Fact]
-    public async Task Register_CreatedButTokensCannotBeStored_SaysAccountCreated()
-    {
-        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
-        SecureStorage.Default.WritesLeft = 0;
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.RegisterAsync("a@b.pl", "password1", null, null));
-
-        Assert.Contains("Konto zostało utworzone", ex.Message);
-        Assert.False(_auth.HasSession);
     }
 
     [Fact]
@@ -1197,7 +1226,7 @@ public class AuthServiceRestoreTests
 
     [Fact]
     public Task SignOut_DevicesListAfterLimit_NextUserLoggedIn_CleanupDeletesWithOldSession() =>
-        AssertSignOutDevicesListAfterLimit_DeletesOnlyWithSignedOutSessionAsync(async () => Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x")));
+        AssertSignOutDevicesListAfterLimit_DeletesOnlyWithSignedOutSessionAsync(async () => Assert.Equal(AuthResult.Success, await PairAsync()));
 
     [Fact]
     public async Task RestoreInvalidGrant_DoesNotRaiseSessionEnded()
@@ -1340,6 +1369,7 @@ public class AuthServiceRestoreTests
         var devicesOffline = false;
         var keycloakOnline = false;
         var refreshA = firstRefresh;
+        var pairings = 0;
         string UserOf(HttpRequestMessage r) => r.Headers.Authorization!.Parameter![..1];
         _handler.Respond = async request =>
         {
@@ -1347,8 +1377,8 @@ public class AuthServiceRestoreTests
             var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync();
             if (IsLogoutRequest(request))
                 return Json(HttpStatusCode.NoContent, string.Empty);
-            if (IsTokenRequest(request) && body.Contains("grant_type=password"))
-                return Json(HttpStatusCode.OK, body.Contains("username=a%40") ? UserATokens : UserBTokens);
+            if (IsTokenRequest(request) && body.Contains("device_code"))
+                return Json(HttpStatusCode.OK, ++pairings == 1 ? UserATokens : UserBTokens);
             if (IsTokenRequest(request))
             {
                 if (!keycloakOnline)
@@ -1387,13 +1417,13 @@ public class AuthServiceRestoreTests
         DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(300);
         try
         {
-            Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+            Assert.Equal(AuthResult.Success, await PairAsync());
             await device.EnsureDeviceRegisteredAsync();
             devicesOffline = true;
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+            Assert.Equal(AuthResult.Success, await PairAsync());
             await device.EnsureDeviceRegisteredAsync();
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
@@ -1560,6 +1590,9 @@ public class AuthServiceRestoreTests
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/auth/device"))
+                return Json(HttpStatusCode.OK, """{"device_code":"dc","user_code":"ABCD-EFGH","expires_in":300,"interval":5}""");
+
             Requests.Add(request);
             Bodies.Add(request.Content is null ? string.Empty : await request.Content.ReadAsStringAsync(cancellationToken));
             return await Respond(request);
