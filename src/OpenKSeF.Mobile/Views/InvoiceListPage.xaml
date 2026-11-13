@@ -85,7 +85,7 @@
                                 <Label Grid.Row="2"
                                        Text="{Binding IssueDateText}"
                                        Style="{StaticResource LabelCaption}" />
-                                <HorizontalStackLayout Grid.Row="2" Grid.Column="1" Spacing="4" HorizontalOptions="End">
+                                <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="4" HorizontalOptions="End">
                                     <Label Text="⚠"
                                            IsVisible="{Binding IsOverdue}"
                                            Style="{StaticResource LabelCaption}"
