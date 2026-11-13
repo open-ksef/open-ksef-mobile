@@ -763,6 +763,69 @@ public class IssuingViewModelTests : IDisposable
         Assert.NotNull(vm.VerificationQr);
     }
 
+    [Theory]
+    [InlineData("Serwer nie przyjął logowania. Spróbuj ponownie później, a jeśli błąd wróci, wyloguj się i zaloguj ponownie.")]
+    [InlineData("Sesja wygasła. Zaloguj się ponownie.")]
+    public async Task Details_Sending_Unauthorized_StopsPolling_ShowsError_KeepsInvoice(string message)
+    {
+        var attempts = 0;
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(_ => ++attempts == 1
+            ? Task.FromResult(Invoice("Sending"))
+            : Task.FromException<IssuedInvoiceDto>(new ApiException(HttpStatusCode.Unauthorized, message)));
+        var delays = new List<TimeSpan>();
+        using var screenClosed = new CancellationTokenSource();
+        var vm = Details(delays);
+        vm.Delay = (step, _) =>
+        {
+            delays.Add(step);
+            if (delays.Count == 5)
+                screenClosed.Cancel();
+            return Task.CompletedTask;
+        };
+
+        await vm.RunAsync(screenClosed.Token);
+
+        Assert.Equal(2, attempts);
+        Assert.Single(delays);
+        Assert.Equal(message, vm.ErrorMessage);
+        Assert.True(vm.IsSending);
+        Assert.Equal(InvoiceId, vm.Invoice!.Id);
+    }
+
+    [Fact]
+    public async Task Details_FirstLoadUnauthorized_ShowsError_NoPolling()
+    {
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new ApiException(HttpStatusCode.Unauthorized, "Sesja wygasła. Zaloguj się ponownie."));
+        var delays = new List<TimeSpan>();
+        var vm = Details(delays);
+
+        await vm.RunAsync(CancellationToken.None);
+
+        Assert.Empty(delays);
+        Assert.Equal("Nie udało się załadować faktury: Sesja wygasła. Zaloguj się ponownie.", vm.ErrorMessage);
+        await _api.Received(1).GetIssuedInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Theory]
+    [MemberData(nameof(NetworkFailures))]
+    public async Task Details_Sending_NetworkFailure_KeepsPolling(Exception failure)
+    {
+        var attempts = 0;
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(_ => ++attempts switch
+        {
+            1 => Task.FromResult(Invoice("Sending")),
+            2 or 3 => Task.FromException<IssuedInvoiceDto>(failure),
+            _ => Task.FromResult(Invoice("Accepted"))
+        });
+        var vm = Details([]);
+
+        await vm.RunAsync(CancellationToken.None);
+
+        Assert.Equal(4, attempts);
+        Assert.True(vm.IsAccepted);
+        Assert.Null(vm.ErrorMessage);
+    }
+
     [Fact]
     public async Task Details_LongSending_SlowsDownAfterTwoMinutes()
     {
