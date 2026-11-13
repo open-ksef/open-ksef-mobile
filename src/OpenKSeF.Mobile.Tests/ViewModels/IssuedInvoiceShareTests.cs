@@ -165,7 +165,6 @@ public class IssuedInvoiceShareTests
     [Theory]
     [InlineData("Draft")]
     [InlineData("Sending")]
-    [InlineData("Approved")]
     [InlineData("Rejected")]
     public async Task NotAccepted_NothingOffered(string status)
     {

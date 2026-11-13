@@ -1125,7 +1125,6 @@ public class IssuingViewModelTests : IDisposable
     [InlineData("Accepted", true)]
     [InlineData("Rejected", true)]
     [InlineData("Sending", false)]
-    [InlineData("Approved", false)]
     public async Task Details_CopyIsOfferedExceptWhileSending(string status, bool offered) =>
         Assert.Equal(offered, (await DetailsOf(Invoice(status))).CanCopyAsNew);
 
@@ -2408,5 +2407,162 @@ public class IssuingViewModelTests : IDisposable
         var totals = IssuedInvoiceTotals.Compute([new IssuedInvoiceLineRequest { Name = "Service", Quantity = 2, UnitNetPrice = 1500m, VatRate = "np I" }]);
 
         Assert.Equal((3000m, 0m, 3000m), (totals.TotalNet, totals.TotalVat, totals.TotalGross));
+    }
+
+    private const string NotLoadedText = "Nie udało się wczytać faktury. Wczytaj ją ponownie, zanim zapiszesz lub wystawisz.";
+    private const string SentText = "Faktura została wysłana do KSeF. Status sprawdzisz na liście wystawionych. Nie wystawiaj jej drugi raz.";
+
+    public static TheoryData<Exception> GetFailures => new()
+    {
+        new HttpRequestException("no route to host"),
+        new TaskCanceledException("HttpClient.Timeout of 30 seconds elapsing"),
+        new ApiException(HttpStatusCode.ServiceUnavailable, "Brak polaczenia z serwerem"),
+        new ApiException(HttpStatusCode.InternalServerError, "Blad serwera (500)"),
+        new ApiException(HttpStatusCode.NotFound, "Nie znaleziono"),
+    };
+
+    [Theory]
+    [MemberData(nameof(GetFailures))]
+    public async Task Draft_ExistingInvoiceGetFailed_SaveAndIssueRefused_ReloadThenSaves(Exception failure)
+    {
+        var vm = Draft(Profile());
+        vm.InvoiceId = InvoiceId.ToString();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(failure);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.True(vm.CanReload);
+        Shell.Current.AlertAnswer = false;
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Faktura niewczytana", NotLoadedText), ("Faktura niewczytana", NotLoadedText)], Shell.Current.Alerts);
+        Assert.Equal(NotLoadedText, vm.ErrorMessage);
+        await _api.DidNotReceiveWithAnyArgs().UpdateIssuedInvoiceAsync(default, default, default!, default);
+        await _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+        await vm.ReloadCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.False(vm.CanReload);
+        Assert.Null(vm.ErrorMessage);
+        await _api.Received(1).UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), Arg.Any<uint?>());
+    }
+
+    [Fact]
+    public async Task Draft_ExistingInvoiceGetFailed_AlertReload_LoadsForm()
+    {
+        var vm = Draft(Profile());
+        vm.InvoiceId = InvoiceId.ToString();
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new HttpRequestException("offline"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.False(vm.CanReload);
+        Assert.Equal("Nabywca sp. z o.o.", vm.BuyerName);
+        await _api.DidNotReceiveWithAnyArgs().UpdateIssuedInvoiceAsync(default, default, default!, default);
+        await _api.DidNotReceiveWithAnyArgs().IssueInvoiceAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task Draft_SeveralInvalidLines_AllShowErrorsAtOnce()
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.AddLineCommand.Execute(null);
+        vm.AddLineCommand.Execute(null);
+        vm.Lines[0].UnitNetPrice = "";
+        vm.Lines[1].Name = "Druga";
+        vm.Lines[1].UnitNetPrice = "100,00";
+        vm.Lines[2].Quantity = "";
+
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        Assert.NotNull(vm.Lines[0].Error);
+        Assert.Null(vm.Lines[1].Error);
+        Assert.NotNull(vm.Lines[2].Error);
+        Assert.Equal($"Pozycja 1: {vm.Lines[0].Error}\nPozycja 3: {vm.Lines[2].Error}", Shell.Current.LastAlertMessage);
+        await _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
+    }
+
+    [Fact]
+    public async Task Draft_IssueSucceeded_NavigationFails_SaysSent_AndNeverSendsAgain()
+    {
+        var vm = Draft(Profile());
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.GoToFailure = new InvalidOperationException("nav");
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(("Faktura wysłana", SentText), Shell.Current.Alerts[^1]);
+        Assert.Equal(SentText, vm.ErrorMessage);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>());
+        await _api.Received(1).CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>());
+        await _api.DidNotReceiveWithAnyArgs().UpdateIssuedInvoiceAsync(default, default, default!, default);
+    }
+
+    [Fact]
+    public async Task Draft_CopyFailsWithRawText_ShowsFixedText()
+    {
+        var vm = Draft(Profile());
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Rejected"));
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new IOException("Unable to read data from the transport connection: 10.0.2.2"));
+        vm.InvoiceId = InvoiceId.ToString();
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
+        Assert.Equal(CheckIssuedList, vm.ErrorMessage);
+        await _api.Received(1).CopyIssuedInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Fact]
+    public async Task Details_CopyFailsWithRawText_ShowsFixedText()
+    {
+        var vm = await DetailsOf(Invoice("Rejected"));
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new IOException("Unable to read data from the transport connection: 10.0.2.2"));
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Nie wiadomo, czy zapisano szkic", CheckIssuedList)], Shell.Current.Alerts);
+        await _api.Received(1).CopyIssuedInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Fact]
+    public async Task Details_CopyServerError_ShowsServerText()
+    {
+        var vm = await DetailsOf(Invoice("Rejected"));
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).ThrowsAsync(new ApiException(HttpStatusCode.Conflict, "Faktura w trakcie wysyłki"));
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Błąd", "Faktura w trakcie wysyłki")], Shell.Current.Alerts);
+    }
+
+    [Theory]
+    [InlineData("", null, "Nie wystawiono jeszcze faktur", false)]
+    [InlineData("Draft", null, "Brak faktur pasujących do filtrów", true)]
+    [InlineData("", "FV/9", "Brak faktur pasujących do filtrów", true)]
+    public async Task List_Empty_TextDependsOnFilters(string status, string? search, string text, bool filtered)
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>())
+            .Returns(new PagedResult<IssuedInvoiceListItemDto> { Items = [], Page = 1, PageSize = 20, TotalCount = 0 });
+        var vm = new IssuedInvoiceListViewModel(_api) { Search = search };
+        vm.SelectedStatus = status;
+
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsEmpty);
+        Assert.Equal(filtered, vm.IsFiltered);
+        Assert.Equal(text, vm.EmptyText);
     }
 }

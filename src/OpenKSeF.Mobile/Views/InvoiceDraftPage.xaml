@@ -30,6 +30,10 @@
                            TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
                 </Border>
 
+                <Button Text="Wczytaj ponownie" Style="{StaticResource UiButtonOutline}"
+                        IsVisible="{Binding CanReload}" Command="{Binding ReloadCommand}"
+                        AutomationId="InvoiceDraftPageButtonReload" />
+
                 <Border Style="{StaticResource UiCard}">
                     <VerticalStackLayout Spacing="8">
                         <Label Text="Nabywca" Style="{StaticResource UiH2}" />
