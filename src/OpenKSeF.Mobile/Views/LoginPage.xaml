@@ -23,11 +23,16 @@
                 SizeChanged="OnScrollSizeChanged"
                 VerticalOptions="Center"
                 IsVisible="{Binding IsRestoringSession, Converter={StaticResource InvertedBoolConverter}}">
-        <Frame Style="{StaticResource CardFrame}"
-               Padding="28,36"
-               Margin="20"
-               HorizontalOptions="Fill"
-               MaximumWidthRequest="400">
+        <Border BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}"
+                StrokeShape="RoundRectangle 12"
+                StrokeThickness="0"
+                Padding="28,36"
+                Margin="20"
+                HorizontalOptions="Fill"
+                MaximumWidthRequest="400">
+            <Border.Shadow>
+                <Shadow Brush="Black" Opacity="0.25" Radius="12" Offset="0,4" />
+            </Border.Shadow>
 
             <VerticalStackLayout Spacing="12">
 
@@ -48,18 +53,17 @@
                        TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                        Margin="0,0,0,8" />
 
-                <Frame BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}"
-                       CornerRadius="8"
-                       Padding="12"
-                       HasShadow="False"
-                       BorderColor="Transparent"
-                       IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}">
+                <Border BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}"
+                        StrokeShape="RoundRectangle 8"
+                        StrokeThickness="0"
+                        Padding="12"
+                        IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}">
                     <Label Text="{Binding ErrorMessage}"
                            AutomationId="LoginPageLabelError"
                            TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
                            FontSize="13"
                            HorizontalTextAlignment="Center" />
-                </Frame>
+                </Border>
 
                 <VerticalStackLayout Spacing="10"
                                      IsVisible="{Binding IsLoginMode}">
@@ -240,7 +244,7 @@
                 </VerticalStackLayout>
 
             </VerticalStackLayout>
-        </Frame>
+        </Border>
     </ScrollView>
     </Grid>
 
