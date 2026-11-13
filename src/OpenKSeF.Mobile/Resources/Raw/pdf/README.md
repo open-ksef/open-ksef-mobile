@@ -9,4 +9,4 @@ Same unmodified build as `open-ksef` `src/OpenKSeF.Portal.Web/src/vendor/ksef-pd
 | SHA-256 | `551b4ba283db648620c2d03cac9c2f2dd50375b47173c79d6e264c88dad152e4` |
 | License | MIT, see `LICENSE`. The bundle also contains pdfmake, i18next and xml-js (MIT) and the Roboto fonts from pdfmake (Apache-2.0). |
 
-`index.html` is ours: the HybridWebView page that `IssuedInvoiceDetailsPage` calls.
+`index.html` and `index.js` are ours: the HybridWebView page that `IssuedInvoiceDetailsPage` calls.

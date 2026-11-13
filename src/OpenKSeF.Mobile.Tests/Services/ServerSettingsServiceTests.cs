@@ -71,6 +71,36 @@ public class ServerSettingsServiceTests
         Assert.Equal(stored, Preferences.Default.Get(ServerUrlKey, string.Empty));
     }
 
+    [Theory]
+    [InlineData("not a url")]
+    [InlineData("ftp://faktury.example.pl")]
+    [InlineData("https://user:secret@faktury.example.pl")]
+    [InlineData("http://faktury.example.pl")]
+    [InlineData("")]
+    public void InvalidStoredServer_NoAddress_FieldVisible(string stored)
+    {
+        Preferences.Default.Set(ServerUrlKey, stored);
+
+        var settings = new ServerSettingsService();
+        var vm = CreateLoginViewModel(Substitute.For<IAuthService>(), settings);
+
+        Assert.Equal(string.Empty, settings.ServerUrl);
+        Assert.False(settings.IsConfigured);
+        Assert.True(vm.IsServerVisible);
+        Assert.Equal(string.Empty, vm.ServerUrl);
+    }
+
+    [Fact]
+    public void StoredServer_IsNormalized()
+    {
+        Preferences.Default.Set(ServerUrlKey, " https://Faktury.Example.pl:443/ ");
+
+        var settings = new ServerSettingsService();
+
+        Assert.Equal("https://faktury.example.pl", settings.ServerUrl);
+        Assert.True(settings.IsConfigured);
+    }
+
     [Fact]
     public async Task FreshInstall_AuthServiceStartsAndRestoresNothingWithoutNetwork()
     {

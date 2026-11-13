@@ -49,7 +49,9 @@
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
-    <AndroidResource Include="Platforms\Android\Resources\xml\network_security_config.xml" />
+    <AndroidResource Include="Platforms\Android\Resources\xml\network_security_config.xml" Condition="'$(Configuration)' != 'Debug'" />
+    <AndroidResource Remove="Platforms\Android\Resources\xml\network_security_config.xml" Condition="'$(Configuration)' == 'Debug'" />
+    <AndroidResource Include="Platforms\Android\DebugResources\xml\network_security_config.xml" Link="Platforms\Android\Resources\xml\network_security_config.xml" Condition="'$(Configuration)' == 'Debug'" />
     <!-- Firebase pulls 1.17, where AccessibilityNodeInfoCompat.Checked is int; one pinned version keeps builds with and without Firebase on the same API. -->
     <PackageReference Include="Xamarin.AndroidX.Core" Version="1.17.0" />
     <PackageReference Include="Xamarin.AndroidX.Core.Core.Ktx" Version="1.17.0" />

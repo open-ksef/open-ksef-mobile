@@ -2,18 +2,10 @@
 <html lang="pl">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; connect-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:">
 <title>PDF</title>
 <script src="_framework/hybridwebview.js"></script>
-<script type="module">
-import { generateInvoice } from './ksef-fe-invoice-converter.js';
-
-window.renderInvoicePdf = (xmlBase64, nrKSeF, qrCode) => generateInvoice(
-  new File([Uint8Array.from(atob(xmlBase64), (c) => c.charCodeAt(0))], 'invoice.xml', { type: 'application/xml' }),
-  { nrKSeF, qrCode },
-  'base64');
-
-window.HybridWebView.SendRawMessage('ready');
-</script>
+<script type="module" src="index.js"></script>
 </head>
 <body></body>
 </html>

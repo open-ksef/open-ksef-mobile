@@ -7,8 +7,8 @@ public class ServerSettingsService : IServerSettingsService
 
     public ServerSettingsService()
     {
-        IsConfigured = Preferences.Default.ContainsKey(ServerUrlKey);
-        ServerUrl = Preferences.Default.Get(ServerUrlKey, string.Empty);
+        IsConfigured = ServerUrlRules.TryNormalize(Preferences.Default.Get(ServerUrlKey, string.Empty), ServerUrlRules.AllowDevCleartext, out var stored, out _);
+        ServerUrl = IsConfigured ? stored : string.Empty;
     }
 
     public string ServerUrl { get; private set; }
