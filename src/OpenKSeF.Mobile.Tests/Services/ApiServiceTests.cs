@@ -508,6 +508,16 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task CaptivePortalHtml200_OnInvoiceList_ThrowsApiExceptionWithPolishText()
+    {
+        _handler.Enqueue(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<!DOCTYPE html><html>Hotspot login</html>", System.Text.Encoding.UTF8, "text/html") });
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().GetInvoicesAsync(Guid.NewGuid(), isPaid: false));
+
+        Assert.Equal("Odpowiedź serwera jest nieczytelna. Nie wiadomo, czy operacja się udała. Sprawdź aktualny stan, zanim spróbujesz ponownie.", ex.Message);
+    }
+
+    [Fact]
     public async Task NullBody2xx_KeepsSuccessStatus()
     {
         _handler.Enqueue(() => new HttpResponseMessage(HttpStatusCode.Created) { Content = new StringContent("null", System.Text.Encoding.UTF8, "application/json") });

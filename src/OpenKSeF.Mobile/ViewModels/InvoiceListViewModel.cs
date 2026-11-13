@@ -16,6 +16,9 @@ public partial class InvoiceListViewModel : ObservableObject
     private int _loadVersion;
     private bool? _loadedIsPaid;
     private bool _filterChangedDuringLoad;
+    private readonly HashSet<Guid> _unpaidSeen = [];
+    private int _unpaidFirstTotal;
+    private const string DefaultEmptyMessage = "Nie znaleziono faktur dla tego NIP-u. Faktury pojawią się po synchronizacji z KSeF.";
 
     public IReadOnlyList<StatusFilter> Filters { get; } = [new("Wszystkie", ""), new("Nieopłacone", "unpaid")];
 
@@ -33,6 +36,9 @@ public partial class InvoiceListViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isEmpty;
+
+    [ObservableProperty]
+    private string _emptyMessage = DefaultEmptyMessage;
 
     [ObservableProperty]
     private bool _hasMorePages;
@@ -83,7 +89,9 @@ public partial class InvoiceListViewModel : ObservableObject
             IsOfflineMode = false;
             IsNoTenantSelected = false;
             IsEmpty = false;
+            EmptyMessage = DefaultEmptyMessage;
             _currentPage = 1;
+            _unpaidSeen.Clear();
 
             var tapped = NotificationHubService.TakeTapped();
             var tappedTenant = tapped is null ? null : await OwnedTenantAsync(tapped.Value.TenantId);
@@ -129,6 +137,7 @@ public partial class InvoiceListViewModel : ObservableObject
 
                 if (result.Items.Count > 0)
                     await _localDb.SaveInvoicesAsync(tenantId.Value, result.Items);
+                await CorrectCachedPaidAsync(tenantId.Value, result);
             }
             catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
             {
@@ -207,12 +216,13 @@ public partial class InvoiceListViewModel : ObservableObject
         try
         {
             var cached = await _localDb.GetInvoicesAsync(tenantId, isPaid);
-            if (cached.Count == 0)
+            if (cached.Count == 0 && (isPaid is null || (await _localDb.GetInvoicesAsync(tenantId)).Count == 0))
                 return false;
 
             Invoices = new ObservableCollection<InvoiceDto>(cached);
             HasMorePages = false;
-            IsEmpty = false;
+            IsEmpty = cached.Count == 0;
+            EmptyMessage = "W pamięci podręcznej nie ma nieopłaconych faktur. Odśwież po powrocie sieci.";
             IsOfflineMode = true;
             return true;
         }
@@ -220,6 +230,19 @@ public partial class InvoiceListViewModel : ObservableObject
         {
             return false;
         }
+    }
+
+    private async Task CorrectCachedPaidAsync(Guid tenantId, PagedResult<InvoiceDto> page)
+    {
+        if (_loadedIsPaid != false)
+            return;
+
+        if (_currentPage == 1)
+            _unpaidFirstTotal = page.TotalCount;
+        foreach (var invoice in page.Items)
+            _unpaidSeen.Add(invoice.Id);
+        if (!HasMorePages && page.TotalCount == _unpaidFirstTotal && _unpaidSeen.Count == page.TotalCount)
+            await _localDb.MarkPaidExceptAsync(tenantId, _unpaidSeen);
     }
 
     [RelayCommand]
@@ -255,6 +278,7 @@ public partial class InvoiceListViewModel : ObservableObject
             _totalPages = result.TotalPages;
             HasMorePages = _currentPage < _totalPages;
             ErrorMessage = null;
+            await CorrectCachedPaidAsync(tenantId.Value, result);
         }
         catch (ApiException ex) when (load == _loadVersion)
         {
