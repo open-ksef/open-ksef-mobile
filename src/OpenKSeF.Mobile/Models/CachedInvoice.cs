@@ -22,10 +22,15 @@ public class CachedInvoice
     public DateTime? AcquisitionDate { get; set; }
     public string? InvoiceType { get; set; }
     public DateTime FirstSeenAt { get; set; }
+    public bool IsPaid { get; set; }
+    public DateTime? DueDate { get; set; }
     public DateTime CachedAt { get; set; }
 
-    public InvoiceDto ToDto()
+    public InvoiceDto ToDto() => ToDto(DateTimeOffset.UtcNow);
+
+    public InvoiceDto ToDto(DateTimeOffset utcNow)
     {
+        var dueDate = DueDate is { } due ? DateOnly.FromDateTime(due) : (DateOnly?)null;
         return new InvoiceDto
         {
             Id = Guid.Parse(Id),
@@ -43,7 +48,10 @@ public class CachedInvoice
             IssueDate = DateTime.SpecifyKind(IssueDate, DateTimeKind.Utc),
             AcquisitionDate = AcquisitionDate is { } acquisitionDate ? DateTime.SpecifyKind(acquisitionDate, DateTimeKind.Utc) : null,
             InvoiceType = InvoiceType,
-            FirstSeenAt = DateTime.SpecifyKind(FirstSeenAt, DateTimeKind.Utc)
+            FirstSeenAt = DateTime.SpecifyKind(FirstSeenAt, DateTimeKind.Utc),
+            IsPaid = IsPaid,
+            DueDate = dueDate,
+            IsOverdue = InvoiceDto.Overdue(IsPaid, dueDate, utcNow)
         };
     }
 
@@ -68,6 +76,8 @@ public class CachedInvoice
             AcquisitionDate = dto.AcquisitionDate,
             InvoiceType = dto.InvoiceType,
             FirstSeenAt = dto.FirstSeenAt,
+            IsPaid = dto.IsPaid,
+            DueDate = dto.DueDate?.ToDateTime(TimeOnly.MinValue),
             CachedAt = DateTime.UtcNow
         };
     }

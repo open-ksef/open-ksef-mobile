@@ -148,4 +148,31 @@ public class DisplayTextTests
 
         Assert.Empty(hits);
     }
+
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("pl-PL")]
+    [InlineData("th-TH")]
+    public void InvoiceDto_DueText(string culture) => UnderCulture(culture, () =>
+    {
+        Assert.Equal("—", new InvoiceDto().DueText);
+        Assert.False(new InvoiceDto().IsOverdue);
+        Assert.Equal("19.11.2026", new InvoiceDto { DueDate = new DateOnly(2026, 11, 19) }.DueText);
+        Assert.Equal("05.11.2026 po terminie", new InvoiceDto { DueDate = new DateOnly(2026, 11, 5), IsOverdue = true }.DueText);
+    });
+
+    [Theory]
+    [InlineData("2026-11-12T22:59:59Z", false, "2026-11-12", false)]
+    [InlineData("2026-11-12T23:00:00Z", false, "2026-11-12", true)]
+    [InlineData("2026-11-13T10:00:00Z", false, "2026-11-13", false)]
+    [InlineData("2026-11-13T10:00:00Z", true, "2026-11-01", false)]
+    [InlineData("2026-11-13T10:00:00Z", false, null, false)]
+    [InlineData("2026-07-01T21:59:59Z", false, "2026-07-01", false)]
+    [InlineData("2026-07-01T22:00:00Z", false, "2026-07-01", true)]
+    public void Overdue_UsesWarsawToday(string utcNow, bool isPaid, string? dueDate, bool expected)
+    {
+        var due = dueDate is null ? (DateOnly?)null : DateOnly.Parse(dueDate, CultureInfo.InvariantCulture);
+
+        Assert.Equal(expected, InvoiceDto.Overdue(isPaid, due, DateTimeOffset.Parse(utcNow, CultureInfo.InvariantCulture)));
+    }
 }

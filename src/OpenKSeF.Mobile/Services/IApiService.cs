@@ -10,7 +10,7 @@ public interface IApiService
     Task<TenantDto> CreateTenantAsync(CreateTenantRequest request);
     Task<TenantDto> UpdateTenantAsync(Guid tenantId, UpdateTenantRequest request);
     Task DeleteTenantAsync(Guid tenantId);
-    Task<PagedResult<InvoiceDto>> GetInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20);
+    Task<PagedResult<InvoiceDto>> GetInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20, bool? isPaid = null);
     Task<InvoiceDto> GetInvoiceDetailsAsync(Guid tenantId, Guid invoiceId);
     Task<TransferDetailsDto> GetTransferDetailsAsync(Guid tenantId, Guid invoiceId);
     Task AddOrUpdateCredentialAsync(Guid tenantId, string token);

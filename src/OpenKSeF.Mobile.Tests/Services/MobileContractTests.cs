@@ -18,6 +18,7 @@ public class MobileContractTests
 {
     private const string Detail = "GET /api/tenants/{id}/invoices/{invoiceId}";
     private const string DetailLinesNull = "GET /api/tenants/{id}/invoices/{invoiceId} lines null";
+    private const string Unpaid = "GET /api/tenants/{id}/invoices?isPaid=false";
     private const string Transfer = "GET /api/tenants/{id}/invoices/{invoiceId}/transfer";
     private const string TransferQrBlocked = "GET /api/tenants/{id}/invoices/{invoiceId}/transfer (QR blocked)";
     private const string IssuedDetail = "GET /api/tenants/{id}/issued-invoices/{invoiceId}";
@@ -227,7 +228,50 @@ public class MobileContractTests
         Assert.Equal(20, page.PageSize);
         Assert.Equal(41, page.TotalCount);
         Assert.Equal(3, page.TotalPages);
-        AssertFullInvoice(Assert.Single(page.Items));
+        var invoice = Assert.Single(page.Items);
+        AssertFullInvoice(invoice);
+        Assert.Null(invoice.DueDate);
+        Assert.False(invoice.IsOverdue);
+        Assert.Equal("—", invoice.DueText);
+    }
+
+    [Fact]
+    public async Task UnpaidPage_MapsDueDateAndOverdue_InServerOrder()
+    {
+        var page = await Api(Unpaid).GetInvoicesAsync(TenantId, 2, 20, isPaid: false);
+
+        Assert.Equal(2, page.Page);
+        Assert.Equal(2, page.TotalPages);
+        Assert.Equal(["FV/1/11/2026", "FV/2/11/2026"], page.Items.Select(i => i.InvoiceNumber));
+        Assert.All(page.Items, i => Assert.False(i.IsPaid));
+        Assert.Equal(new DateOnly(2026, 11, 5), page.Items[0].DueDate);
+        Assert.True(page.Items[0].IsOverdue);
+        Assert.Equal("05.11.2026 po terminie", page.Items[0].DueText);
+        Assert.Null(page.Items[1].DueDate);
+        Assert.False(page.Items[1].IsOverdue);
+        Assert.Equal("—", page.Items[1].DueText);
+    }
+
+    [Fact]
+    public async Task UnpaidPage_ThroughSqlite_KeepsDueDateAndRecomputesOverdue()
+    {
+        var dto = (await Api(Unpaid).GetInvoicesAsync(TenantId, 2, 20, isPaid: false)).Items[0];
+        var path = Path.Combine(Path.GetTempPath(), $"contract-{Guid.NewGuid():N}.db");
+        CachedInvoice stored;
+        using (var db = new SQLiteConnection(path))
+        {
+            db.CreateTable<CachedInvoice>();
+            db.Insert(CachedInvoice.FromDto(dto, TenantId));
+            stored = db.Table<CachedInvoice>().Single();
+        }
+        File.Delete(path);
+
+        var before = stored.ToDto(new DateTimeOffset(2026, 11, 5, 12, 0, 0, TimeSpan.Zero));
+        var after = stored.ToDto(new DateTimeOffset(2026, 11, 5, 23, 0, 0, TimeSpan.Zero));
+        Assert.Equal(new DateOnly(2026, 11, 5), before.DueDate);
+        Assert.False(before.IsPaid);
+        Assert.False(before.IsOverdue);
+        Assert.True(after.IsOverdue);
     }
 
     [Fact]
@@ -543,6 +587,8 @@ public class MobileContractTests
         Assert.Equal(dto.IssueDate, back.IssueDate);
         Assert.Equal(dto.AcquisitionDate, back.AcquisitionDate);
         Assert.Equal(dto.FirstSeenAt, back.FirstSeenAt);
+        Assert.True(back.IsPaid);
+        Assert.False(back.IsOverdue);
         Assert.Equal(DateTimeKind.Utc, back.IssueDate.Kind);
         Assert.Equal(DateTimeKind.Utc, back.AcquisitionDate!.Value.Kind);
         Assert.Equal(DateTimeKind.Utc, back.FirstSeenAt.Kind);

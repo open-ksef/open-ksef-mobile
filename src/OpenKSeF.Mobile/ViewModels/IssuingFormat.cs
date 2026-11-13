@@ -10,6 +10,11 @@ public static class IssuingFormat
 {
     public static readonly CultureInfo Pl = CultureInfo.GetCultureInfo("pl-PL");
 
+    private static readonly TimeZoneInfo PolandTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw");
+
+    public static DateOnly PolandDate(DateTimeOffset utcNow) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(utcNow, PolandTimeZone).DateTime);
+
     public static string Money(decimal amount, string currency = "PLN") => $"{amount.ToString("N2", Pl)} {currency}";
 
     public static string Amount(decimal? amount) => amount?.ToString("N2", Pl) ?? "—";
