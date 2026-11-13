@@ -58,6 +58,24 @@ public class LocalDbService
         });
     }
 
+    public async Task MarkPaidExceptAsync(Guid tenantId, IReadOnlyCollection<Guid> unpaidIds)
+    {
+        await InitAsync();
+
+        var tenantIdStr = tenantId.ToString();
+        var unpaid = unpaidIds.Select(i => i.ToString()).ToHashSet();
+        await _db!.RunInTransactionAsync(conn =>
+        {
+            foreach (var row in conn.Table<CachedInvoice>().Where(i => i.TenantId == tenantIdStr && !i.IsPaid).ToList())
+            {
+                if (unpaid.Contains(row.Id))
+                    continue;
+                row.IsPaid = true;
+                conn.Update(row);
+            }
+        });
+    }
+
     private async Task ClearExpiredCacheAsync()
     {
         if (_db is null)

@@ -147,7 +147,7 @@
             <Label Text="Brak faktur"
                    Style="{StaticResource LabelHeading}"
                    HorizontalOptions="Center" />
-            <Label Text="Nie znaleziono faktur dla tego NIP-u. Faktury pojawią się po synchronizacji z KSeF."
+            <Label Text="{Binding EmptyMessage}"
                    Style="{StaticResource LabelMuted}"
                    HorizontalTextAlignment="Center" />
             <Button Text="Odśwież"

@@ -530,8 +530,70 @@ public class InvoiceListViewModelTests : IDisposable
         Assert.Single(vm.Invoices);
 
         vm.SelectedFilter = "unpaid";
-        await Until(() => !vm.IsBusy && vm.ErrorMessage is not null);
+        await Until(() => !vm.IsBusy && vm.IsOfflineMode);
 
         Assert.Empty(vm.Invoices);
+        Assert.True(vm.IsEmpty);
+        Assert.Null(vm.ErrorMessage);
+        Assert.Equal("W pamięci podręcznej nie ma nieopłaconych faktur. Odśwież po powrocie sieci.", vm.EmptyMessage);
+    }
+
+    [Fact]
+    public async Task UnpaidFilter_EmptyCache_ShowsConnectionError()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Throws(new HttpRequestException("offline"));
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.ErrorMessage is not null);
+
+        Assert.False(vm.IsOfflineMode);
+        Assert.False(vm.IsEmpty);
+    }
+
+    [Fact]
+    public async Task UnpaidFilter_CompleteListing_MarksCachedInvoicesPaidElsewhere_WithoutDeletingThem()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        var stillUnpaid = Due("Still unpaid", null);
+        var paidElsewhere = Due("Paid elsewhere", null);
+        await db.SaveInvoicesAsync(tenantId, [stillUnpaid, paidElsewhere]);
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [stillUnpaid], PageSize = 20, TotalCount = 1 });
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 1);
+
+        Assert.Equal(["Still unpaid"], (await db.GetInvoicesAsync(tenantId, false)).Select(i => i.VendorName));
+        Assert.Equal(2, (await db.GetInvoicesAsync(tenantId)).Count);
+        Assert.True((await db.GetInvoicesAsync(tenantId, true)).Single().IsPaid);
+    }
+
+    [Fact]
+    public async Task UnpaidFilter_PartialListing_KeepsCacheUntilLastPageLoaded()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        var firstPage = Due("Page 1", null);
+        var secondPage = Due("Page 2", null);
+        var paidElsewhere = Due("Paid elsewhere", null);
+        await db.SaveInvoicesAsync(tenantId, [firstPage, secondPage, paidElsewhere]);
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [firstPage], PageSize = 1, TotalCount = 2 });
+        _api.GetInvoicesAsync(tenantId, 2, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [secondPage], PageSize = 1, TotalCount = 2 });
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 1);
+        Assert.Equal(3, (await db.GetInvoicesAsync(tenantId, false)).Count);
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Page 1", "Page 2"], (await db.GetInvoicesAsync(tenantId, false)).Select(i => i.VendorName).Order());
+        Assert.Equal(3, (await db.GetInvoicesAsync(tenantId)).Count);
     }
 }
