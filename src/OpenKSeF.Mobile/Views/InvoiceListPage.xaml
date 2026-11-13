@@ -19,7 +19,7 @@
         </Grid>
     </Shell.TitleView>
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
         <Border IsVisible="{Binding IsOfflineMode}"
                 BackgroundColor="{AppThemeBinding Light={StaticResource UiWarningBg}, Dark={StaticResource UiWarningBgDark}}"
                 Stroke="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}"
@@ -31,13 +31,26 @@
                    TextColor="{AppThemeBinding Light={StaticResource UiWarning}, Dark={StaticResource UiWarningDark}}" />
         </Border>
 
-        <ActivityIndicator Grid.Row="1"
+        <HorizontalStackLayout Grid.Row="1" Padding="16,8" Spacing="8"
+                               IsVisible="{Binding IsNoTenantSelected, Converter={StaticResource InvertedBoolConverter}}"
+                               AutomationId="InvoiceListPageFilters"
+                               RadioButtonGroup.GroupName="receivedPaid"
+                               RadioButtonGroup.SelectedValue="{Binding SelectedFilter}"
+                               BindableLayout.ItemsSource="{Binding Filters}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="vm:StatusFilter">
+                    <RadioButton Style="{StaticResource UiChip}" Content="{Binding Label}" Value="{Binding Value}" />
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </HorizontalStackLayout>
+
+        <ActivityIndicator Grid.Row="2"
                            IsRunning="{Binding IsBusy}"
                            IsVisible="{Binding IsBusy}"
                            VerticalOptions="Center"
                            HorizontalOptions="Center" />
 
-        <RefreshView Grid.Row="1"
+        <RefreshView Grid.Row="2"
                      Command="{Binding RefreshCommand}"
                      IsRefreshing="{Binding IsRefreshing}">
             <CollectionView ItemsSource="{Binding Invoices}"
@@ -72,6 +85,21 @@
                                 <Label Grid.Row="2"
                                        Text="{Binding IssueDateText}"
                                        Style="{StaticResource LabelCaption}" />
+                                <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="4" HorizontalOptions="End">
+                                    <Label Text="⚠"
+                                           IsVisible="{Binding IsOverdue}"
+                                           Style="{StaticResource LabelCaption}"
+                                           TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                                    <Label Text="{Binding DueText, StringFormat='Termin: {0}'}"
+                                           AutomationId="InvoiceListPageLabelDue"
+                                           Style="{StaticResource LabelCaption}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsOverdue}" Value="True">
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                </HorizontalStackLayout>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -87,7 +115,7 @@
             </CollectionView>
         </RefreshView>
 
-        <VerticalStackLayout Grid.Row="1"
+        <VerticalStackLayout Grid.Row="2"
                              IsVisible="{Binding IsNoTenantSelected}"
                              AutomationId="InvoiceListPageNoTenantState"
                              VerticalOptions="Center"
@@ -110,7 +138,7 @@
                     Style="{StaticResource ButtonSecondary}" />
         </VerticalStackLayout>
 
-        <VerticalStackLayout Grid.Row="1"
+        <VerticalStackLayout Grid.Row="2"
                              IsVisible="{Binding IsEmpty}"
                              VerticalOptions="Center"
                              HorizontalOptions="Center"
@@ -129,7 +157,7 @@
                     HorizontalOptions="Center" />
         </VerticalStackLayout>
 
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
                 BackgroundColor="{AppThemeBinding Light={StaticResource UiErrorBg}, Dark={StaticResource UiErrorBgDark}}"
                 Stroke="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"

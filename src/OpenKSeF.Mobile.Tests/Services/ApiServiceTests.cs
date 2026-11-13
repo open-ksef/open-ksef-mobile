@@ -342,6 +342,22 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task GetInvoices_Unpaid_AddsIsPaidFalseAndReadsDueDate()
+    {
+        var tenantId = Guid.NewGuid();
+        _handler.RespondJson(HttpStatusCode.OK, """
+            {"items":[{"id":"6f2a3a0e-8f3e-4a8e-9f1e-7d2b3c4d5e6f","isPaid":false,"dueDate":"2026-11-19","isOverdue":true}],"page":2,"pageSize":20,"totalCount":21}
+            """);
+
+        var result = await CreateService().GetInvoicesAsync(tenantId, page: 2, isPaid: false);
+
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/invoices?page=2&pageSize=20&isPaid=false", Assert.Single(_handler.Requests).Uri);
+        var invoice = Assert.Single(result.Items);
+        Assert.Equal(new DateOnly(2026, 11, 19), invoice.DueDate);
+        Assert.True(invoice.IsOverdue);
+    }
+
+    [Fact]
     public async Task GetIssuedInvoices_AddsStatusFilter()
     {
         var tenantId = Guid.NewGuid();

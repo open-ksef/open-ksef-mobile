@@ -62,11 +62,12 @@ public class ApiService : IApiService
         await SendNoContentAsync(HttpMethod.Delete, $"/api/tenants/{tenantId}");
     }
 
-    public async Task<PagedResult<InvoiceDto>> GetInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20)
+    public async Task<PagedResult<InvoiceDto>> GetInvoicesAsync(Guid tenantId, int page = 1, int pageSize = 20, bool? isPaid = null)
     {
+        var filter = isPaid is { } paid ? $"&isPaid={(paid ? "true" : "false")}" : string.Empty;
         return await SendAsync<PagedResult<InvoiceDto>>(
             HttpMethod.Get,
-            $"/api/tenants/{tenantId}/invoices?page={page}&pageSize={pageSize}");
+            $"/api/tenants/{tenantId}/invoices?page={page}&pageSize={pageSize}{filter}");
     }
 
     public async Task<InvoiceDto> GetInvoiceDetailsAsync(Guid tenantId, Guid invoiceId)

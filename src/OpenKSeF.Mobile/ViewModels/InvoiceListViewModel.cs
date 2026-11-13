@@ -14,6 +14,13 @@ public partial class InvoiceListViewModel : ObservableObject
     private int _totalPages;
     private bool _autoSelectAttempted;
     private int _loadVersion;
+    private bool? _loadedIsPaid;
+    private bool _filterChangedDuringLoad;
+
+    public IReadOnlyList<StatusFilter> Filters { get; } = [new("Wszystkie", ""), new("Nieopłacone", "unpaid")];
+
+    [ObservableProperty]
+    private string _selectedFilter = "";
 
     [ObservableProperty]
     private ObservableCollection<InvoiceDto> _invoices = [];
@@ -50,6 +57,16 @@ public partial class InvoiceListViewModel : ObservableObject
         _apiService = apiService;
         _localDb = localDb;
     }
+
+    partial void OnSelectedFilterChanged(string value)
+    {
+        if (IsBusy)
+            _filterChangedDuringLoad = true;
+        else
+            _ = LoadInvoicesAsync();
+    }
+
+    private bool? IsPaidFilter() => SelectedFilter == "unpaid" ? false : null;
 
     [RelayCommand]
     private async Task LoadInvoicesAsync()
@@ -98,9 +115,13 @@ public partial class InvoiceListViewModel : ObservableObject
 
             TenantNip = Preferences.Default.Get("SelectedTenantNip", string.Empty);
 
+            var isPaid = IsPaidFilter();
+            if (isPaid != _loadedIsPaid)
+                Invoices = [];
+            _loadedIsPaid = isPaid;
             try
             {
-                var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage);
+                var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage, isPaid: _loadedIsPaid);
                 Invoices = new ObservableCollection<InvoiceDto>(result.Items);
                 _totalPages = result.TotalPages;
                 HasMorePages = _currentPage < _totalPages;
@@ -111,7 +132,7 @@ public partial class InvoiceListViewModel : ObservableObject
             }
             catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
             {
-                if (!await TryLoadFromCacheAsync(tenantId.Value))
+                if (!await TryLoadFromCacheAsync(tenantId.Value, _loadedIsPaid))
                     throw;
             }
         }
@@ -131,6 +152,12 @@ public partial class InvoiceListViewModel : ObservableObject
                 await OpenTappedInvoiceAsync(open.TenantId, open.InvoiceId);
             if (NotificationHubService.HasTappedTenant)
                 await LoadInvoicesAsync();
+            else if (_filterChangedDuringLoad)
+            {
+                _filterChangedDuringLoad = false;
+                if (IsPaidFilter() != _loadedIsPaid)
+                    await LoadInvoicesAsync();
+            }
         }
     }
 
@@ -175,11 +202,11 @@ public partial class InvoiceListViewModel : ObservableObject
         await Shell.Current.DisplayAlertAsync("Faktura niedostępna", "Nie udało się otworzyć faktury z powiadomienia.", "OK");
     }
 
-    private async Task<bool> TryLoadFromCacheAsync(Guid tenantId)
+    private async Task<bool> TryLoadFromCacheAsync(Guid tenantId, bool? isPaid)
     {
         try
         {
-            var cached = await _localDb.GetInvoicesAsync(tenantId);
+            var cached = await _localDb.GetInvoicesAsync(tenantId, isPaid);
             if (cached.Count == 0)
                 return false;
 
@@ -217,7 +244,7 @@ public partial class InvoiceListViewModel : ObservableObject
             if (tenantId is null)
                 return;
 
-            var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage + 1);
+            var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage + 1, isPaid: _loadedIsPaid);
             if (load != _loadVersion || tenantId != GetSelectedTenantId())
                 return;
 

@@ -26,6 +26,8 @@ public class InvoiceDto
     public DateTime FirstSeenAt { get; set; }
     public bool IsPaid { get; set; }
     public DateTime? PaidAt { get; set; }
+    public DateOnly? DueDate { get; set; }
+    public bool IsOverdue { get; set; }
     public List<InvoiceLineDto> Lines { get; set; } = new();
     [JsonIgnore]
     public string GrossText => IssuingFormat.Money(AmountGross, Currency);
@@ -35,4 +37,11 @@ public class InvoiceDto
     public string IssueDateText => IssuingFormat.Date(IssueDate);
     [JsonIgnore]
     public string AcquisitionDateText => IssuingFormat.Date(AcquisitionDate);
+    [JsonIgnore]
+    public string DueDateText => DueDate is { } dueDate ? IssuingFormat.Date(dueDate) : "—";
+    [JsonIgnore]
+    public string DueText => IsOverdue ? $"{DueDateText} po terminie" : DueDateText;
+
+    public static bool Overdue(bool isPaid, DateOnly? dueDate, DateTimeOffset utcNow) =>
+        !isPaid && dueDate < IssuingFormat.PolandDate(utcNow);
 }

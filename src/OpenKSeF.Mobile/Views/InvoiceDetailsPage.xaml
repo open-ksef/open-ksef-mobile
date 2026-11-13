@@ -64,7 +64,7 @@
                 </Border>
 
                 <Border Margin="15,5" Style="{StaticResource CardBorder}">
-                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="8">
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8">
                         <Label Text="Data wystawienia" Style="{StaticResource LabelCaption}" />
                         <Label Grid.Row="1"
                                Text="{Binding Invoice.IssueDateText}"
@@ -73,6 +73,22 @@
                         <Label Grid.Row="1" Grid.Column="1"
                                Text="{Binding Invoice.AcquisitionDateText}"
                                FontSize="16" />
+                        <Label Grid.Row="2" Text="Termin płatności" Style="{StaticResource LabelCaption}" />
+                        <HorizontalStackLayout Grid.Row="3" Grid.ColumnSpan="2" Spacing="6">
+                            <Label Text="⚠"
+                                   IsVisible="{Binding Invoice.IsOverdue}"
+                                   FontSize="16"
+                                   TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                            <Label Text="{Binding Invoice.DueText}"
+                                   AutomationId="InvoiceDetailsPageLabelDue"
+                                   FontSize="16">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding Invoice.IsOverdue}" Value="True">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                        </HorizontalStackLayout>
                     </Grid>
                 </Border>
 

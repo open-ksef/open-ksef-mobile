@@ -96,7 +96,7 @@ public class ServerSettingsValidationTests
 #else
         Assert.False(ServerUrlRules.AllowDevCleartext);
         Assert.False(ServerUrlRules.TryNormalize("http://10.0.2.2:8080", ServerUrlRules.AllowDevCleartext, out _, out var error));
-        Assert.Equal("Wymagane jest polaczenie HTTPS.", error);
+        Assert.Equal("Wymagane jest połączenie HTTPS.", error);
 #endif
     }
 
@@ -138,5 +138,15 @@ public class ServerSettingsValidationTests
     public void DisplayHost_ShowsPunycodeHostAndNonDefaultPort(string url, string expected)
     {
         Assert.Equal(expected, ServerUrlRules.DisplayHost(url));
+    }
+
+    [Theory]
+    [InlineData("https://user:pass@example.com", true, "Adres serwera nie może zawierać nazwy użytkownika ani hasła.")]
+    [InlineData("http://example.com", true, "Połączenie HTTP dozwolone tylko dla localhost / 10.0.2.2. Użyj HTTPS.")]
+    [InlineData("http://example.com", false, "Wymagane jest połączenie HTTPS.")]
+    public void Errors_UsePolishDiacritics(string url, bool allowDevCleartext, string expected)
+    {
+        Assert.False(ServerUrlRules.TryNormalize(url, allowDevCleartext, out _, out var error));
+        Assert.Equal(expected, error);
     }
 }

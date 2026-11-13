@@ -435,4 +435,103 @@ public class InvoiceListViewModelTests : IDisposable
         Assert.True(vm.IsNoTenantSelected);
         Assert.False(vm.IsEmpty);
     }
+
+    private static async Task Until(Func<bool> done)
+    {
+        for (var i = 0; i < 500 && !done(); i++)
+            await Task.Delay(10);
+        Assert.True(done());
+    }
+
+    private static InvoiceDto Due(string vendor, DateOnly? dueDate, bool isPaid = false, bool isOverdue = false) =>
+        new() { Id = Guid.NewGuid(), VendorName = vendor, DueDate = dueDate, IsPaid = isPaid, IsOverdue = isOverdue };
+
+    [Fact]
+    public async Task UnpaidFilter_SendsIsPaidFalse_KeepsServerOrder_AndPagesWithFilter()
+    {
+        var vm = await LoadedVm();
+        var serverOrder = new[] { Due("A", new DateOnly(2026, 11, 1), isOverdue: true), Due("B", new DateOnly(2026, 11, 20)), Due("C", null) };
+        _api.GetInvoicesAsync(TenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [.. serverOrder], PageSize = 20, TotalCount = 21 });
+        _api.GetInvoicesAsync(TenantId, 2, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [Due("D", null)], PageSize = 20, TotalCount = 21 });
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 3);
+
+        Assert.Equal(serverOrder.Select(i => i.Id), vm.Invoices.Select(i => i.Id));
+        Assert.True(vm.HasMorePages);
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        await _api.Received(1).GetInvoicesAsync(TenantId, 2, 20, false);
+        await _api.DidNotReceive().GetInvoicesAsync(TenantId, 2, 20, null);
+        Assert.Equal(["A", "B", "C", "D"], vm.Invoices.Select(i => i.VendorName));
+        Assert.False(vm.HasMorePages);
+
+        vm.SelectedFilter = "";
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 1);
+        await _api.Received(2).GetInvoicesAsync(TenantId, 1, 20, null);
+    }
+
+    [Fact]
+    public async Task UnpaidFilter_ChangedDuringLoad_ReloadsWithFilter()
+    {
+        var first = new TaskCompletionSource();
+        _api.GetInvoicesAsync(TenantId, 1).Returns(async _ => { await first.Task; return Page(); });
+        _api.GetInvoicesAsync(TenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [Due("Unpaid", null), Due("Unpaid 2", null)], PageSize = 20, TotalCount = 2 });
+        var vm = new InvoiceListViewModel(_api, new LocalDbService());
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        vm.SelectedFilter = "unpaid";
+        first.SetResult();
+        await load;
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 2);
+
+        Assert.Equal(["Unpaid", "Unpaid 2"], vm.Invoices.Select(i => i.VendorName));
+        Assert.False(vm.HasMorePages);
+    }
+
+    [Fact]
+    public async Task UnpaidFilter_Offline_FiltersCache_SortsByDueDate_AndRecomputesOverdue()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var today = IssuingFormat.PolandDate(DateTimeOffset.UtcNow);
+        var db = new LocalDbService();
+        await db.SaveInvoicesAsync(tenantId,
+        [
+            Due("Paid late", today.AddDays(-10), isPaid: true),
+            Due("Undated", null),
+            Due("Due today", today),
+            Due("Was not overdue when cached", today.AddDays(-1)),
+        ]);
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Throws(new HttpRequestException("offline"));
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.IsOfflineMode);
+
+        Assert.Equal(["Was not overdue when cached", "Due today", "Undated"], vm.Invoices.Select(i => i.VendorName));
+        Assert.Equal([true, false, false], vm.Invoices.Select(i => i.IsOverdue));
+        Assert.Equal($"{IssuingFormat.Date(today.AddDays(-1))} po terminie", vm.Invoices[0].DueText);
+        Assert.Equal("—", vm.Invoices[2].DueText);
+    }
+
+    [Fact]
+    public async Task UnpaidFilter_FailedLoad_DoesNotKeepAllInvoicesUnderChip()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        await db.SaveInvoicesAsync(tenantId, [Due("Paid", null, isPaid: true)]);
+        _api.GetInvoicesAsync(tenantId, 1).Returns(new PagedResult<InvoiceDto> { Items = [Due("Paid", null, isPaid: true)], PageSize = 20, TotalCount = 1 });
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Throws(new HttpRequestException("offline"));
+        var vm = new InvoiceListViewModel(_api, db);
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+        Assert.Single(vm.Invoices);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.ErrorMessage is not null);
+
+        Assert.Empty(vm.Invoices);
+    }
 }

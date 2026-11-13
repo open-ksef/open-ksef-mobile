@@ -17,22 +17,33 @@ public class LocalDbService
 
         var dbPath = Path.Combine(FileSystem.AppDataDirectory, "openksef.db");
         _db = new SQLiteAsyncConnection(dbPath);
-        await _db.CreateTableAsync<CachedInvoice>();
+        await _db.RunInTransactionAsync(CreateSchema);
         await ClearExpiredCacheAsync();
     }
 
-    public async Task<List<InvoiceDto>> GetInvoicesAsync(Guid tenantId)
+    public static void CreateSchema(SQLiteConnection db)
+    {
+        db.CreateTable<CachedInvoice>();
+        db.Execute("UPDATE CachedInvoice SET IsPaid = 0 WHERE IsPaid IS NULL");
+    }
+
+    public async Task<List<InvoiceDto>> GetInvoicesAsync(Guid tenantId, bool? isPaid = null)
     {
         await InitAsync();
 
         var tenantIdStr = tenantId.ToString();
-        var cached = await _db!.Table<CachedInvoice>()
-            .Where(i => i.TenantId == tenantIdStr)
+        var query = _db!.Table<CachedInvoice>().Where(i => i.TenantId == tenantIdStr);
+        if (isPaid is { } paid)
+            query = query.Where(i => i.IsPaid == paid);
+        var cached = await query
             .OrderByDescending(i => i.IssueDate)
             .Take(MaxCachedInvoicesPerTenant)
             .ToListAsync();
 
-        return cached.Select(c => c.ToDto()).ToList();
+        var invoices = cached.Select(c => c.ToDto());
+        return isPaid == false
+            ? invoices.OrderBy(i => i.DueDate is null).ThenBy(i => i.DueDate).ThenByDescending(i => i.IssueDate).ThenBy(i => i.Id).ToList()
+            : invoices.ToList();
     }
 
     public async Task SaveInvoicesAsync(Guid tenantId, List<InvoiceDto> invoices)
