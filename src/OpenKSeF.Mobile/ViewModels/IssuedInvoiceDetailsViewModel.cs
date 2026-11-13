@@ -285,16 +285,17 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         try
         {
             var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, Invoice!.Id);
-            try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); } catch { }
+            try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); }
+            catch { await Shell.Current.DisplayAlertAsync("Szkic utworzony", InvoiceDraftViewModel.CheckIssuedList, "OK"); }
         }
-        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
+        catch (ApiException ex) when (!ApiException.IsNetworkFailure(ex) && ex.StatusCode is not (>= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices))
+        {
+            await Shell.Current.DisplayAlertAsync("Błąd", ex.Message, "OK");
+        }
+        catch (Exception)
         {
             await Shell.Current.DisplayAlertAsync("Nie wiadomo, czy zapisano szkic", InvoiceDraftViewModel.CheckIssuedList, "OK");
             try { await Shell.Current.GoToAsync(InvoiceDraftViewModel.IssuedList); } catch { }
-        }
-        catch (Exception ex)
-        {
-            await Shell.Current.DisplayAlertAsync("Błąd", ex.Message, "OK");
         }
     }
 

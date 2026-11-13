@@ -45,7 +45,7 @@ public static class IssuingFormat
     public static string StatusLabel(string? status, bool shortForm = false) => status switch
     {
         "Draft" => "Szkic",
-        "Sending" or "Approved" => "Wysyłanie",
+        "Sending" => "Wysyłanie",
         "Accepted" => shortForm ? "Przyjęta" : "Przyjęta w KSeF",
         "Rejected" => "Odrzucona",
         _ => status ?? string.Empty
@@ -53,13 +53,13 @@ public static class IssuingFormat
 
     public static string StatusTone(string? status) => status switch
     {
-        "Sending" or "Approved" => "Info",
+        "Sending" => "Info",
         "Accepted" => "Success",
         "Rejected" => "Error",
         _ => "Neutral"
     };
 
-    public static bool IsSending(string? status) => status is "Sending" or "Approved";
+    public static bool IsSending(string? status) => status == "Sending";
 
     public static bool IsProduction(string? environment) => string.Equals(environment, "production", StringComparison.OrdinalIgnoreCase);
 

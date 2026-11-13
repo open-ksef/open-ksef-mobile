@@ -85,6 +85,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private const string NoConnection = "Brak połączenia z serwerem. Dane w formularzu zostały. Spróbuj ponownie po powrocie sieci, nie twórz nowej faktury.";
 
+    internal const string NotLoaded = "Nie udało się wczytać faktury. Wczytaj ją ponownie, zanim zapiszesz lub wystawisz.";
+
+    internal const string Sent = "Faktura została wysłana do KSeF. Status sprawdzisz na liście wystawionych. Nie wystawiaj jej drugi raz.";
+
     internal const string CheckIssuedList = "Sprawdź listę wystawionych, zanim zapiszesz ponownie.";
 
     internal const string IssuedList = "//main/issued?status=Draft";
@@ -98,6 +102,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
     private uint? _version;
     private bool _loaded;
     private bool _portalOnly;
+    private bool _sent;
 
     [ObservableProperty]
     private string? _tenantId;
@@ -208,6 +213,9 @@ public partial class InvoiceDraftViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
+    [ObservableProperty]
+    private bool _canReload;
+
     public InvoiceDraftViewModel(IApiService apiService)
     {
         _apiService = apiService;
@@ -293,11 +301,23 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (Exception ex)
         {
             ErrorMessage = ex.Message;
+            CanReload = Guid.TryParse(InvoiceId, out _);
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    [RelayCommand]
+    private async Task ReloadAsync()
+    {
+        if (IsBusy || _loaded)
+            return;
+
+        ErrorMessage = null;
+        CanReload = false;
+        await LoadAsync();
     }
 
     private void Fill(IssuedInvoiceDto invoice)
@@ -446,8 +466,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
                 return;
 
             var issued = await _apiService.IssueInvoiceAsync(tenantId, saved.Id, saved.Version);
+            _sent = true;
             if (IsShown)
-                try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}"); } catch { }
+                try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}"); }
+                catch { await ShowSentAsync(); }
             else
                 _routeOnReturn = $"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}";
         }
@@ -458,9 +480,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
         {
+            _sent = ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices };
             if (IsShown)
                 try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); }
-                catch { await ShowErrorAsync(ex is ApiException { StatusCode: < HttpStatusCode.MultipleChoices } ? ex.Message : NoConnection); }
+                catch { await (_sent ? ShowSentAsync() : ShowErrorAsync(NoConnection)); }
             else
                 _routeOnReturn = $"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}";
         }
@@ -483,17 +506,18 @@ public partial class InvoiceDraftViewModel : ObservableObject
         try
         {
             var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, invoiceId);
+            _sent = false;
             ClearErrors();
             InvoiceId = copy.Id.ToString();
             Fill(copy);
         }
-        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
-        {
-            await SendToIssuedListAsync();
-        }
-        catch (Exception ex)
+        catch (ApiException ex) when (!ApiException.IsNetworkFailure(ex) && ex.StatusCode is not (>= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices))
         {
             ErrorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            await SendToIssuedListAsync();
         }
     }
 
@@ -530,13 +554,26 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
     private async Task<IssuedInvoiceDto?> SaveAsync()
     {
-        if (_portalOnly || !_loaded && Guid.TryParse(InvoiceId, out _) || !Guid.TryParse(TenantId, out var tenantId))
+        if (_portalOnly || !Guid.TryParse(TenantId, out var tenantId))
             return null;
 
-        ClearErrors();
-        if (Lines.FirstOrDefault(l => !l.Validate()) is { } invalid)
+        if (_sent)
         {
-            await AlertInvalidFormAsync($"Pozycja {Lines.IndexOf(invalid) + 1}: {invalid.Error}");
+            await ShowSentAsync();
+            return null;
+        }
+
+        if (!_loaded && Guid.TryParse(InvoiceId, out _))
+        {
+            await ShowNotLoadedAsync();
+            return null;
+        }
+
+        ClearErrors();
+        var invalid = Lines.Where(l => !l.Validate()).ToList();
+        if (invalid.Count > 0)
+        {
+            await AlertInvalidFormAsync(string.Join("\n", invalid.Select(l => $"Pozycja {Lines.IndexOf(l) + 1}: {l.Error}")));
             return null;
         }
 
@@ -665,6 +702,20 @@ public partial class InvoiceDraftViewModel : ObservableObject
     {
         await Shell.Current.DisplayAlertAsync("Nie wiadomo, czy zapisano szkic", CheckIssuedList, "OK");
         try { await Shell.Current.GoToAsync(IssuedList); } catch { _routeOnReturn = IssuedList; }
+    }
+
+    private async Task ShowNotLoadedAsync()
+    {
+        ErrorMessage = NotLoaded;
+        CanReload = true;
+        if (IsShown && await Shell.Current.DisplayAlertAsync("Faktura niewczytana", NotLoaded, "Wczytaj ponownie", "Anuluj"))
+            await ReloadAsync();
+    }
+
+    private Task ShowSentAsync()
+    {
+        ErrorMessage = Sent;
+        return IsShown ? Shell.Current.DisplayAlertAsync("Faktura wysłana", Sent, "OK") : Task.CompletedTask;
     }
 
     private Task AlertInvalidFormAsync(string message) => IsShown ? Shell.Current.DisplayAlertAsync("Popraw fakturę", message, "OK") : Task.CompletedTask;

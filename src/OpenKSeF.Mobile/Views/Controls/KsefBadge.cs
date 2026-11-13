@@ -64,7 +64,7 @@ public class KsefBadge : Border
     private static string StatusIcon(string? status) => status switch
     {
         "Draft" => "✎ ",
-        "Sending" or "Approved" => "⟳ ",
+        "Sending" => "⟳ ",
         "Accepted" => "✓ ",
         "Rejected" => "✕ ",
         _ => string.Empty

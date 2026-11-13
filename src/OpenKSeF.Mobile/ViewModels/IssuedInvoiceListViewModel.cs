@@ -61,6 +61,10 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     private bool _isEmpty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EmptyText))]
+    private bool _isFiltered;
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanIssue))]
     private bool _isUnsupported;
 
@@ -75,6 +79,8 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     private string? _errorMessage;
 
     public bool CanIssue => !IsUnsupported && !IsNoTenantSelected;
+
+    public string EmptyText => IsFiltered ? "Brak faktur pasujących do filtrów" : "Nie wystawiono jeszcze faktur";
 
     public IssuedInvoiceListViewModel(IApiService apiService)
     {
@@ -134,6 +140,7 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
             var result = await _apiService.GetIssuedInvoicesAsync(tenantId, _currentPage, PageSize, _loadedStatus, q: _loadedSearch);
             Invoices = new ObservableCollection<IssuedInvoiceRow>(result.Items.Select(i => new IssuedInvoiceRow(i)));
             HasMorePages = _currentPage < result.TotalPages;
+            IsFiltered = _loadedStatus is not null || !string.IsNullOrWhiteSpace(_loadedSearch);
             IsEmpty = Invoices.Count == 0;
         }
         catch (Exception ex)

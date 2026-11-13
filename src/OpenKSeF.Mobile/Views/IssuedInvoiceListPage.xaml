@@ -91,8 +91,10 @@
                 IsVisible="{Binding IsEmpty}"
                 AutomationId="IssuedInvoiceListPageEmptyState">
             <VerticalStackLayout Spacing="12">
-                <Label Text="Nie wystawiono jeszcze faktur" Style="{StaticResource UiH2}" HorizontalOptions="Center" />
+                <Label Text="{Binding EmptyText}" Style="{StaticResource UiH2}" HorizontalOptions="Center" HorizontalTextAlignment="Center"
+                       AutomationId="IssuedInvoiceListPageLabelEmpty" />
                 <Button Text="Nowa faktura" Style="{StaticResource UiButtonPrimary}" HorizontalOptions="Center"
+                        IsVisible="{Binding IsFiltered, Converter={StaticResource InvertedBoolConverter}}"
                         Command="{Binding NewInvoiceCommand}" AutomationId="IssuedInvoiceListPageButtonNewEmpty" />
             </VerticalStackLayout>
         </Border>
