@@ -2615,4 +2615,78 @@ public class IssuingViewModelTests : IDisposable
         Assert.Equal(filtered, vm.IsFiltered);
         Assert.Equal(text, vm.EmptyText);
     }
+    [Fact]
+    public async Task List_SearchClearedWithX_ReloadsUnfiltered()
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, "QAnomatch999")
+            .Returns(new PagedResult<IssuedInvoiceListItemDto> { Items = [], Page = 1, PageSize = 20, TotalCount = 0 });
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null).Returns(IssuedPage("Wszystkie"));
+        var vm = new IssuedInvoiceListViewModel(_api) { Search = "QAnomatch999" };
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.True(vm.IsFiltered);
+
+        vm.Search = "";
+        await WaitIdle(vm);
+
+        Assert.Equal(["Wszystkie"], vm.Invoices.Select(r => r.Buyer));
+        Assert.False(vm.IsFiltered);
+        Assert.False(vm.IsEmpty);
+    }
+
+    [Fact]
+    public async Task List_SearchClearedDuringLoad_ReloadsUnfilteredAfterIt()
+    {
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        var first = new TaskCompletionSource();
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, "FV/9").Returns(async _ => { await first.Task; return IssuedPage("Filtered"); });
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, null, null, null).Returns(IssuedPage("Wszystkie"));
+        var vm = new IssuedInvoiceListViewModel(_api) { Search = "FV/9" };
+
+        var load = vm.LoadCommand.ExecuteAsync(null);
+        vm.Search = null;
+        first.SetResult();
+        await load;
+
+        Assert.Equal(["Wszystkie"], vm.Invoices.Select(r => r.Buyer));
+        Assert.False(vm.IsFiltered);
+    }
+
+    [Fact]
+    public async Task List_TypingWithoutClearing_DoesNotReload()
+    {
+        var vm = await LoadedList();
+
+        vm.Search = "FV";
+
+        await _api.Received(1).GetIssuedInvoicesAsync(Arg.Any<Guid>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>());
+    }
+
+    [Theory]
+    [InlineData("4xx")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    [InlineData("cancel")]
+    public async Task List_LoadFails_DropsRowsOfThePreviousFilter(string outcome)
+    {
+        var vm = await LoadedList();
+        Assert.NotEmpty(vm.Invoices);
+        _api.GetIssuedInvoicesAsync(TenantId, 1, 20, "Draft", null, null).Returns(_ => IssuedOutcome(outcome));
+
+        vm.SelectedStatus = "Draft";
+        await WaitIdle(vm);
+
+        Assert.Empty(vm.Invoices);
+        Assert.False(vm.HasMorePages);
+        Assert.False(vm.IsEmpty);
+        Assert.NotNull(vm.ErrorMessage);
+    }
+
+    private static async Task WaitIdle(IssuedInvoiceListViewModel vm)
+    {
+        for (var i = 0; i < 100 && vm.IsBusy; i++)
+            await Task.Delay(10);
+        Assert.False(vm.IsBusy);
+    }
 }

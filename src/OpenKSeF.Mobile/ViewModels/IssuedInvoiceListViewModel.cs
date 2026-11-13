@@ -29,7 +29,7 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     private int _loadVersion;
     private string? _loadedStatus;
     private string? _loadedSearch;
-    private bool _statusChangedDuringLoad;
+    private bool _filterChangedDuringLoad;
 
     public IReadOnlyList<StatusFilter> Filters { get; } =
     [
@@ -87,10 +87,18 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
         _apiService = apiService;
     }
 
-    partial void OnSelectedStatusChanged(string value)
+    partial void OnSelectedStatusChanged(string value) => FilterChanged();
+
+    partial void OnSearchChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) && _loadedSearch is not null)
+            FilterChanged();
+    }
+
+    private void FilterChanged()
     {
         if (IsBusy)
-            _statusChangedDuringLoad = true;
+            _filterChangedDuringLoad = true;
         else
             _ = LoadAsync();
     }
@@ -136,25 +144,27 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
             Environment = profile.KsefEnvironment;
             _currentPage = 1;
             _loadedStatus = Status();
-            _loadedSearch = Search;
+            _loadedSearch = string.IsNullOrWhiteSpace(Search) ? null : Search;
             var result = await _apiService.GetIssuedInvoicesAsync(tenantId, _currentPage, PageSize, _loadedStatus, q: _loadedSearch);
             Invoices = new ObservableCollection<IssuedInvoiceRow>(result.Items.Select(i => new IssuedInvoiceRow(i)));
             HasMorePages = _currentPage < result.TotalPages;
-            IsFiltered = _loadedStatus is not null || !string.IsNullOrWhiteSpace(_loadedSearch);
+            IsFiltered = _loadedStatus is not null || _loadedSearch is not null;
             IsEmpty = Invoices.Count == 0;
         }
         catch (Exception ex)
         {
+            Invoices = [];
+            HasMorePages = false;
             ErrorMessage = $"Nie udało się załadować faktur: {ex.Message}";
         }
         finally
         {
             IsBusy = false;
             IsRefreshing = false;
-            if (_statusChangedDuringLoad)
+            if (_filterChangedDuringLoad)
             {
-                _statusChangedDuringLoad = false;
-                if (Status() != _loadedStatus)
+                _filterChangedDuringLoad = false;
+                if (Status() != _loadedStatus || (string.IsNullOrWhiteSpace(Search) && _loadedSearch is not null))
                     await LoadAsync();
             }
         }
