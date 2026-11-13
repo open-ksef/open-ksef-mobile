@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Appium.WebDriver" Version="5.2.0" />
+    <PackageReference Include="Appium.WebDriver" Version="9.0.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.15" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.15" />
