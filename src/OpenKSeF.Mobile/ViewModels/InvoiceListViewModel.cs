@@ -17,6 +17,7 @@ public partial class InvoiceListViewModel : ObservableObject
     private bool? _loadedIsPaid;
     private bool _filterChangedDuringLoad;
     private readonly HashSet<Guid> _unpaidSeen = [];
+    private int _unpaidFirstTotal;
     private const string DefaultEmptyMessage = "Nie znaleziono faktur dla tego NIP-u. Faktury pojawią się po synchronizacji z KSeF.";
 
     public IReadOnlyList<StatusFilter> Filters { get; } = [new("Wszystkie", ""), new("Nieopłacone", "unpaid")];
@@ -136,7 +137,7 @@ public partial class InvoiceListViewModel : ObservableObject
 
                 if (result.Items.Count > 0)
                     await _localDb.SaveInvoicesAsync(tenantId.Value, result.Items);
-                await CorrectCachedPaidAsync(tenantId.Value, result.Items);
+                await CorrectCachedPaidAsync(tenantId.Value, result);
             }
             catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
             {
@@ -231,14 +232,16 @@ public partial class InvoiceListViewModel : ObservableObject
         }
     }
 
-    private async Task CorrectCachedPaidAsync(Guid tenantId, List<InvoiceDto> page)
+    private async Task CorrectCachedPaidAsync(Guid tenantId, PagedResult<InvoiceDto> page)
     {
         if (_loadedIsPaid != false)
             return;
 
-        foreach (var invoice in page)
+        if (_currentPage == 1)
+            _unpaidFirstTotal = page.TotalCount;
+        foreach (var invoice in page.Items)
             _unpaidSeen.Add(invoice.Id);
-        if (!HasMorePages)
+        if (!HasMorePages && page.TotalCount == _unpaidFirstTotal && _unpaidSeen.Count == page.TotalCount)
             await _localDb.MarkPaidExceptAsync(tenantId, _unpaidSeen);
     }
 
@@ -275,7 +278,7 @@ public partial class InvoiceListViewModel : ObservableObject
             _totalPages = result.TotalPages;
             HasMorePages = _currentPage < _totalPages;
             ErrorMessage = null;
-            await CorrectCachedPaidAsync(tenantId.Value, result.Items);
+            await CorrectCachedPaidAsync(tenantId.Value, result);
         }
         catch (ApiException ex) when (load == _loadVersion)
         {

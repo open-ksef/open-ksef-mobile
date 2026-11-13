@@ -646,4 +646,26 @@ public class InvoiceListViewModelTests : IDisposable
         Assert.Empty(await db.GetInvoicesAsync(activeTenant, false));
         Assert.Equal(["Other unpaid"], (await db.GetInvoicesAsync(otherTenant, false)).Select(i => i.VendorName));
     }
+
+    [Fact]
+    public async Task UnpaidFilter_ListingShrinksDuringPaging_KeepsCache()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        var paidMidPaging = Due("Paid mid paging", null);
+        var skipped = Due("Skipped", null);
+        var last = Due("Last", null);
+        await db.SaveInvoicesAsync(tenantId, [paidMidPaging, skipped, last]);
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [paidMidPaging], PageSize = 1, TotalCount = 3 });
+        _api.GetInvoicesAsync(tenantId, 2, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [last], PageSize = 1, TotalCount = 2 });
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 1);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasMorePages);
+        Assert.Equal(3, (await db.GetInvoicesAsync(tenantId, false)).Count);
+    }
 }
