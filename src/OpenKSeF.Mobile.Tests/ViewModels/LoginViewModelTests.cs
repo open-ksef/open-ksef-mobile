@@ -12,6 +12,7 @@ public class LoginViewModelTests
 {
     private readonly IAuthService _auth = Substitute.For<IAuthService>();
     private readonly IPostLoginNavigationService _postLoginNav = Substitute.For<IPostLoginNavigationService>();
+    private readonly IApiService _api = Substitute.For<IApiService>();
 
     public LoginViewModelTests()
     {
@@ -35,7 +36,55 @@ public class LoginViewModelTests
     }
 
     private LoginViewModel CreateViewModel(IServerSettingsService? serverSettings = null) =>
-        new(_auth, serverSettings ?? CreateServerSettings("https://default.com", isConfigured: true), _postLoginNav);
+        new(_auth, serverSettings ?? CreateServerSettings("https://default.com", isConfigured: true), _postLoginNav, _api);
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task Registration_VisibleOnlyWhenServerAllowsIt(bool allowed, bool expected)
+    {
+        _api.GetSetupStatusAsync().Returns(new SetupStatusDto { IsInitialized = true, RegistrationAllowed = allowed });
+        var vm = CreateViewModel();
+
+        await vm.LoadRegistrationAllowedAsync();
+
+        Assert.Equal(expected, vm.IsRegistrationAllowed);
+    }
+
+    [Fact]
+    public async Task Registration_HiddenWhenStatusFetchFails()
+    {
+        _api.GetSetupStatusAsync().Returns(new SetupStatusDto { RegistrationAllowed = true });
+        var vm = CreateViewModel();
+        await vm.LoadRegistrationAllowedAsync();
+        _api.GetSetupStatusAsync().ThrowsAsync(new ApiException(System.Net.HttpStatusCode.ServiceUnavailable, "offline"));
+
+        await vm.LoadRegistrationAllowedAsync();
+
+        Assert.False(vm.IsRegistrationAllowed);
+    }
+
+    [Fact]
+    public async Task Registration_HiddenWhenStatusIsEmpty()
+    {
+        _api.GetSetupStatusAsync().Returns((SetupStatusDto?)null);
+        var vm = CreateViewModel();
+
+        await vm.LoadRegistrationAllowedAsync();
+
+        Assert.False(vm.IsRegistrationAllowed);
+    }
+
+    [Fact]
+    public async Task Registration_HiddenWithoutServer_NoRequest()
+    {
+        var vm = CreateViewModel(CreateServerSettings("", isConfigured: false));
+
+        await vm.LoadRegistrationAllowedAsync();
+
+        Assert.False(vm.IsRegistrationAllowed);
+        await _api.DidNotReceive().GetSetupStatusAsync();
+    }
 
     [Fact]
     public async Task RestoreSession_ShowsFormAfterwards()

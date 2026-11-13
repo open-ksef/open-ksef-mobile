@@ -21,6 +21,7 @@ public partial class LoginPage : ContentPage
         if (BindingContext is LoginViewModel vm)
         {
             vm.RefreshServerSettings();
+            _ = vm.LoadRegistrationAllowedAsync();
             _ = vm.RestoreSessionAsync();
         }
     }

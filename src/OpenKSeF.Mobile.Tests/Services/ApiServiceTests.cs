@@ -143,6 +143,30 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task GetSetupStatus_AnonymousRequest_ReadsRegistrationAllowed()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, "{\"isInitialized\":true,\"registrationAllowed\":false}");
+
+        var status = await CreateService().GetSetupStatusAsync();
+
+        Assert.False(status!.RegistrationAllowed);
+        Assert.True(status.IsInitialized);
+        Assert.EndsWith("/api/system/setup-status", _handler.Requests[0].Uri);
+        Assert.Null(_handler.Requests[0].Authorization);
+        await _auth.DidNotReceive().GetAccessTokenAsync();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task GetSetupStatus_ErrorStatus_Throws(HttpStatusCode status)
+    {
+        _handler.Respond(status);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => CreateService().GetSetupStatusAsync());
+    }
+
+    [Fact]
     public async Task Unauthorized_AfterRetry_ThrowsTokenRejected()
     {
         _auth.RefreshAccessTokenAsync().Returns("refreshed-token");

@@ -73,6 +73,7 @@
 
                 <Button Text="Załóż konto"
                         AutomationId="LoginPageButtonRegister"
+                        IsVisible="{Binding IsRegistrationAllowed}"
                         Command="{Binding RegisterCommand}"
                         Style="{StaticResource ButtonOutline}"
                         HorizontalOptions="Fill"

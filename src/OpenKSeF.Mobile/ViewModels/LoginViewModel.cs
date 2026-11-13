@@ -9,6 +9,7 @@ public partial class LoginViewModel : ObservableObject
     private readonly IAuthService _authService;
     private readonly IServerSettingsService _serverSettings;
     private readonly IPostLoginNavigationService _postLoginNav;
+    private readonly IApiService _api;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -25,17 +26,21 @@ public partial class LoginViewModel : ObservableObject
     [ObservableProperty]
     private bool _isServerVisible;
 
+    [ObservableProperty]
+    private bool _isRegistrationAllowed;
+
     public string ActiveServerHost => ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
 
     public bool HasActiveServerHost => ActiveServerHost.Length > 0;
 
     public string LoginButtonText => IsBusy ? "Logowanie..." : "Zaloguj się";
 
-    public LoginViewModel(IAuthService authService, IServerSettingsService serverSettings, IPostLoginNavigationService postLoginNav)
+    public LoginViewModel(IAuthService authService, IServerSettingsService serverSettings, IPostLoginNavigationService postLoginNav, IApiService api)
     {
         _authService = authService;
         _serverSettings = serverSettings;
         _postLoginNav = postLoginNav;
+        _api = api;
         _serverUrl = serverSettings.ServerUrl;
         _isServerVisible = !serverSettings.IsConfigured;
     }
@@ -46,6 +51,23 @@ public partial class LoginViewModel : ObservableObject
         IsServerVisible = !_serverSettings.IsConfigured;
         OnPropertyChanged(nameof(ActiveServerHost));
         OnPropertyChanged(nameof(HasActiveServerHost));
+    }
+
+    public async Task LoadRegistrationAllowedAsync()
+    {
+        var serverUrl = _serverSettings.ServerUrl;
+        bool allowed;
+        try
+        {
+            allowed = serverUrl.Length > 0 && (await _api.GetSetupStatusAsync())?.RegistrationAllowed == true;
+        }
+        catch
+        {
+            allowed = false;
+        }
+
+        if (serverUrl == _serverSettings.ServerUrl)
+            IsRegistrationAllowed = allowed;
     }
 
     public async Task RestoreSessionAsync()
@@ -131,10 +153,11 @@ public partial class LoginViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SaveServer()
+    private async Task SaveServerAsync()
     {
         ErrorMessage = null;
-        EnsureServerConfigured();
+        if (EnsureServerConfigured())
+            await LoadRegistrationAllowedAsync();
     }
 
     [RelayCommand]

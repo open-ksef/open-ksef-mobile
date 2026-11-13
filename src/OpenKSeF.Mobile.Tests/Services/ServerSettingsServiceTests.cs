@@ -32,7 +32,7 @@ public class ServerSettingsServiceTests
         settings,
         new HttpClient(_handler));
 
-    private LoginViewModel CreateLoginViewModel(IAuthService auth, IServerSettingsService settings) => new(auth, settings, _postLoginNav);
+    private LoginViewModel CreateLoginViewModel(IAuthService auth, IServerSettingsService settings) => new(auth, settings, _postLoginNav, Substitute.For<IApiService>());
 
     private static Task RunAsync(LoginViewModel vm, string action) => action switch
     {
@@ -153,7 +153,7 @@ public class ServerSettingsServiceTests
 
         await new ScanSetupQrViewModel(settings, _postLoginNav).SkipCommand.ExecuteAsync(null);
 
-        Assert.True(new LoginViewModel(Substitute.For<IAuthService>(), settings, _postLoginNav).IsServerVisible);
+        Assert.True(new LoginViewModel(Substitute.For<IAuthService>(), settings, _postLoginNav, Substitute.For<IApiService>()).IsServerVisible);
     }
 
     private (LoginViewModel Vm, ServerSettingsService Settings) StoredServerLogin()
