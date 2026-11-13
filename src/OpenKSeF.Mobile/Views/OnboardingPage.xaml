@@ -99,6 +99,9 @@
                         </Label>
                         <Entry Text="{Binding NotificationEmail}" Placeholder="faktury@firma.pl" Keyboard="Email"
                                AutomationId="OnboardingEntryNotificationEmail" />
+                        <Label Text="E-mail wysyłamy tylko wtedy, gdy administrator serwera skonfigurował pocztę."
+                               AutomationId="OnboardingLabelNotificationEmailHint"
+                               Style="{StaticResource LabelCaption}" />
                     </VerticalStackLayout>
 
                     <Button Text="Dalej" AutomationId="OnboardingButtonNext"
