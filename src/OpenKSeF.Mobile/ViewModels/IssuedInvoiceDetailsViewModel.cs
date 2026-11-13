@@ -285,7 +285,8 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         try
         {
             var copy = await _apiService.CopyIssuedInvoiceAsync(tenantId, Invoice!.Id);
-            try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); } catch { }
+            try { await Shell.Current.GoToAsync($"../invoiceDraft?tenantId={tenantId}&invoiceId={copy.Id}"); }
+            catch { await Shell.Current.DisplayAlertAsync("Szkic utworzony", InvoiceDraftViewModel.CheckIssuedList, "OK"); }
         }
         catch (ApiException ex) when (!ApiException.IsNetworkFailure(ex) && ex.StatusCode is not (>= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices))
         {

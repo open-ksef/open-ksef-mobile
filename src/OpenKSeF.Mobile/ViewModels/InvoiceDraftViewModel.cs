@@ -480,9 +480,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
         {
+            _sent = ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices };
             if (IsShown)
                 try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}"); }
-                catch { await ShowErrorAsync(ex is ApiException { StatusCode: < HttpStatusCode.MultipleChoices } ? ex.Message : NoConnection); }
+                catch { await (_sent ? ShowSentAsync() : ShowErrorAsync(NoConnection)); }
             else
                 _routeOnReturn = $"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={saved.Id}";
         }

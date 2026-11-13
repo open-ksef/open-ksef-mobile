@@ -2509,6 +2509,56 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Draft_IssueOkButUnreadable_NavigationFails_SaysSent_AndNeverSendsAgain()
+    {
+        var vm = Draft(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).ThrowsAsync(new ApiException(HttpStatusCode.OK, UnreadableText));
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.GoToFailure = new InvalidOperationException("nav");
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(("Faktura wysłana", SentText), Shell.Current.Alerts[^1]);
+        Assert.Equal(SentText, vm.ErrorMessage);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+        await vm.SaveDraftCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>());
+        await _api.Received(1).CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>());
+        await _api.DidNotReceiveWithAnyArgs().UpdateIssuedInvoiceAsync(default, default, default!, default);
+    }
+
+    [Fact]
+    public async Task Draft_IssueNetworkFailure_NavigationFails_ShowsNoConnection()
+    {
+        var vm = Draft(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>()).ThrowsAsync(new HttpRequestException("no route to host"));
+        await vm.LoadCommand.ExecuteAsync(null);
+        Shell.Current.GoToFailure = new InvalidOperationException("nav");
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Błąd", Shell.Current.Alerts[^1].Title);
+        Assert.StartsWith("Brak połączenia z serwerem", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Details_CopyOk_NavigationFails_SaysDraftCreated()
+    {
+        var vm = await DetailsOf(Invoice("Rejected"));
+        var copy = Invoice();
+        copy.Id = Guid.NewGuid();
+        _api.CopyIssuedInvoiceAsync(TenantId, InvoiceId).Returns(copy);
+        Shell.Current.GoToFailure = new InvalidOperationException("nav");
+
+        await vm.CopyAsNewCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Szkic utworzony", CheckIssuedList)], Shell.Current.Alerts);
+        await _api.Received(1).CopyIssuedInvoiceAsync(TenantId, InvoiceId);
+    }
+
+    [Fact]
     public async Task Draft_CopyFailsWithRawText_ShowsFixedText()
     {
         var vm = Draft(Profile());
