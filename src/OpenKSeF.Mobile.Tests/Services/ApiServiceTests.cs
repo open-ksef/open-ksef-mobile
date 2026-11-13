@@ -39,6 +39,20 @@ public class ApiServiceTests
     }
 
     [Theory]
+    [InlineData("""{"userId":"u1","email":"jan@example.com","name":null}""", "jan@example.com")]
+    [InlineData("""{"userId":"u1","email":null,"name":null}""", null)]
+    [InlineData("""{"userId":"u1"}""", "")]
+    public async Task GetMe_EmailPresentNullOrAbsent_MapsUser(string json, string? email)
+    {
+        _handler.RespondJson(HttpStatusCode.OK, json);
+
+        var me = await CreateService().GetMeAsync();
+
+        Assert.Equal("u1", me.UserId);
+        Assert.Equal(email, me.Email);
+    }
+
+    [Theory]
     [InlineData(",\"qrMessage\":null", true)]
     [InlineData(",\"qrMessage\":\"x\"", true)]
     [InlineData("", false)]

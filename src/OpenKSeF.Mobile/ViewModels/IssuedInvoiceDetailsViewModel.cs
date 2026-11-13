@@ -24,6 +24,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
 
     private CancellationTokenSource? _polling;
     private bool _loadFailedOnNetwork;
+    private bool _loadUnauthorized;
 
     internal Func<TimeSpan, CancellationToken, Task> Delay { get; set; } = Task.Delay;
     internal TimeSpan PdfTimeout { get; set; } = TimeSpan.FromSeconds(60);
@@ -139,7 +140,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     {
         await LoadAsync();
         var waited = TimeSpan.Zero;
-        while (!ct.IsCancellationRequested && (IsSending || _loadFailedOnNetwork))
+        while (!ct.IsCancellationRequested && !_loadUnauthorized && (IsSending || _loadFailedOnNetwork))
         {
             var step = waited < FastPollWindow ? FastPoll : SlowPoll;
             try { await Delay(step, ct); } catch (OperationCanceledException) { return; }
@@ -160,10 +161,18 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
             Invoice = await _apiService.GetIssuedInvoiceAsync(tenantId, invoiceId);
             ErrorMessage = null;
             _loadFailedOnNetwork = false;
+            _loadUnauthorized = false;
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            _loadFailedOnNetwork = false;
+            _loadUnauthorized = true;
+            ErrorMessage = Invoice is null ? $"Nie udało się załadować faktury: {ex.Message}" : ex.Message;
         }
         catch (Exception ex)
         {
             _loadFailedOnNetwork = ApiException.IsNetworkFailure(ex);
+            _loadUnauthorized = false;
             if (Invoice is null)
                 ErrorMessage = _loadFailedOnNetwork ? NoConnection : $"Nie udało się załadować faktury: {ex.Message}";
         }
