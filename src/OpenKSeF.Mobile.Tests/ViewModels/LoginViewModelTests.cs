@@ -125,6 +125,35 @@ public class LoginViewModelTests
         Assert.False(vm.IsBusy);
     }
 
+    [Theory]
+    [InlineData(AuthResult.AccountNotSetUp, "Konto wymaga dokończenia konfiguracji. Potwierdź adres e-mail linkiem z wiadomości albo zaloguj się raz w portalu i wykonaj wskazane kroki, potem zaloguj się ponownie.", false)]
+    [InlineData(AuthResult.AccountDisabled, "Konto jest wyłączone. Skontaktuj się z administratorem serwera.", false)]
+    [InlineData(AuthResult.ClientRejected, "Serwer ksef.example.com odrzucił aplikację mobilną. Skontaktuj się z administratorem serwera.", true)]
+    public async Task LoginWithCredentials_AccountOrClientRefused_ShowsSpecificMessage(AuthResult result, string expected, bool serverVisible)
+    {
+        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(result);
+        var vm = CreateViewModel(CreateServerSettings("https://ksef.example.com", isConfigured: true));
+        vm.Email = "user@example.com";
+        vm.Password = "secret";
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Equal(expected, vm.ErrorMessage);
+        Assert.Equal(serverVisible, vm.IsServerVisible);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
+    }
+
+    [Fact]
+    public async Task LoginWithGoogle_HttpServer_SaysHttpsRequired()
+    {
+        _auth.LoginWithGoogleAsync().Returns(AuthResult.GoogleRequiresHttps);
+        var vm = CreateViewModel(CreateServerSettings("http://10.0.2.2:8080", isConfigured: true));
+
+        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.Equal("Logowanie przez Google wymaga serwera z adresem https://. Zaloguj się emailem i hasłem.", vm.ErrorMessage);
+    }
+
     [Fact]
     public async Task LoginWithCredentials_EmptyFields_DoesNotCallAuth()
     {

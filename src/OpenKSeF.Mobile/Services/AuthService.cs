@@ -87,7 +87,17 @@ public class AuthService : IAuthService
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                return error?.Error == "invalid_grant" ? AuthResult.Rejected : AuthResult.ServerUnreachable;
+                return error?.Error switch
+                {
+                    "invalid_grant" => error.Description switch
+                    {
+                        "Account is not fully set up" => AuthResult.AccountNotSetUp,
+                        "Account disabled" => AuthResult.AccountDisabled,
+                        _ => AuthResult.Rejected
+                    },
+                    not null when response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized => AuthResult.ClientRejected,
+                    _ => AuthResult.ServerUnreachable
+                };
             }
 
             tokenResponse = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>();
@@ -113,6 +123,9 @@ public class AuthService : IAuthService
     public async Task<AuthResult> LoginWithGoogleAsync()
     {
         EnsureConfiguration();
+
+        if (new Uri(_authority).Scheme == Uri.UriSchemeHttp)
+            return AuthResult.GoogleRequiresHttps;
 
         LoginResult result;
         try
@@ -186,6 +199,9 @@ public class AuthService : IAuthService
         {
             login = AuthResult.Rejected;
         }
+
+        if (login == AuthResult.AccountNotSetUp)
+            throw new InvalidOperationException("Konto zostało utworzone. Potwierdź adres e-mail linkiem z wiadomości, potem zaloguj się.");
 
         if (login != AuthResult.Success)
             throw new InvalidOperationException("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.");
@@ -550,5 +566,8 @@ public class AuthService : IAuthService
     {
         [JsonPropertyName("error")]
         public string? Error { get; set; }
+
+        [JsonPropertyName("error_description")]
+        public string? Description { get; set; }
     }
 }

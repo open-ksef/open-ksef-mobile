@@ -11,7 +11,11 @@ public enum AuthResult
 {
     Rejected,
     Success,
-    ServerUnreachable
+    ServerUnreachable,
+    AccountNotSetUp,
+    AccountDisabled,
+    ClientRejected,
+    GoogleRequiresHttps
 }
 
 public interface IAuthService

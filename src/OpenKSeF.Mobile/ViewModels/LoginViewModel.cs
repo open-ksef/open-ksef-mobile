@@ -149,6 +149,12 @@ public partial class LoginViewModel : ObservableObject
                 await _postLoginNav.NavigateAsync();
             else if (result == AuthResult.ServerUnreachable)
                 ShowServerUnreachable();
+            else if (result == AuthResult.ClientRejected)
+                ShowClientRejected();
+            else if (result == AuthResult.AccountNotSetUp)
+                ErrorMessage = "Konto wymaga dokończenia konfiguracji. Potwierdź adres e-mail linkiem z wiadomości albo zaloguj się raz w portalu i wykonaj wskazane kroki, potem zaloguj się ponownie.";
+            else if (result == AuthResult.AccountDisabled)
+                ErrorMessage = "Konto jest wyłączone. Skontaktuj się z administratorem serwera.";
             else
                 ErrorMessage = "Nieprawidłowy email lub hasło.";
         }
@@ -181,6 +187,8 @@ public partial class LoginViewModel : ObservableObject
                 await _postLoginNav.NavigateAsync();
             else if (result == AuthResult.ServerUnreachable)
                 ShowServerUnreachable();
+            else if (result == AuthResult.GoogleRequiresHttps)
+                ErrorMessage = "Logowanie przez Google wymaga serwera z adresem https://. Zaloguj się emailem i hasłem.";
             else
                 ErrorMessage = "Logowanie przez Google nie powiodło się.";
         }
@@ -277,6 +285,12 @@ public partial class LoginViewModel : ObservableObject
     private void ShowServerUnreachable()
     {
         ErrorMessage = $"Nie można połączyć się z serwerem {ActiveServerHost}. Sprawdź adres serwera i połączenie z siecią.";
+        IsServerVisible = true;
+    }
+
+    private void ShowClientRejected()
+    {
+        ErrorMessage = $"Serwer {ActiveServerHost} odrzucił aplikację mobilną. Skontaktuj się z administratorem serwera.";
         IsServerVisible = true;
     }
 
