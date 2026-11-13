@@ -36,15 +36,15 @@ public static class ServerUrlRules
 
         if (!string.IsNullOrEmpty(uri.UserInfo))
         {
-            validationError = "Adres serwera nie moze zawierac nazwy uzytkownika ani hasla.";
+            validationError = "Adres serwera nie może zawierać nazwy użytkownika ani hasła.";
             return false;
         }
 
         if (uri.Scheme == "http" && !(allowDevCleartext && CleartextDevHosts.Contains(uri.Host)))
         {
             validationError = allowDevCleartext
-                ? "Polaczenie HTTP dozwolone tylko dla localhost / 10.0.2.2. Uzyj HTTPS."
-                : "Wymagane jest polaczenie HTTPS.";
+                ? "Połączenie HTTP dozwolone tylko dla localhost / 10.0.2.2. Użyj HTTPS."
+                : "Wymagane jest połączenie HTTPS.";
             return false;
         }
 

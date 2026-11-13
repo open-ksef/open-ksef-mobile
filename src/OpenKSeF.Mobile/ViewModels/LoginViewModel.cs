@@ -55,6 +55,8 @@ public partial class LoginViewModel : ObservableObject
 
     public string ActiveServerHost => ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
 
+    public bool HasActiveServerHost => ActiveServerHost.Length > 0;
+
     public string LoginButtonText => IsBusy ? "Logowanie..." : "Zaloguj się";
     public string RegisterButtonText => IsBusy ? "Tworzenie konta..." : "Utwórz konto";
     public string SwitchPromptText => IsLoginMode ? "Nie masz konta?" : "Masz już konto?";
@@ -77,6 +79,7 @@ public partial class LoginViewModel : ObservableObject
         ServerUrl = _serverSettings.ServerUrl;
         IsServerVisible = !_serverSettings.IsConfigured;
         OnPropertyChanged(nameof(ActiveServerHost));
+        OnPropertyChanged(nameof(HasActiveServerHost));
     }
 
     public async Task RestoreSessionAsync()
@@ -288,6 +291,7 @@ public partial class LoginViewModel : ObservableObject
 
         ServerUrl = normalizedUrl;
         OnPropertyChanged(nameof(ActiveServerHost));
+        OnPropertyChanged(nameof(HasActiveServerHost));
         return true;
     }
 }

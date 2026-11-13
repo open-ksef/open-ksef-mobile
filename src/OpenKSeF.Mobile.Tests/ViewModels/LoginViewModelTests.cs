@@ -59,6 +59,14 @@ public class LoginViewModelTests
         Assert.Equal(expected, CreateViewModel(CreateServerSettings(url, isConfigured: true)).ActiveServerHost);
     }
 
+    [Theory]
+    [InlineData("", false, false)]
+    [InlineData("https://ksef.example.com", true, true)]
+    public void HasActiveServerHost_HiddenOnFreshInstall(string url, bool isConfigured, bool expected)
+    {
+        Assert.Equal(expected, CreateViewModel(CreateServerSettings(url, isConfigured)).HasActiveServerHost);
+    }
+
     [Fact]
     public void Constructor_InitializesFromServerSettings()
     {

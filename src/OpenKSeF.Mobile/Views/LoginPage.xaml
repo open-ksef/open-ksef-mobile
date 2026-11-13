@@ -193,6 +193,7 @@
                                TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
                                VerticalOptions="Center"
                                LineBreakMode="MiddleTruncation"
+                               IsVisible="{Binding HasActiveServerHost}"
                                AutomationId="LoginPageLabelServerHost">
                             <Label.FormattedText>
                                 <FormattedString>
