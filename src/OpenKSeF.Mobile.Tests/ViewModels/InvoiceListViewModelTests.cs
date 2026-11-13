@@ -596,4 +596,54 @@ public class InvoiceListViewModelTests : IDisposable
         Assert.Equal(["Page 1", "Page 2"], (await db.GetInvoicesAsync(tenantId, false)).Select(i => i.VendorName).Order());
         Assert.Equal(3, (await db.GetInvoicesAsync(tenantId)).Count);
     }
+
+    [Fact]
+    public async Task UnpaidFilter_AllPagesOnlineThenOffline_HidesPaidElsewhereFromUnpaid_KeepsItInAll()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        var firstPage = Due("Page 1", null);
+        var secondPage = Due("Page 2", null);
+        var paidElsewhere = Due("Paid elsewhere", null);
+        await db.SaveInvoicesAsync(tenantId, [firstPage, secondPage, paidElsewhere]);
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(
+            _ => Task.FromResult(new PagedResult<InvoiceDto> { Items = [firstPage], PageSize = 1, TotalCount = 2 }),
+            _ => throw new HttpRequestException("offline"));
+        _api.GetInvoicesAsync(tenantId, 2, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [secondPage], PageSize = 1, TotalCount = 2 });
+        _api.GetInvoicesAsync(tenantId, 1, 20, null).Throws(new HttpRequestException("offline"));
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 1);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsOfflineMode);
+        Assert.Equal(["Page 1", "Page 2"], vm.Invoices.Select(i => i.VendorName).Order());
+
+        vm.SelectedFilter = "";
+        await Until(() => !vm.IsBusy && vm.Invoices.Count == 3);
+        Assert.True(vm.IsOfflineMode);
+        Assert.Contains(vm.Invoices, i => i.VendorName == "Paid elsewhere" && i.IsPaid);
+    }
+
+    [Fact]
+    public async Task UnpaidFilter_CompleteListing_LeavesOtherTenantCacheUnpaid()
+    {
+        var activeTenant = Guid.NewGuid();
+        var otherTenant = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", activeTenant.ToString());
+        var db = new LocalDbService();
+        await db.SaveInvoicesAsync(activeTenant, [Due("Active paid elsewhere", null)]);
+        await db.SaveInvoicesAsync(otherTenant, [Due("Other unpaid", null)]);
+        _api.GetInvoicesAsync(activeTenant, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [], PageSize = 20, TotalCount = 0 });
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.IsEmpty);
+
+        Assert.Empty(await db.GetInvoicesAsync(activeTenant, false));
+        Assert.Equal(["Other unpaid"], (await db.GetInvoicesAsync(otherTenant, false)).Select(i => i.VendorName));
+    }
 }
