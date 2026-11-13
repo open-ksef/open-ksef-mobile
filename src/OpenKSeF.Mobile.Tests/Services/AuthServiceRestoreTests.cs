@@ -395,6 +395,37 @@ public class AuthServiceRestoreTests
         Assert.Null(await _auth.GetAccessTokenAsync());
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""")]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""")]
+    public async Task IssuedInvoiceDetails_PermanentUnauthorized_AtMostOneRefreshPerScreenOpen(HttpStatusCode refreshStatus, string refreshBody)
+    {
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":300}"""));
+        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        _handler.Requests.Clear();
+        var invoiceId = Guid.NewGuid();
+        var apiCalls = 0;
+        _handler.Respond = request => Task.FromResult(IsTokenRequest(request)
+            ? Json(refreshStatus, refreshBody)
+            : ++apiCalls == 1
+                ? Json(HttpStatusCode.OK, $$"""{"id":"{{invoiceId}}","status":"Sending"}""")
+                : Json(HttpStatusCode.Unauthorized, string.Empty));
+        var vm = new IssuedInvoiceDetailsViewModel(CreateApi(), _settings)
+        {
+            TenantId = Guid.NewGuid().ToString(),
+            InvoiceId = invoiceId.ToString(),
+            Delay = (_, _) => Task.CompletedTask
+        };
+        using var closed = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        await vm.RunAsync(closed.Token);
+
+        Assert.False(closed.IsCancellationRequested);
+        Assert.Single(_handler.Requests, IsTokenRequest);
+        Assert.NotNull(vm.ErrorMessage);
+        Assert.Equal(invoiceId, vm.Invoice!.Id);
+    }
+
     [Fact]
     public async Task ServerRevokedAccessToken_LocallyValid_ApiCallRefreshesSilently()
     {
