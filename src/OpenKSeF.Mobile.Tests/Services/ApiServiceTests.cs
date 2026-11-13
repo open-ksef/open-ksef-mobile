@@ -41,7 +41,7 @@ public class ApiServiceTests
     [Theory]
     [InlineData("""{"userId":"u1","email":"jan@example.com","name":null}""", "jan@example.com")]
     [InlineData("""{"userId":"u1","email":null,"name":null}""", null)]
-    [InlineData("""{"userId":"u1"}""", "")]
+    [InlineData("""{"userId":"u1"}""", null)]
     public async Task GetMe_EmailPresentNullOrAbsent_MapsUser(string json, string? email)
     {
         _handler.RespondJson(HttpStatusCode.OK, json);

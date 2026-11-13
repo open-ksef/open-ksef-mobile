@@ -26,6 +26,7 @@ public class AuthServiceRestoreTests
     private readonly AuthService _auth;
     private readonly IServerSettingsService _settings = Substitute.For<IServerSettingsService>();
     private readonly OidcBrowser _browser = Substitute.For<OidcBrowser>();
+    private readonly ManualClock _clock = new();
 
     public AuthServiceRestoreTests()
     {
@@ -39,7 +40,16 @@ public class AuthServiceRestoreTests
             new AuthOptions { ClientId = "openksef-mobile", RedirectUri = "openksef://auth/callback", PostLogoutRedirectUri = "openksef://auth/logout" },
             _browser,
             _settings,
-            new HttpClient(_handler));
+            new HttpClient(_handler)) { Clock = _clock };
+    }
+
+    private sealed class ManualClock : TimeProvider
+    {
+        private DateTimeOffset _now = DateTimeOffset.UtcNow;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void Advance(TimeSpan by) => _now += by;
     }
 
     private async Task LoginAsync()
@@ -218,9 +228,52 @@ public class AuthServiceRestoreTests
         Assert.All(tokens, token => Assert.Equal("old", token));
         Assert.Single(_handler.Requests);
 
+        _clock.Advance(AuthService.RefreshRetryDelay);
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}"""));
         Assert.Equal("a2", await _auth.GetAccessTokenAsync().WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Equal(2, _handler.Requests.Count);
+    }
+
+    [Theory]
+    [MemberData(nameof(ServerProblems))]
+    public async Task RefreshKeepsFailing_AtMostOnePostPerRetryDelay_StillValidTokenServed(Func<HttpRequestMessage, Task<HttpResponseMessage>> problem)
+    {
+        await LoginExpiringAsync();
+        _handler.Respond = problem;
+
+        for (var i = 0; i < 5; i++)
+            Assert.Equal("old", await _auth.GetAccessTokenAsync());
+        Assert.Null(await _auth.RefreshAccessTokenAsync());
+        Assert.Single(_handler.Requests);
+
+        _clock.Advance(AuthService.RefreshRetryDelay - TimeSpan.FromSeconds(1));
+        Assert.Equal("old", await _auth.GetAccessTokenAsync());
+        Assert.Single(_handler.Requests);
+
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal("old", await _auth.GetAccessTokenAsync());
+        Assert.Equal(2, _handler.Requests.Count);
+
+        _clock.Advance(AuthService.RefreshRetryDelay);
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}"""));
+        Assert.Equal("a2", await _auth.GetAccessTokenAsync());
+        Assert.Equal(3, _handler.Requests.Count);
+    }
+
+    [Fact]
+    public async Task RefreshFailing_NewLogin_RefreshesWithoutWaiting()
+    {
+        await LoginExpiringAsync();
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.BadGateway, "{}"));
+        Assert.Equal("old", await _auth.GetAccessTokenAsync());
+
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"b1","refresh_token":"rb","expires_in":30}"""));
+        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("c@d.pl", "x"));
+        _handler.Requests.Clear();
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"b2","refresh_token":"rb2","expires_in":300}"""));
+
+        Assert.Equal("b2", await _auth.GetAccessTokenAsync());
+        Assert.Single(_handler.Requests);
     }
 
     [Fact]
@@ -572,6 +625,7 @@ public class AuthServiceRestoreTests
         Assert.Equal(0, ended);
         Assert.Equal(stored, SecureStorage.Default.Count);
 
+        _clock.Advance(AuthService.RefreshRetryDelay);
         _handler.Respond = request => Task.FromResult(IsTokenRequest(request)
             ? Json(HttpStatusCode.OK, """{"access_token":"a2","refresh_token":"r2","expires_in":300}""")
             : request.Headers.Authorization?.Parameter == "a2"

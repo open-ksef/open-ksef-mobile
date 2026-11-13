@@ -15,14 +15,15 @@ public class NotificationHubServiceTests
     public async Task StopOutlivingSignOutWait_DoesNotDisposeNextLoginConnection()
     {
         var hungToken = new TaskCompletionSource<string?>();
+        var tokenAsked = new TaskCompletionSource();
         var auth = Substitute.For<IAuthService>();
-        auth.GetAccessTokenAsync().Returns(hungToken.Task, Task.FromResult<string?>(null));
+        auth.GetAccessTokenAsync().Returns(_ => { tokenAsked.TrySetResult(); return hungToken.Task; }, _ => Task.FromResult<string?>(null));
         var settings = Substitute.For<IServerSettingsService>();
         settings.ServerUrl.Returns("http://127.0.0.1:1");
         var hub = new NotificationHubService(auth, settings, Substitute.For<IDeviceTokenService>(), NullLogger<NotificationHubService>.Instance);
 
         var firstStart = hub.StartAsync();
-        await Task.Delay(200);
+        await tokenAsked.Task.WaitAsync(TimeSpan.FromSeconds(10));
         var first = (HubConnection)ConnectionField.GetValue(hub)!;
 
         var hungStop = hub.StopAsync();
