@@ -15,9 +15,7 @@ public class PlatformHardeningTests
         var html = Read("Resources/Raw/pdf/index.html");
 
         var csp = Regex.Match(html, @"<meta http-equiv=""Content-Security-Policy"" content=""([^""]+)""").Groups[1].Value;
-        Assert.Contains("default-src 'none'", csp);
-        Assert.Contains("script-src 'self';", csp);
-        Assert.Contains("connect-src 'self';", csp);
+        Assert.Equal(["default-src 'none'", "script-src 'self'", "connect-src 'self'"], csp.Split(';', StringSplitOptions.TrimEntries));
         Assert.Empty(Regex.Matches(html, @"<script(?![^>]*\ssrc=)[^>]*>"));
         Assert.True(File.Exists(Path.Combine(AppDir, "Resources/Raw/pdf/index.js")));
     }
