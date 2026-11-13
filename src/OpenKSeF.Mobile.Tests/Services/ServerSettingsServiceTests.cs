@@ -183,7 +183,6 @@ public class ServerSettingsServiceTests
         _ => Task.FromResult(Response(HttpStatusCode.NotFound, "<html>404</html>", "text/html")),
         _ => Task.FromResult(Response(HttpStatusCode.BadGateway, "<html>502</html>", "text/html")),
         _ => Task.FromResult(Response(HttpStatusCode.Unauthorized, "<html>proxy</html>", "text/html")),
-        _ => Task.FromResult(Response(HttpStatusCode.BadRequest, """{"error":"unauthorized_client"}""")),
         _ => Task.FromResult(Response(HttpStatusCode.OK, "<html>portal</html>", "text/html")),
         _ => Task.FromResult(Response(HttpStatusCode.OK, "{}")),
     };

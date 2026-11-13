@@ -951,10 +951,10 @@ public class AuthServiceRestoreTests
 
     private const string TestAuthority = "https://ksef.example.com/auth/realms/openksef";
 
-    private void UseOidcClient(ProviderInformation? providerInformation) =>
+    private void UseOidcClient(ProviderInformation? providerInformation, string authority = TestAuthority) =>
         typeof(AuthService).GetField("_oidcClient", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_auth, new OidcClient(new OidcClientOptions
         {
-            Authority = TestAuthority,
+            Authority = authority,
             ClientId = "openksef-mobile",
             Scope = "openid",
             RedirectUri = "openksef://auth/callback",
@@ -991,6 +991,52 @@ public class AuthServiceRestoreTests
         Assert.Equal(AuthResult.ServerUnreachable, await _auth.LoginWithGoogleAsync());
 
         Assert.False(_auth.HasSession);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_HttpServer_SaysHttpsRequired_SendsNothing()
+    {
+        const string httpAuthority = "http://10.0.2.2:8080/auth/realms/openksef";
+        _settings.Authority.Returns(httpAuthority);
+        _ = _auth.SessionGeneration;
+        UseOidcClient(null, httpAuthority);
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, $$"""{"issuer":"{{httpAuthority}}","authorization_endpoint":"{{httpAuthority}}/protocol/openid-connect/auth","token_endpoint":"{{httpAuthority}}/protocol/openid-connect/token","jwks_uri":"{{httpAuthority}}/protocol/openid-connect/certs"}"""));
+
+        Assert.Equal(AuthResult.GoogleRequiresHttps, await _auth.LoginWithGoogleAsync());
+
+        Assert.Empty(_handler.Requests);
+        await _browser.DidNotReceiveWithAnyArgs().InvokeAsync(default!, default);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account is not fully set up"}""", AuthResult.AccountNotSetUp)]
+    [InlineData(HttpStatusCode.Unauthorized, """{"error":"invalid_grant","error_description":"Invalid user credentials"}""", AuthResult.Rejected)]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account disabled"}""", AuthResult.AccountDisabled)]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""", AuthResult.Rejected)]
+    [InlineData(HttpStatusCode.Unauthorized, """{"error":"invalid_client","error_description":"Invalid client or Invalid client credentials"}""", AuthResult.ClientRejected)]
+    [InlineData(HttpStatusCode.BadRequest, """{"error":"unauthorized_client","error_description":"Client not allowed for direct access grants"}""", AuthResult.ClientRejected)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, """{"error":"temporarily_unavailable"}""", AuthResult.ServerUnreachable)]
+    [InlineData(HttpStatusCode.Unauthorized, "<html>proxy</html>", AuthResult.ServerUnreachable)]
+    public async Task PasswordLogin_KeycloakError_MapsToResult(HttpStatusCode status, string body, AuthResult expected)
+    {
+        _handler.Respond = _ => Task.FromResult(Json(status, body));
+
+        Assert.Equal(expected, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+
+        Assert.False(_auth.HasSession);
+        Assert.Equal(0, SecureStorage.Default.Count);
+    }
+
+    [Fact]
+    public async Task Register_LoginNeedsEmailVerification_SaysConfirmEmail()
+    {
+        _handler.Respond = request => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/api/account/register")
+            ? Json(HttpStatusCode.OK, "{}")
+            : Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account is not fully set up"}"""));
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.RegisterAsync("a@b.pl", "password1", null, null));
+
+        Assert.Equal("Konto zostało utworzone. Potwierdź adres e-mail linkiem z wiadomości, potem zaloguj się.", ex.Message);
     }
 
     [Fact]
