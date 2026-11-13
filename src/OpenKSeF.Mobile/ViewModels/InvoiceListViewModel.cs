@@ -115,7 +115,10 @@ public partial class InvoiceListViewModel : ObservableObject
 
             TenantNip = Preferences.Default.Get("SelectedTenantNip", string.Empty);
 
-            _loadedIsPaid = IsPaidFilter();
+            var isPaid = IsPaidFilter();
+            if (isPaid != _loadedIsPaid)
+                Invoices = [];
+            _loadedIsPaid = isPaid;
             try
             {
                 var result = await _apiService.GetInvoicesAsync(tenantId.Value, _currentPage, isPaid: _loadedIsPaid);

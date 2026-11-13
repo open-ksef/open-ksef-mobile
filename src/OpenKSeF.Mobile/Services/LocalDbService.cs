@@ -17,8 +17,14 @@ public class LocalDbService
 
         var dbPath = Path.Combine(FileSystem.AppDataDirectory, "openksef.db");
         _db = new SQLiteAsyncConnection(dbPath);
-        await _db.CreateTableAsync<CachedInvoice>();
+        await _db.RunInTransactionAsync(CreateSchema);
         await ClearExpiredCacheAsync();
+    }
+
+    public static void CreateSchema(SQLiteConnection db)
+    {
+        db.CreateTable<CachedInvoice>();
+        db.Execute("UPDATE CachedInvoice SET IsPaid = 0 WHERE IsPaid IS NULL");
     }
 
     public async Task<List<InvoiceDto>> GetInvoicesAsync(Guid tenantId, bool? isPaid = null)

@@ -515,4 +515,23 @@ public class InvoiceListViewModelTests : IDisposable
         Assert.Equal($"{IssuingFormat.Date(today.AddDays(-1))} po terminie", vm.Invoices[0].DueText);
         Assert.Equal("—", vm.Invoices[2].DueText);
     }
+
+    [Fact]
+    public async Task UnpaidFilter_FailedLoad_DoesNotKeepAllInvoicesUnderChip()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        await db.SaveInvoicesAsync(tenantId, [Due("Paid", null, isPaid: true)]);
+        _api.GetInvoicesAsync(tenantId, 1).Returns(new PagedResult<InvoiceDto> { Items = [Due("Paid", null, isPaid: true)], PageSize = 20, TotalCount = 1 });
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Throws(new HttpRequestException("offline"));
+        var vm = new InvoiceListViewModel(_api, db);
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+        Assert.Single(vm.Invoices);
+
+        vm.SelectedFilter = "unpaid";
+        await Until(() => !vm.IsBusy && vm.ErrorMessage is not null);
+
+        Assert.Empty(vm.Invoices);
+    }
 }

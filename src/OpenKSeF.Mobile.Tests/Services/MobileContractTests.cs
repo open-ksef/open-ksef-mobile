@@ -275,6 +275,62 @@ public class MobileContractTests
     }
 
     [Fact]
+    public void CachedInvoice_UpgradedFromPreDueDateSchema_OldRowsReadAsUnpaidAndMatchUnpaidFilter()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"contract-{Guid.NewGuid():N}.db");
+        var tenant = TenantId.ToString();
+        try
+        {
+            using (var db = new SQLiteConnection(path))
+            {
+                db.CreateTable<PreDueDateCachedInvoice>();
+                db.Insert(new PreDueDateCachedInvoice { Id = InvoiceId.ToString(), TenantId = tenant, VendorName = "Stary wpis", IssueDate = DateTime.UtcNow, FirstSeenAt = DateTime.UtcNow, CachedAt = DateTime.UtcNow });
+            }
+
+            using (var db = new SQLiteConnection(path))
+            {
+                LocalDbService.CreateSchema(db);
+                var old = db.Table<CachedInvoice>().Single().ToDto();
+                Assert.False(old.IsPaid);
+                Assert.Null(old.DueDate);
+                Assert.False(old.IsOverdue);
+
+                var paid = false;
+                var unpaid = db.Table<CachedInvoice>().Where(i => i.TenantId == tenant).Where(i => i.IsPaid == paid).ToList();
+                Assert.Single(unpaid);
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Table("CachedInvoice")]
+    private sealed class PreDueDateCachedInvoice
+    {
+        [PrimaryKey]
+        public string Id { get; set; } = string.Empty;
+        public string TenantId { get; set; } = string.Empty;
+        public string KSeFInvoiceNumber { get; set; } = string.Empty;
+        public string KSeFReferenceNumber { get; set; } = string.Empty;
+        public string? InvoiceNumber { get; set; }
+        public string VendorName { get; set; } = string.Empty;
+        public string VendorNip { get; set; } = string.Empty;
+        public string? BuyerName { get; set; }
+        public string? BuyerNip { get; set; }
+        public decimal AmountNet { get; set; }
+        public decimal AmountVat { get; set; }
+        public decimal AmountGross { get; set; }
+        public string Currency { get; set; } = "PLN";
+        public DateTime IssueDate { get; set; }
+        public DateTime? AcquisitionDate { get; set; }
+        public string? InvoiceType { get; set; }
+        public DateTime FirstSeenAt { get; set; }
+        public DateTime CachedAt { get; set; }
+    }
+
+    [Fact]
     public async Task InvoiceDetail_MapsHeaderAndLines()
     {
         var invoice = await Api(Detail).GetInvoiceDetailsAsync(TenantId, InvoiceId);
