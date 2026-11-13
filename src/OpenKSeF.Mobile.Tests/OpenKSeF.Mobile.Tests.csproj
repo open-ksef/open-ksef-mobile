@@ -48,6 +48,7 @@
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\IssuingFormat.cs" Link="Linked\ViewModels\IssuingFormat.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\LoginViewModel.cs" Link="Linked\ViewModels\LoginViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\OnboardingViewModel.cs" Link="Linked\ViewModels\OnboardingViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\PairingViewModel.cs" Link="Linked\ViewModels\PairingViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\QrCodeViewModel.cs" Link="Linked\ViewModels\QrCodeViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\ScanSetupQrViewModel.cs" Link="Linked\ViewModels\ScanSetupQrViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\SellerProfileViewModel.cs" Link="Linked\ViewModels\SellerProfileViewModel.cs" />

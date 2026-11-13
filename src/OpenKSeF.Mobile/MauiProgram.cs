@@ -48,6 +48,7 @@ public static class MauiProgram
         builder.Services.AddTransient<InvoiceDetailsViewModel>();
         builder.Services.AddTransient<QrCodeViewModel>();
         builder.Services.AddTransient<ScanSetupQrViewModel>();
+        builder.Services.AddTransient<PairingViewModel>();
         builder.Services.AddTransient<AccountViewModel>();
         builder.Services.AddTransient<SellerProfileViewModel>();
         builder.Services.AddTransient<IssuedInvoiceListViewModel>();
@@ -62,6 +63,7 @@ public static class MauiProgram
         builder.Services.AddTransient<InvoiceDetailsPage>();
         builder.Services.AddTransient<QrCodePage>();
         builder.Services.AddTransient<ScanSetupQrPage>();
+        builder.Services.AddTransient<PairingPage>();
         builder.Services.AddTransient<AccountPage>();
         builder.Services.AddTransient<SellerProfilePage>();
         builder.Services.AddTransient<IssuedInvoiceListPage>();

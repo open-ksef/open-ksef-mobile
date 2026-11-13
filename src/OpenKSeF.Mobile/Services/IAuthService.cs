@@ -12,17 +12,24 @@ public enum AuthResult
     Rejected,
     Success,
     ServerUnreachable,
-    AccountNotSetUp,
-    AccountDisabled,
     ClientRejected,
-    GoogleRequiresHttps
+    GoogleRequiresHttps,
+    Cancelled,
+    PairingNotSupported,
+    PairingDenied,
+    PairingExpired
 }
+
+public sealed record DevicePairing(string UserCode, DateTimeOffset ExpiresAt, string DeviceCode, string CodeVerifier, TimeSpan Interval);
 
 public interface IAuthService
 {
-    Task<AuthResult> LoginWithCredentialsAsync(string email, string password);
+    Task<AuthResult> LoginInBrowserAsync(bool register = false);
     Task<AuthResult> LoginWithGoogleAsync();
-    Task<AuthResult> RegisterAsync(string email, string password, string? firstName, string? lastName);
+    Task<(AuthResult Result, DevicePairing? Pairing)> StartPairingAsync(CancellationToken cancellationToken);
+
+    /// <summary>Polls the token endpoint until the portal approves, denies or the code expires; network and 5xx failures keep polling.</summary>
+    Task<AuthResult> CompletePairingAsync(DevicePairing pairing, CancellationToken cancellationToken);
     Task LogoutAsync();
 
     /// <summary>Signs out locally and keeps the refresh token only for the device cleanup; the Keycloak logout waits for <see cref="CompleteDeferredLogoutAsync"/>.</summary>

@@ -17,6 +17,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("tenantForm", typeof(TenantFormPage));
         Routing.RegisterRoute("qrCode", typeof(QrCodePage));
         Routing.RegisterRoute("scanSetupQr", typeof(ScanSetupQrPage));
+        Routing.RegisterRoute("pairing", typeof(PairingPage));
         Routing.RegisterRoute("sellerProfile", typeof(SellerProfilePage));
         Routing.RegisterRoute("invoiceDraft", typeof(InvoiceDraftPage));
         Routing.RegisterRoute("issuedInvoiceDetails", typeof(IssuedInvoiceDetailsPage));

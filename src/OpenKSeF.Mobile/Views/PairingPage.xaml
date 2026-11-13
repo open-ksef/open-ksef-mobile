@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.PairingPage"
+             x:DataType="vm:PairingViewModel"
+             Title="Parowanie"
+             Shell.NavBarIsVisible="False">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,40,20,30" Spacing="14">
+            <Label Text="Sparuj z portalem"
+                   AutomationId="PairingPageLabelTitle"
+                   FontSize="28"
+                   FontFamily="InterBold"
+                   HorizontalOptions="Center" />
+            <Label Text="Wpisz ten kod w portalu: Telefon → Paruj. Wpisuj go tylko we własnym portalu."
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalOptions="Center"
+                   HorizontalTextAlignment="Center" />
+
+            <Label Text="{Binding UserCode}"
+                   AutomationId="PairingPageLabelCode"
+                   IsVisible="{Binding UserCode, Converter={StaticResource IsNotNullConverter}}"
+                   FontSize="40"
+                   FontFamily="InterBold"
+                   CharacterSpacing="4"
+                   HorizontalOptions="Center"
+                   Margin="0,16,0,0" />
+
+            <Label Text="{Binding CountdownText}"
+                   AutomationId="PairingPageLabelCountdown"
+                   IsVisible="{Binding CountdownText, Converter={StaticResource IsNotNullConverter}}"
+                   Style="{StaticResource LabelMuted}"
+                   HorizontalOptions="Center" />
+
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               AutomationId="PairingPageIndicatorBusy"
+                               HorizontalOptions="Center" />
+
+            <Label Text="{Binding ErrorMessage}"
+                   AutomationId="PairingPageLabelError"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource IsNotNullConverter}}"
+                   TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center"
+                   HorizontalOptions="Center" />
+
+            <Button Text="Nowy kod"
+                    AutomationId="PairingPageButtonNewCode"
+                    Command="{Binding NewCodeCommand}"
+                    IsVisible="{Binding CanRequestNewCode}"
+                    HorizontalOptions="Fill" />
+
+            <Button Text="Anuluj"
+                    AutomationId="PairingPageButtonCancel"
+                    Command="{Binding CancelCommand}"
+                    Style="{StaticResource ButtonGhost}"
+                    HorizontalOptions="Fill" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

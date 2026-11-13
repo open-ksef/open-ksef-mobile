@@ -1,4 +1,7 @@
+using Duende.IdentityModel;
+using Duende.IdentityModel.Client;
 using Duende.IdentityModel.OidcClient;
+using Duende.IdentityModel.OidcClient.Browser;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -17,6 +20,7 @@ public class AuthService : IAuthService
     internal static readonly TimeSpan RefreshRetryDelay = TimeSpan.FromSeconds(15);
 
     internal TimeProvider Clock { get; set; } = TimeProvider.System;
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; set; } = Task.Delay;
 
     private readonly AuthOptions _options;
     private readonly OidcBrowser _browser;
@@ -37,7 +41,7 @@ public class AuthService : IAuthService
 
     public event Action? SessionEnded;
 
-    internal string GoogleLoginScope => _oidcClient.Options.Scope;
+    internal string BrowserLoginScope => _oidcClient.Options.Scope;
 
     public bool LogoutUnderway { get; set; }
 
@@ -66,147 +70,160 @@ public class AuthService : IAuthService
         _oidcClient = CreateOidcClient(_authority);
     }
 
-    public async Task<AuthResult> LoginWithCredentialsAsync(string email, string password)
+    public Task<AuthResult> LoginInBrowserAsync(bool register = false)
     {
         EnsureConfiguration();
-
-        KeycloakTokenResponse? tokenResponse;
-        try
-        {
-            var tokenEndpoint = $"{_authority}/protocol/openid-connect/token";
-            var formData = new Dictionary<string, string>
-            {
-                ["grant_type"] = "password",
-                ["client_id"] = _options.ClientId,
-                ["username"] = email,
-                ["password"] = password,
-                ["scope"] = Scope
-            };
-
-            using var response = await _httpClient.PostAsync(tokenEndpoint, new FormUrlEncodedContent(formData));
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                return error?.Error switch
-                {
-                    "invalid_grant" => error.Description switch
-                    {
-                        "Account is not fully set up" => AuthResult.AccountNotSetUp,
-                        "Account disabled" => AuthResult.AccountDisabled,
-                        _ => AuthResult.Rejected
-                    },
-                    not null when response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized => AuthResult.ClientRejected,
-                    _ => AuthResult.ServerUnreachable
-                };
-            }
-
-            tokenResponse = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>();
-        }
-        // Bare catch: on Android socket and TLS failures can arrive as Java exceptions, not HttpRequestException.
-        catch
-        {
-            return AuthResult.ServerUnreachable;
-        }
-
-        if (tokenResponse?.AccessToken is null)
-            return AuthResult.ServerUnreachable;
-
-        Interlocked.Increment(ref _sessionGeneration);
-        _accessToken = tokenResponse.AccessToken;
-        _refreshToken = tokenResponse.RefreshToken;
-        _tokenExpiry = DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn);
-
-        await StoreLoginTokensAsync();
-        return AuthResult.Success;
+        return BrowserLoginAsync(register, null);
     }
 
-    public async Task<AuthResult> LoginWithGoogleAsync()
+    public Task<AuthResult> LoginWithGoogleAsync()
     {
         EnsureConfiguration();
 
         if (new Uri(_authority).Scheme == Uri.UriSchemeHttp)
-            return AuthResult.GoogleRequiresHttps;
+            return Task.FromResult(AuthResult.GoogleRequiresHttps);
 
+        return BrowserLoginAsync(false, new Parameters { { "kc_idp_hint", "google" } });
+    }
+
+    private async Task<AuthResult> BrowserLoginAsync(bool register, Parameters? frontChannelParameters)
+    {
         LoginResult result;
         try
         {
-            var loginRequest = new LoginRequest();
-            loginRequest.FrontChannelExtraParameters.Add("kc_idp_hint", "google");
-            result = await _oidcClient.LoginAsync(loginRequest);
+            var state = await _oidcClient.PrepareLoginAsync(frontChannelParameters);
+            var startUrl = register
+                ? state.StartUrl.Replace("/protocol/openid-connect/auth?", "/protocol/openid-connect/registrations?")
+                : state.StartUrl;
+
+            var browserResult = await _browser.InvokeAsync(new BrowserOptions(startUrl, _options.RedirectUri));
+            if (browserResult.ResultType == BrowserResultType.UserCancel)
+                return AuthResult.Cancelled;
+            if (browserResult.ResultType != BrowserResultType.Success)
+                return AuthResult.Rejected;
+
+            result = await _oidcClient.ProcessResponseAsync(browserResult.Response, state);
         }
-        // OidcClient throws when discovery fails; a cancelled or refused sign-in comes back as IsError.
+        // OidcClient throws when discovery fails; a refused sign-in comes back as IsError.
         catch
         {
             return AuthResult.ServerUnreachable;
         }
 
         if (result.IsError)
-            return AuthResult.Rejected;
+            return result.Error is "unauthorized_client" or "invalid_client" ? AuthResult.ClientRejected : AuthResult.Rejected;
 
-        Interlocked.Increment(ref _sessionGeneration);
-        _accessToken = result.AccessToken;
-        _refreshToken = result.RefreshToken;
-        _tokenExpiry = result.AccessTokenExpiration;
-
-        await StoreLoginTokensAsync();
+        await CompleteLoginAsync(result.AccessToken, result.RefreshToken, result.AccessTokenExpiration);
         return AuthResult.Success;
     }
 
-    public async Task<AuthResult> RegisterAsync(string email, string password, string? firstName, string? lastName)
+    public async Task<(AuthResult Result, DevicePairing? Pairing)> StartPairingAsync(CancellationToken cancellationToken)
     {
         EnsureConfiguration();
 
+        var verifier = CryptoRandom.CreateUniqueId(32);
+        var challenge = System.Buffers.Text.Base64Url.EncodeToString(SHA256.HashData(Encoding.ASCII.GetBytes(verifier)));
+
+        DeviceAuthorizationResponse response;
         try
         {
-            var baseUrl = _serverSettings.ServerUrl.TrimEnd('/');
-            var registerPayload = new RegisterAccountRequest
+            response = await _httpClient.RequestDeviceAuthorizationAsync(new DeviceAuthorizationRequest
             {
-                Email = email,
-                Password = password,
-                FirstName = firstName,
-                LastName = lastName
-            };
+                Address = $"{_authority}/protocol/openid-connect/auth/device",
+                ClientId = _options.ClientId,
+                ClientCredentialStyle = ClientCredentialStyle.PostBody,
+                Scope = Scope,
+                Parameters =
+                {
+                    { "code_challenge", challenge },
+                    { "code_challenge_method", "S256" }
+                }
+            }, cancellationToken);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return (AuthResult.ServerUnreachable, null);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
 
-            using var response = await _httpClient.PostAsJsonAsync(
-                $"{baseUrl}/api/account/register", registerPayload);
+        if (!response.IsError && response.DeviceCode is not null && response.UserCode is not null)
+            return (AuthResult.Success, new DevicePairing(
+                response.UserCode,
+                Clock.GetUtcNow().AddSeconds(response.ExpiresIn ?? 300),
+                response.DeviceCode,
+                verifier,
+                TimeSpan.FromSeconds(response.Interval > 0 ? response.Interval : 5)));
 
-            if (!response.IsSuccessStatusCode)
+        return (MapPairingError(response), null);
+    }
+
+    public async Task<AuthResult> CompletePairingAsync(DevicePairing pairing, CancellationToken cancellationToken)
+    {
+        EnsureConfiguration();
+
+        var interval = pairing.Interval;
+        while (true)
+        {
+            await Delay(interval, cancellationToken);
+            if (Clock.GetUtcNow() >= pairing.ExpiresAt)
+                return AuthResult.PairingExpired;
+
+            TokenResponse response;
+            try
             {
-                var body = await response.Content.ReadAsStringAsync();
-                var error = JsonSerializer.Deserialize<ErrorResponse>(body);
-                throw new InvalidOperationException(error?.Error ?? "Rejestracja nie powiodła się.");
+                response = await _httpClient.RequestDeviceTokenAsync(new DeviceTokenRequest
+                {
+                    Address = $"{_authority}/protocol/openid-connect/token",
+                    ClientId = _options.ClientId,
+                    ClientCredentialStyle = ClientCredentialStyle.PostBody,
+                    DeviceCode = pairing.DeviceCode,
+                    Parameters = { { "code_verifier", pairing.CodeVerifier } }
+                }, cancellationToken);
             }
-        }
-        catch (JsonException)
-        {
-            return AuthResult.Rejected;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
-        }
-        catch
-        {
-            return AuthResult.ServerUnreachable;
-        }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                continue;
+            }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        AuthResult login;
-        try
-        {
-            login = await LoginWithCredentialsAsync(email, password);
+            if (!response.IsError && response.AccessToken is not null)
+            {
+                await CompleteLoginAsync(response.AccessToken, response.RefreshToken, DateTimeOffset.UtcNow.AddSeconds(response.ExpiresIn));
+                return AuthResult.Success;
+            }
+
+            var error = OAuthError(response);
+            if (error == "slow_down")
+                interval += TimeSpan.FromSeconds(5);
+            else if (error is not (null or "authorization_pending") && (int)response.HttpStatusCode < 500)
+                return MapPairingError(response);
         }
-        catch
-        {
-            login = AuthResult.Rejected;
-        }
+    }
 
-        if (login == AuthResult.AccountNotSetUp)
-            throw new InvalidOperationException("Konto zostało utworzone. Potwierdź adres e-mail linkiem z wiadomości, potem zaloguj się.");
+    private static AuthResult MapPairingError(ProtocolResponse response) => OAuthError(response) switch
+    {
+        "unauthorized_client" => AuthResult.PairingNotSupported,
+        "invalid_client" => AuthResult.ClientRejected,
+        "access_denied" => AuthResult.PairingDenied,
+        "expired_token" => AuthResult.PairingExpired,
+        null => AuthResult.ServerUnreachable,
+        _ when (int)response.HttpStatusCode >= 500 => AuthResult.ServerUnreachable,
+        _ => AuthResult.Rejected
+    };
 
-        if (login != AuthResult.Success)
-            throw new InvalidOperationException("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.");
+    private static string? OAuthError(ProtocolResponse response) =>
+        response.Json is { ValueKind: JsonValueKind.Object } json && json.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String
+            ? error.GetString()
+            : null;
 
-        return AuthResult.Success;
+    private async Task CompleteLoginAsync(string accessToken, string? refreshToken, DateTimeOffset expiry)
+    {
+        Interlocked.Increment(ref _sessionGeneration);
+        _accessToken = accessToken;
+        _refreshToken = refreshToken;
+        _tokenExpiry = expiry;
+
+        await StoreLoginTokensAsync();
     }
 
     public async Task LogoutAsync()
@@ -517,6 +534,7 @@ public class AuthService : IAuthService
             RedirectUri = _options.RedirectUri,
             PostLogoutRedirectUri = _options.PostLogoutRedirectUri,
             Browser = _browser,
+            HttpClientFactory = _ => _httpClient,
             DisablePushedAuthorization = true
         };
 
@@ -547,27 +565,9 @@ public class AuthService : IAuthService
         public int ExpiresIn { get; set; }
     }
 
-    private sealed class RegisterAccountRequest
-    {
-        [JsonPropertyName("email")]
-        public string Email { get; set; } = "";
-
-        [JsonPropertyName("password")]
-        public string Password { get; set; } = "";
-
-        [JsonPropertyName("firstName")]
-        public string? FirstName { get; set; }
-
-        [JsonPropertyName("lastName")]
-        public string? LastName { get; set; }
-    }
-
     private sealed class ErrorResponse
     {
         [JsonPropertyName("error")]
         public string? Error { get; set; }
-
-        [JsonPropertyName("error_description")]
-        public string? Description { get; set; }
     }
 }
