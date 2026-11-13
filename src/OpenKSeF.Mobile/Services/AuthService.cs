@@ -14,6 +14,9 @@ public class AuthService : IAuthService
     private const string Scope = "openid profile email offline_access";
 
     internal static TimeSpan RestoreTimeout { get; set; } = TimeSpan.FromSeconds(10);
+    internal static readonly TimeSpan RefreshRetryDelay = TimeSpan.FromSeconds(15);
+
+    internal TimeProvider Clock { get; set; } = TimeProvider.System;
 
     private readonly AuthOptions _options;
     private readonly OidcBrowser _browser;
@@ -28,6 +31,8 @@ public class AuthService : IAuthService
     private readonly object _refreshGate = new();
     private Task<SessionRestoreResult>? _refreshInFlight;
     private bool _restorePending;
+    private string? _refreshFailedToken;
+    private DateTimeOffset _refreshRetryAt;
     private int _sessionGeneration;
 
     public event Action? SessionEnded;
@@ -357,7 +362,12 @@ public class AuthService : IAuthService
     private Task<SessionRestoreResult> RefreshOnceAsync()
     {
         lock (_refreshGate)
+        {
+            if (_refreshInFlight is null && _refreshToken is not null && _refreshToken == _refreshFailedToken && Clock.GetUtcNow() < _refreshRetryAt)
+                return Task.FromResult(SessionRestoreResult.Unverified);
+
             return _refreshInFlight ??= RunRefreshAsync();
+        }
     }
 
     private async Task<SessionRestoreResult> RunRefreshAsync()
@@ -366,8 +376,14 @@ public class AuthService : IAuthService
         await Task.Yield();
         try
         {
-            var result = await RefreshAsync();
-            if (result == SessionRestoreResult.None)
+            var sent = _refreshToken;
+            var result = await RefreshAsync(sent);
+            if (result == SessionRestoreResult.Unverified && sent is not null)
+            {
+                _refreshFailedToken = sent;
+                _refreshRetryAt = Clock.GetUtcNow() + RefreshRetryDelay;
+            }
+            else if (result == SessionRestoreResult.None)
             {
                 ClearTokens();
                 if (!_restorePending && !LogoutUnderway)
@@ -383,9 +399,8 @@ public class AuthService : IAuthService
         }
     }
 
-    private async Task<SessionRestoreResult> RefreshAsync()
+    private async Task<SessionRestoreResult> RefreshAsync(string? sent)
     {
-        var sent = _refreshToken;
         if (sent is null)
             return SessionRestoreResult.Unverified;
 

@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenKSeF.Mobile.Models;
 
@@ -18,10 +19,18 @@ public class ApiService : IApiService
         @"Bearer\s+\S+|[\w+/=.-]{32,}|[^\s""'<>@:,;]+@[^\s""'<>@:,;]+|\d(?:[ -]?\d){8,}",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
+    private static readonly Regex PathId = new(
+        @"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|\d+",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
     private readonly HttpClient _http;
     private readonly IAuthService _auth;
     private readonly IServerSettingsService _serverSettings;
     private readonly ILogger<ApiService> _logger;
+
+    public static IHttpClientBuilder Register(IServiceCollection services) =>
+        services.AddHttpClient<IApiService, ApiService>(client => client.Timeout = TimeSpan.FromSeconds(30))
+            .RemoveAllLoggers();
 
     public ApiService(HttpClient http, IAuthService auth, IServerSettingsService serverSettings, ILogger<ApiService> logger)
     {
@@ -251,7 +260,7 @@ public class ApiService : IApiService
             var validation = rejected ? ParseValidation(responseBody) : null;
 
             if (ruleMessage is null && validation is not { Errors.Count: > 0 })
-                _logger.LogWarning("{Method} {Path} returned {Status}: {Body}", method, Redact(StripQuery(path)), (int)response.StatusCode, Redact(responseBody));
+                _logger.LogWarning("{Method} {Path} returned {Status}: {Body}", method, LogPath(path), (int)response.StatusCode, Redact(responseBody));
 
             throw new ApiException(response.StatusCode, ruleMessage ?? FixedMessage(response.StatusCode), validation);
         }
@@ -263,7 +272,7 @@ public class ApiService : IApiService
         ? $"Błąd serwera ({(int)status}). Spróbuj ponownie później."
         : $"Serwer odrzucił żądanie ({(int)status}).";
 
-    private static string StripQuery(string path) => path.Split('?')[0];
+    private static string LogPath(string path) => Redact(PathId.Replace(path.Split('?')[0], "{id}"));
 
     private static string Redact(string text) => Sensitive.Replace(text.Length > 1000 ? text[..1000] : text, "[redacted]");
 
@@ -339,7 +348,7 @@ public class ApiService : IApiService
         }
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException)
         {
-            _logger.LogWarning("{Method} {Path} failed: {Error}", method, Redact(StripQuery(path)), ex.GetType().Name);
+            _logger.LogWarning("{Method} {Path} failed: {Error}", method, LogPath(path), ex.GetType().Name);
             throw new ApiException(HttpStatusCode.ServiceUnavailable, NoConnection);
         }
     }
