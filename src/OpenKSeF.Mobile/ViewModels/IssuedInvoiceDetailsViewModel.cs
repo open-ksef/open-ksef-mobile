@@ -172,6 +172,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         catch (Exception ex)
         {
             _loadFailedOnNetwork = ApiException.IsNetworkFailure(ex);
+            _loadUnauthorized = false;
             if (Invoice is null)
                 ErrorMessage = _loadFailedOnNetwork ? NoConnection : $"Nie udało się załadować faktury: {ex.Message}";
         }

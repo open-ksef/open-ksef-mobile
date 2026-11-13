@@ -792,6 +792,29 @@ public class IssuingViewModelTests : IDisposable
         Assert.Equal(InvoiceId, vm.Invoice!.Id);
     }
 
+    [Theory]
+    [MemberData(nameof(NetworkFailures))]
+    public async Task Details_Unauthorized_ThenReappear_NetworkFailure_ResumesPolling(Exception failure)
+    {
+        var attempts = 0;
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(_ => ++attempts switch
+        {
+            1 => Task.FromResult(Invoice("Sending")),
+            2 => Task.FromException<IssuedInvoiceDto>(new ApiException(HttpStatusCode.Unauthorized, "Sesja wygasła. Zaloguj się ponownie.")),
+            3 => Task.FromException<IssuedInvoiceDto>(failure),
+            _ => Task.FromResult(Invoice("Accepted"))
+        });
+        var vm = Details([]);
+        await vm.RunAsync(CancellationToken.None);
+        Assert.Equal(2, attempts);
+
+        await vm.RunAsync(CancellationToken.None);
+
+        Assert.Equal(4, attempts);
+        Assert.True(vm.IsAccepted);
+        Assert.Null(vm.ErrorMessage);
+    }
+
     [Fact]
     public async Task Details_FirstLoadUnauthorized_ShowsError_NoPolling()
     {
