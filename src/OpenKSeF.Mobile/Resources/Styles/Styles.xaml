@@ -83,6 +83,10 @@
 
     <Style TargetType="SearchBar">
         <Setter Property="FontFamily" Value="Inter" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+        <Setter Property="CancelButtonColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+        <Setter Property="SearchIconColor" Value="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
     </Style>
 
     <!-- ─── Editor (implicit) ────────────────────────────────── -->
