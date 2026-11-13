@@ -53,12 +53,13 @@ public class NotificationHubService : INotificationHubService, IAsyncDisposable
         _reconnectCts?.Dispose();
         _reconnectCts = null;
 
-        if (_connection is not null)
+        var connection = _connection;
+        _connection = null;
+        if (connection is not null)
         {
-            try { await _connection.StopAsync(); }
+            try { await connection.StopAsync(); }
             catch { /* best-effort */ }
-            await _connection.DisposeAsync();
-            _connection = null;
+            await connection.DisposeAsync();
         }
     }
 
