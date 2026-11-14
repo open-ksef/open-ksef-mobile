@@ -25,35 +25,16 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
     public void Login(string username, string password)
     {
-        var nativeWait = new WaitHelper(_driver, TimeSpan.FromSeconds(45));
+        new WaitHelper(_driver, TimeSpan.FromSeconds(45)).UntilVisible(ByAutoId("LoginPageButtonLogin")).Click();
 
-        var emailEntry = nativeWait.UntilVisible(ByAutoId("LoginPageEntryEmail"));
-        emailEntry.Clear();
-        emailEntry.SendKeys(username);
-
-        var passwordEntry = _driver.FindElement(ByAutoId("LoginPageEntryPassword"));
-        passwordEntry.Clear();
-        passwordEntry.SendKeys(password);
-
-        var loginButton = _driver.FindElement(ByAutoId("LoginPageButtonLogin"));
-        loginButton.Click();
-    }
-
-    public void LoginViaKeycloakRedirect(string username, string password)
-    {
-        var nativeWait = new WaitHelper(_driver, TimeSpan.FromSeconds(45));
-        var loginButton = nativeWait.UntilVisible(ByAutoId("LoginPageButtonGoogle"));
-        loginButton.Click();
-
-        SwitchToBrowserContext();
-
+        // The Custom Tab is Chrome, not an app WebView; Chrome exposes HTML ids as native resource-ids.
         var webWait = new WebDriverWait(_driver, TimeSpan.FromSeconds(45));
-        webWait.Until(browser => browser.FindElements(By.Id("username")).Count > 0);
-        _driver.FindElement(By.Id("username")).SendKeys(username);
-        _driver.FindElement(By.Id("password")).SendKeys(password);
-        _driver.FindElement(By.Id("kc-login")).Click();
-
-        SwitchToNativeContext();
+        webWait.Until(d => d.FindElements(ByHtmlId("username")).Count > 0);
+        var usernameField = _driver.FindElement(ByHtmlId("username"));
+        usernameField.Clear();
+        usernameField.SendKeys(username);
+        _driver.FindElement(ByHtmlId("password")).SendKeys(password);
+        _driver.FindElement(By.XPath("//android.widget.Button[@text='Zaloguj się']")).Click();
     }
 
     public void WaitForAuthenticatedPage(TimeSpan timeout)
@@ -73,20 +54,5 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
             currentDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0);
     }
 
-    private void SwitchToBrowserContext()
-    {
-        var contextWait = new WebDriverWait(_driver, TimeSpan.FromSeconds(30));
-        contextWait.Until(_ => _driver.Contexts.Any(context =>
-            context.Contains("WEBVIEW", StringComparison.OrdinalIgnoreCase)));
-
-        var browserContext = _driver.Contexts.First(context =>
-            context.Contains("WEBVIEW", StringComparison.OrdinalIgnoreCase));
-
-        _driver.Context = browserContext;
-    }
-
-    private void SwitchToNativeContext()
-    {
-        _driver.Context = "NATIVE_APP";
-    }
+    private static By ByHtmlId(string id) => By.XPath($"//*[@resource-id='{id}']");
 }

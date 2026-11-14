@@ -70,112 +70,6 @@ public class AuthService : IAuthService
         _oidcClient = CreateOidcClient(_authority);
     }
 
-    public async Task<AuthResult> LoginWithCredentialsAsync(string email, string password)
-    {
-        EnsureConfiguration();
-
-        KeycloakTokenResponse? tokenResponse;
-        try
-        {
-            var tokenEndpoint = $"{_authority}/protocol/openid-connect/token";
-            var formData = new Dictionary<string, string>
-            {
-                ["grant_type"] = "password",
-                ["client_id"] = _options.ClientId,
-                ["username"] = email,
-                ["password"] = password,
-                ["scope"] = Scope
-            };
-
-            using var response = await _httpClient.PostAsync(tokenEndpoint, new FormUrlEncodedContent(formData));
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
-                return error?.Error switch
-                {
-                    "invalid_grant" => error.Description switch
-                    {
-                        "Account is not fully set up" => AuthResult.AccountNotSetUp,
-                        "Account disabled" => AuthResult.AccountDisabled,
-                        _ => AuthResult.Rejected
-                    },
-                    not null when response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized => AuthResult.ClientRejected,
-                    _ => AuthResult.ServerUnreachable
-                };
-            }
-
-            tokenResponse = await response.Content.ReadFromJsonAsync<KeycloakTokenResponse>();
-        }
-        // Bare catch: on Android socket and TLS failures can arrive as Java exceptions, not HttpRequestException.
-        catch
-        {
-            return AuthResult.ServerUnreachable;
-        }
-
-        if (tokenResponse?.AccessToken is null)
-            return AuthResult.ServerUnreachable;
-
-        await CompleteLoginAsync(tokenResponse.AccessToken, tokenResponse.RefreshToken, DateTimeOffset.UtcNow.AddSeconds(tokenResponse.ExpiresIn));
-        return AuthResult.Success;
-    }
-
-    public async Task<AuthResult> RegisterAsync(string email, string password, string? firstName, string? lastName)
-    {
-        EnsureConfiguration();
-
-        try
-        {
-            var baseUrl = _serverSettings.ServerUrl.TrimEnd('/');
-            var registerPayload = new RegisterAccountRequest
-            {
-                Email = email,
-                Password = password,
-                FirstName = firstName,
-                LastName = lastName
-            };
-
-            using var response = await _httpClient.PostAsJsonAsync(
-                $"{baseUrl}/api/account/register", registerPayload);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync();
-                var error = JsonSerializer.Deserialize<ErrorResponse>(body);
-                throw new InvalidOperationException(error?.Error ?? "Rejestracja nie powiodła się.");
-            }
-        }
-        catch (JsonException)
-        {
-            return AuthResult.Rejected;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
-        }
-        catch
-        {
-            return AuthResult.ServerUnreachable;
-        }
-
-        AuthResult login;
-        try
-        {
-            login = await LoginWithCredentialsAsync(email, password);
-        }
-        catch
-        {
-            login = AuthResult.Rejected;
-        }
-
-        if (login == AuthResult.AccountNotSetUp)
-            throw new InvalidOperationException("Konto zostało utworzone. Potwierdź adres e-mail linkiem z wiadomości, potem zaloguj się.");
-
-        if (login != AuthResult.Success)
-            throw new InvalidOperationException("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.");
-
-        return AuthResult.Success;
-    }
-
     public Task<AuthResult> LoginInBrowserAsync(bool register = false)
     {
         EnsureConfiguration();
@@ -189,11 +83,16 @@ public class AuthService : IAuthService
         if (new Uri(_authority).Scheme == Uri.UriSchemeHttp)
             return Task.FromResult(AuthResult.GoogleRequiresHttps);
 
-        return BrowserLoginAsync(false, new Parameters { { "kc_idp_hint", "google" } });
+        return BrowserLoginAsync(false, "google");
     }
 
-    private async Task<AuthResult> BrowserLoginAsync(bool register, Parameters? frontChannelParameters)
+    private async Task<AuthResult> BrowserLoginAsync(bool register, string? idpHint)
     {
+        // prompt=login: Keycloak logout is deferred until device cleanup, so the Custom Tab SSO cookie would sign the previous user back in.
+        var frontChannelParameters = new Parameters { { "prompt", "login" } };
+        if (idpHint is not null)
+            frontChannelParameters.Add("kc_idp_hint", idpHint);
+
         LoginResult result;
         try
         {
@@ -671,27 +570,9 @@ public class AuthService : IAuthService
         public int ExpiresIn { get; set; }
     }
 
-    private sealed class RegisterAccountRequest
-    {
-        [JsonPropertyName("email")]
-        public string Email { get; set; } = "";
-
-        [JsonPropertyName("password")]
-        public string Password { get; set; } = "";
-
-        [JsonPropertyName("firstName")]
-        public string? FirstName { get; set; }
-
-        [JsonPropertyName("lastName")]
-        public string? LastName { get; set; }
-    }
-
     private sealed class ErrorResponse
     {
         [JsonPropertyName("error")]
         public string? Error { get; set; }
-
-        [JsonPropertyName("error_description")]
-        public string? Description { get; set; }
     }
 }

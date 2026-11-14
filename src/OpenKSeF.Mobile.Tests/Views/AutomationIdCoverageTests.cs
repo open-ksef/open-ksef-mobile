@@ -13,11 +13,7 @@ public class AutomationIdCoverageTests
             "LoginPageButtonLogin",
             "LoginPageButtonRegister",
             "LoginPageButtonGoogle",
-            "LoginPageButtonLoginInBrowser",
-            "LoginPageButtonRegisterInBrowser",
             "LoginPageButtonPair",
-            "LoginPageEntryEmail",
-            "LoginPageEntryPassword",
             "LoginPageEntryServerUrl",
             "LoginPageButtonSaveServer",
             "LoginPageButtonScanQr",
@@ -136,13 +132,28 @@ public class AutomationIdCoverageTests
     }
 
     [Fact]
-    public void LoginPage_BrowserButtons_VisibleOnlyInBrowserMode()
+    public void LoginPage_HasNoPasswordForm_AndBrowserButtonsAlwaysShow()
     {
-        var doc = System.Xml.Linq.XDocument.Load(GetViewPath("LoginPage.xaml"));
-        System.Xml.Linq.XElement ById(string id) => doc.Descendants().Single(e => (string?)e.Attribute("AutomationId") == id);
+        var page = System.Xml.Linq.XDocument.Load(GetViewPath("LoginPage.xaml"));
+        var elements = page.Descendants().ToList();
+        string? Attr(System.Xml.Linq.XElement e, string name) => e.Attribute(name)?.Value;
 
-        Assert.Equal("{Binding IsBrowserLogin}", (string?)ById("LoginPageButtonPair").Attribute("IsVisible"));
-        Assert.Equal("{Binding IsBrowserLogin}", (string?)ById("LoginPageButtonLoginInBrowser").Parent!.Attribute("IsVisible"));
+        var entries = elements.Where(e => e.Name.LocalName == "Entry").ToList();
+        Assert.DoesNotContain(entries, e => Attr(e, "IsPassword") is not null);
+        Assert.Equal(["LoginPageEntryServerUrl"], entries.Select(e => Attr(e, "AutomationId")));
+
+        foreach (var id in new[] { "LoginPageButtonLogin", "LoginPageButtonPair", "LoginPageButtonGoogle" })
+        {
+            var button = Assert.Single(elements, e => Attr(e, "AutomationId") == id);
+            foreach (var node in button.AncestorsAndSelf().TakeWhile(e => e.Name.LocalName != "ScrollView"))
+                Assert.Null(Attr(node, "IsVisible"));
+        }
+
+        var authMethods = typeof(OpenKSeF.Mobile.Services.IAuthService).GetMethods().Select(m => m.Name).ToList();
+        Assert.DoesNotContain(authMethods, n => n.Contains("Credentials") || n == "RegisterAsync");
+
+        var vmMembers = typeof(OpenKSeF.Mobile.ViewModels.LoginViewModel).GetMembers().Select(m => m.Name).ToList();
+        Assert.DoesNotContain(vmMembers, n => n.Contains("BrowserLogin") || n.Contains("Password") || n == "IsLoginMode");
     }
 
     private static void AssertFileContainsAll(string fileName, params string[] automationIds)

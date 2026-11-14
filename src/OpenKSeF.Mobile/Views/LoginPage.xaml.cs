@@ -28,10 +28,6 @@ public partial class LoginPage : ContentPage
 
     private VisualElement? _keyboardTarget;
 
-    private void OnLoginFieldFocused(object? sender, FocusEventArgs e) => ShowWithKeyboard(LoginButton);
-
-    private void OnRegisterFieldFocused(object? sender, FocusEventArgs e) => ShowWithKeyboard(RegisterButton);
-
     private void OnServerFieldFocused(object? sender, FocusEventArgs e) => ShowWithKeyboard(SaveServerButton);
 
     private void OnFieldUnfocused(object? sender, FocusEventArgs e) => _keyboardTarget = null;
