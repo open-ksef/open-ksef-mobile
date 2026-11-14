@@ -66,23 +66,13 @@ public class AuthServiceRestoreTests
     private async Task LoginAsync()
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Bodies.Clear();
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string body) =>
         new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-
-    [Fact]
-    public async Task PasswordLogin_RequestsOfflineAccess()
-    {
-        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
-
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
-
-        Assert.Contains("scope=openid+profile+email+offline_access", _handler.Bodies.Single());
-    }
 
     [Fact]
     public void BrowserLogin_RequestsOfflineAccess() =>
@@ -168,7 +158,7 @@ public class AuthServiceRestoreTests
     private async Task LoginExpiringAsync()
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":30}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Bodies.Clear();
     }
@@ -176,7 +166,7 @@ public class AuthServiceRestoreTests
     private async Task LoginExpiredAsync()
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":0}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Bodies.Clear();
     }
@@ -279,7 +269,7 @@ public class AuthServiceRestoreTests
         Assert.Equal("old", await _auth.GetAccessTokenAsync());
 
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"b1","refresh_token":"rb","expires_in":30}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("c@d.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"b2","refresh_token":"rb2","expires_in":300}"""));
 
@@ -465,7 +455,7 @@ public class AuthServiceRestoreTests
     public async Task IssuedInvoiceDetails_PermanentUnauthorized_AtMostOneRefreshPerScreenOpen(HttpStatusCode refreshStatus, string refreshBody)
     {
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, """{"access_token":"old","refresh_token":"r1","expires_in":300}"""));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         _handler.Requests.Clear();
         var invoiceId = Guid.NewGuid();
         var apiCalls = 0;
@@ -716,7 +706,7 @@ public class AuthServiceRestoreTests
     private async Task SwitchToUserBAsync()
     {
         await _auth.LogoutAsync();
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
     }
 
     private IEnumerable<HttpRequestMessage> ApiRequests => _handler.Requests.Where(r => r.RequestUri!.AbsolutePath.StartsWith("/api/"));
@@ -893,7 +883,7 @@ public class AuthServiceRestoreTests
         await LoginAsync();
         UseServer("other.example.com");
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, UserBTokens));
-        Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+        Assert.Equal(AuthResult.Success, await PairAsync());
         UseServer("ksef.example.com");
 
         var sent = new TaskCompletionSource();
@@ -957,10 +947,6 @@ public class AuthServiceRestoreTests
     }
 
     [Fact]
-    public Task FirstPasswordLogin_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
-        AssertNoBearerRequestNotRetriedAcrossLoginAsync(() => _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
-
-    [Fact]
     public Task FirstPairing_DuringNoBearerRequest_Late401NotRetriedAsNewUser() =>
         AssertNoBearerRequestNotRetriedAcrossLoginAsync(() => PairAsync());
 
@@ -1021,49 +1007,6 @@ public class AuthServiceRestoreTests
 
         Assert.Empty(_handler.Requests);
         await _browser.DidNotReceiveWithAnyArgs().InvokeAsync(default!, default);
-    }
-
-    [Theory]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account is not fully set up"}""", AuthResult.AccountNotSetUp)]
-    [InlineData(HttpStatusCode.Unauthorized, """{"error":"invalid_grant","error_description":"Invalid user credentials"}""", AuthResult.Rejected)]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account disabled"}""", AuthResult.AccountDisabled)]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""", AuthResult.Rejected)]
-    [InlineData(HttpStatusCode.Unauthorized, """{"error":"invalid_client","error_description":"Invalid client or Invalid client credentials"}""", AuthResult.ClientRejected)]
-    [InlineData(HttpStatusCode.BadRequest, """{"error":"unauthorized_client","error_description":"Client not allowed for direct access grants"}""", AuthResult.ClientRejected)]
-    [InlineData(HttpStatusCode.ServiceUnavailable, """{"error":"temporarily_unavailable"}""", AuthResult.ServerUnreachable)]
-    [InlineData(HttpStatusCode.Unauthorized, "<html>proxy</html>", AuthResult.ServerUnreachable)]
-    public async Task PasswordLogin_KeycloakError_MapsToResult(HttpStatusCode status, string body, AuthResult expected)
-    {
-        _handler.Respond = _ => Task.FromResult(Json(status, body));
-
-        Assert.Equal(expected, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
-
-        Assert.False(_auth.HasSession);
-        Assert.Equal(0, SecureStorage.Default.Count);
-    }
-
-    [Fact]
-    public async Task Register_LoginNeedsEmailVerification_SaysConfirmEmail()
-    {
-        _handler.Respond = request => Task.FromResult(request.RequestUri!.AbsolutePath.EndsWith("/api/account/register")
-            ? Json(HttpStatusCode.OK, "{}")
-            : Json(HttpStatusCode.BadRequest, """{"error":"invalid_grant","error_description":"Account is not fully set up"}"""));
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.RegisterAsync("a@b.pl", "password1", null, null));
-
-        Assert.Equal("Konto zostało utworzone. Potwierdź adres e-mail linkiem z wiadomości, potem zaloguj się.", ex.Message);
-    }
-
-    [Fact]
-    public async Task Register_CreatedButTokensCannotBeStored_SaysAccountCreated()
-    {
-        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
-        SecureStorage.Default.WritesLeft = 0;
-
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.RegisterAsync("a@b.pl", "password1", null, null));
-
-        Assert.Contains("Konto zostało utworzone", ex.Message);
-        Assert.False(_auth.HasSession);
     }
 
     [Fact]
@@ -1153,7 +1096,7 @@ public class AuthServiceRestoreTests
         _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, TokenJson));
         SecureStorage.Default.WritesLeft = 1;
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => PairAsync());
 
         Assert.False(_auth.HasSession);
         Assert.False(_auth.IsAuthenticated);
@@ -1283,7 +1226,7 @@ public class AuthServiceRestoreTests
 
     [Fact]
     public Task SignOut_DevicesListAfterLimit_NextUserLoggedIn_CleanupDeletesWithOldSession() =>
-        AssertSignOutDevicesListAfterLimit_DeletesOnlyWithSignedOutSessionAsync(async () => Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x")));
+        AssertSignOutDevicesListAfterLimit_DeletesOnlyWithSignedOutSessionAsync(async () => Assert.Equal(AuthResult.Success, await PairAsync()));
 
     [Fact]
     public async Task RestoreInvalidGrant_DoesNotRaiseSessionEnded()
@@ -1426,6 +1369,7 @@ public class AuthServiceRestoreTests
         var devicesOffline = false;
         var keycloakOnline = false;
         var refreshA = firstRefresh;
+        var pairings = 0;
         string UserOf(HttpRequestMessage r) => r.Headers.Authorization!.Parameter![..1];
         _handler.Respond = async request =>
         {
@@ -1433,8 +1377,8 @@ public class AuthServiceRestoreTests
             var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync();
             if (IsLogoutRequest(request))
                 return Json(HttpStatusCode.NoContent, string.Empty);
-            if (IsTokenRequest(request) && body.Contains("grant_type=password"))
-                return Json(HttpStatusCode.OK, body.Contains("username=a%40") ? UserATokens : UserBTokens);
+            if (IsTokenRequest(request) && body.Contains("device_code"))
+                return Json(HttpStatusCode.OK, ++pairings == 1 ? UserATokens : UserBTokens);
             if (IsTokenRequest(request))
             {
                 if (!keycloakOnline)
@@ -1473,13 +1417,13 @@ public class AuthServiceRestoreTests
         DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(300);
         try
         {
-            Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+            Assert.Equal(AuthResult.Success, await PairAsync());
             await device.EnsureDeviceRegisteredAsync();
             devicesOffline = true;
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+            Assert.Equal(AuthResult.Success, await PairAsync());
             await device.EnsureDeviceRegisteredAsync();
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
