@@ -34,7 +34,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         usernameField.Clear();
         usernameField.SendKeys(username);
         _driver.FindElement(ByHtmlId("password")).SendKeys(password);
-        _driver.FindElement(ByHtmlId("kc-login")).Click();
+        _driver.FindElement(By.XPath("//android.widget.Button[@text='Zaloguj się']")).Click();
     }
 
     public void WaitForAuthenticatedPage(TimeSpan timeout)
