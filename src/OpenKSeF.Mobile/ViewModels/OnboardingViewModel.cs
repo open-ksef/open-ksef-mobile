@@ -41,6 +41,7 @@ public partial class OnboardingViewModel : ObservableObject
     private string? _syncStatusText;
 
     private Guid? _tenantId;
+    private string _tenantNip = string.Empty;
     private string _tenantLabel = string.Empty;
 
     public bool IsStep1 => CurrentStep == 1;
@@ -134,6 +135,7 @@ public partial class OnboardingViewModel : ObservableObject
             });
 
             _tenantId = Guid.Parse(tenant.Id.ToString());
+            _tenantNip = tenant.Nip;
             _tenantLabel = tenant.DisplayName ?? tenant.Nip;
             CurrentStep = 2;
         }
@@ -205,6 +207,7 @@ public partial class OnboardingViewModel : ObservableObject
         if (_tenantId.HasValue)
         {
             Preferences.Default.Set("SelectedTenantId", _tenantId.Value.ToString());
+            Preferences.Default.Set("SelectedTenantNip", _tenantNip);
         }
 
         try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
