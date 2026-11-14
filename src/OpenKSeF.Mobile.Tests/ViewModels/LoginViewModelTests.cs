@@ -317,6 +317,31 @@ public class LoginViewModelTests
     }
 
     [Fact]
+    public async Task BrowserCommands_FlagOff_DoNothing()
+    {
+        var vm = CreateViewModel();
+
+        await vm.LoginInBrowserCommand.ExecuteAsync(null);
+        await vm.RegisterInBrowserCommand.ExecuteAsync(null);
+        await vm.PairCommand.ExecuteAsync(null);
+
+        Assert.Empty(_auth.ReceivedCalls());
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task GoogleLogin_FlagOff_StillCallsAuth()
+    {
+        _auth.LoginWithGoogleAsync().Returns(AuthResult.Success);
+        var vm = CreateViewModel();
+
+        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
+
+        await _postLoginNav.Received(1).NavigateAsync();
+    }
+
+    [Fact]
     public async Task Pair_OpensPairingPage_WithoutCallingAuth()
     {
         var vm = CreateBrowserViewModel();

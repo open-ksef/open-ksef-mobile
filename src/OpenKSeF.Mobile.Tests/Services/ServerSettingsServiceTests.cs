@@ -162,6 +162,7 @@ public class ServerSettingsServiceTests
         var settings = new ServerSettingsService();
         var auth = Substitute.For<IAuthService>();
         var vm = CreateLoginViewModel(auth, settings);
+        vm.IsBrowserLogin = action is "browser" or "browserRegister" or "pair";
 
         await RunAsync(vm, action);
 

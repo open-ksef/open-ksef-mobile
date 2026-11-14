@@ -270,12 +270,14 @@ public partial class LoginViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private Task LoginInBrowserAsync() =>
-        RunBrowserLoginAsync(() => _authService.LoginInBrowserAsync(), "Logowanie nie powiodło się.");
+    private Task LoginInBrowserAsync() => IsBrowserLogin
+        ? RunBrowserLoginAsync(() => _authService.LoginInBrowserAsync(), "Logowanie nie powiodło się.")
+        : Task.CompletedTask;
 
     [RelayCommand]
-    private Task RegisterInBrowserAsync() =>
-        RunBrowserLoginAsync(() => _authService.LoginInBrowserAsync(register: true), "Rejestracja nie powiodła się.");
+    private Task RegisterInBrowserAsync() => IsBrowserLogin
+        ? RunBrowserLoginAsync(() => _authService.LoginInBrowserAsync(register: true), "Rejestracja nie powiodła się.")
+        : Task.CompletedTask;
 
     [RelayCommand]
     private Task LoginWithGoogleAsync() =>
@@ -284,7 +286,7 @@ public partial class LoginViewModel : ObservableObject
     [RelayCommand]
     private async Task PairAsync()
     {
-        if (IsBusy) return;
+        if (!IsBrowserLogin || IsBusy) return;
 
         ErrorMessage = null;
         if (!EnsureServerConfigured())

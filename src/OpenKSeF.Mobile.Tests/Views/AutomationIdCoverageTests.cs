@@ -135,6 +135,16 @@ public class AutomationIdCoverageTests
             $"{automationId} sits under the RefreshView, which takes its taps.");
     }
 
+    [Fact]
+    public void LoginPage_BrowserButtons_VisibleOnlyInBrowserMode()
+    {
+        var doc = System.Xml.Linq.XDocument.Load(GetViewPath("LoginPage.xaml"));
+        System.Xml.Linq.XElement ById(string id) => doc.Descendants().Single(e => (string?)e.Attribute("AutomationId") == id);
+
+        Assert.Equal("{Binding IsBrowserLogin}", (string?)ById("LoginPageButtonPair").Attribute("IsVisible"));
+        Assert.Equal("{Binding IsBrowserLogin}", (string?)ById("LoginPageButtonLoginInBrowser").Parent!.Attribute("IsVisible"));
+    }
+
     private static void AssertFileContainsAll(string fileName, params string[] automationIds)
     {
         var filePath = GetViewPath(fileName);
