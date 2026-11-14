@@ -39,6 +39,21 @@ public class OnboardingViewModelTests
     }
 
     [Fact]
+    public async Task GoToInvoices_AfterTenantCreated_StoresTenantIdAndNip()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantNip", "stale");
+        _api.CreateTenantAsync(Arg.Any<CreateTenantRequest>()).Returns(new TenantDto { Id = tenantId, Nip = "1111111111" });
+        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>()) { Nip = "1111111111" };
+        await vm.SubmitStep1Command.ExecuteAsync(null);
+
+        await vm.GoToInvoicesCommand.ExecuteAsync(null);
+
+        Assert.Equal(tenantId.ToString(), Preferences.Default.Get("SelectedTenantId", ""));
+        Assert.Equal("1111111111", Preferences.Default.Get("SelectedTenantNip", ""));
+    }
+
+    [Fact]
     public async Task OpenTokenDocs_OpensSiteTokenPage()
     {
         var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>());
