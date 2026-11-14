@@ -14,7 +14,7 @@
                    FontSize="28"
                    FontFamily="InterBold"
                    HorizontalOptions="Center" />
-            <Label Text="Wpisz ten kod w portalu: Telefon → Paruj. Wpisuj go tylko we własnym portalu."
+            <Label Text="Wpisz ten kod w portalu: Telefon → Zaloguj telefon kodem. Wpisuj go tylko we własnym portalu."
                    Style="{StaticResource LabelMuted}"
                    HorizontalOptions="Center"
                    HorizontalTextAlignment="Center" />
