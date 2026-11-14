@@ -32,12 +32,21 @@ public class ServerSettingsServiceTests
         settings,
         new HttpClient(_handler));
 
-    private LoginViewModel CreateLoginViewModel(IAuthService auth, IServerSettingsService settings) => new(auth, settings, _postLoginNav, Substitute.For<IApiService>());
+    private LoginViewModel CreateLoginViewModel(IAuthService auth, IServerSettingsService settings) => new(auth, settings, _postLoginNav, Substitute.For<IApiService>())
+    {
+        Email = "a@b.pl",
+        Password = "password1",
+        RegEmail = "a@b.pl",
+        RegPassword = "password1",
+        RegConfirmPassword = "password1"
+    };
 
     private static Task RunAsync(LoginViewModel vm, string action) => action switch
     {
-        "login" => vm.LoginCommand.ExecuteAsync(null),
+        "login" => vm.LoginWithCredentialsCommand.ExecuteAsync(null),
         "google" => vm.LoginWithGoogleCommand.ExecuteAsync(null),
+        "browser" => vm.LoginInBrowserCommand.ExecuteAsync(null),
+        "browserRegister" => vm.RegisterInBrowserCommand.ExecuteAsync(null),
         "pair" => vm.PairCommand.ExecuteAsync(null),
         _ => vm.RegisterCommand.ExecuteAsync(null)
     };
@@ -112,7 +121,21 @@ public class ServerSettingsServiceTests
         var vm = CreateLoginViewModel(CreateAuthService(settings), settings);
         vm.ServerUrl = "https://faktury.example.pl";
 
-        await vm.LoginCommand.ExecuteAsync(null);
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://faktury.example.pl/auth/realms/openksef/protocol/openid-connect/token", _handler.Requests.Single().RequestUri!.ToString());
+        Assert.Equal("https://faktury.example.pl", Preferences.Default.Get(ServerUrlKey, string.Empty));
+    }
+
+    [Fact]
+    public async Task FreshInstall_BrowserLoginUsesTheServerEnteredInTheField()
+    {
+        var settings = new ServerSettingsService();
+        var vm = CreateLoginViewModel(CreateAuthService(settings), settings);
+        vm.IsBrowserLogin = true;
+        vm.ServerUrl = "https://faktury.example.pl";
+
+        await vm.LoginInBrowserCommand.ExecuteAsync(null);
 
         Assert.Equal("https://faktury.example.pl/auth/realms/openksef/.well-known/openid-configuration", _handler.Requests.First().RequestUri!.ToString());
         Assert.Equal("https://faktury.example.pl", Preferences.Default.Get(ServerUrlKey, string.Empty));
@@ -131,12 +154,15 @@ public class ServerSettingsServiceTests
     [InlineData("login")]
     [InlineData("google")]
     [InlineData("register")]
+    [InlineData("browser")]
+    [InlineData("browserRegister")]
     [InlineData("pair")]
     public async Task EmptyServer_ShowsMessageAndStoresNothing(string action)
     {
         var settings = new ServerSettingsService();
         var auth = Substitute.For<IAuthService>();
         var vm = CreateLoginViewModel(auth, settings);
+        vm.IsBrowserLogin = action is "browser" or "browserRegister" or "pair";
 
         await RunAsync(vm, action);
 
@@ -189,13 +215,112 @@ public class ServerSettingsServiceTests
         var (vm, _) = StoredServerLogin();
         _handler.Respond = problem;
 
-        await vm.LoginCommand.ExecuteAsync(null);
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
 
         Assert.Equal(UnreachableMessage, vm.ErrorMessage);
         Assert.True(vm.IsServerVisible);
         Assert.Equal(StoredServer, Preferences.Default.Get(ServerUrlKey, string.Empty));
         Assert.Equal(0, SecureStorage.Default.Count);
         await _postLoginNav.DidNotReceive().NavigateAsync();
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, false)]
+    [InlineData(HttpStatusCode.BadRequest, false)]
+    [InlineData(HttpStatusCode.Unauthorized, true)]
+    public async Task Login_RejectedCredentials_ShowsBadPassword_FieldVisibilityUnchanged(HttpStatusCode status, bool fieldVisible)
+    {
+        var (vm, _) = StoredServerLogin();
+        if (fieldVisible)
+            vm.ToggleServerCommand.Execute(null);
+        _handler.Respond = _ => Task.FromResult(Response(status, """{"error":"invalid_grant","error_description":"Invalid user credentials"}"""));
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Equal("Nieprawidłowy email lub hasło.", vm.ErrorMessage);
+        Assert.Equal(fieldVisible, vm.IsServerVisible);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
+    }
+
+    [Fact]
+    public async Task Login_RightPassword_Navigates()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.OK, """{"access_token":"a","refresh_token":"r","expires_in":300}"""));
+
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
+
+        Assert.Null(vm.ErrorMessage);
+        await _postLoginNav.Received(1).NavigateAsync();
+    }
+
+    [Fact]
+    public async Task Register_NetworkFailure_NamesTheServerAndRevealsTheField()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => throw new HttpRequestException("connection refused");
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal(UnreachableMessage, vm.ErrorMessage);
+        Assert.True(vm.IsServerVisible);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, "<html>not found</html>", "text/html")]
+    [InlineData(HttpStatusCode.NotFound, "", "text/plain")]
+    [InlineData(HttpStatusCode.Forbidden, "<html>403</html>", "text/html")]
+    [InlineData(HttpStatusCode.Forbidden, "", "text/plain")]
+    public async Task Register_UnreadableErrorBody_KeepsFixedTextAndRevealsTheField(HttpStatusCode status, string body, string mediaType)
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(status, body, mediaType));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal("Rejestracja nie powiodła się. Sprawdź adres serwera.", vm.ErrorMessage);
+        Assert.True(vm.IsServerVisible);
+    }
+
+    [Theory]
+    [InlineData("""{"code":"registration_disabled","error":"Rejestracja nowych kont jest wyłączona. Skontaktuj się z administratorem."}""", "Rejestracja nowych kont jest wyłączona. Skontaktuj się z administratorem.")]
+    [InlineData("""{"title":"Forbidden","status":403}""", "Rejestracja nie powiodła się.")]
+    public async Task Register_ForbiddenWithJson_ShowsServerText_FieldUnchanged_NoLoginAttempt(string body, string message)
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.Forbidden, body));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal(message, vm.ErrorMessage);
+        Assert.False(vm.IsServerVisible);
+        Assert.Single(_handler.Requests);
+        await _postLoginNav.DidNotReceive().NavigateAsync();
+    }
+
+    [Fact]
+    public async Task Register_ServerError_ShowsTheServerMessage()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = _ => Task.FromResult(Response(HttpStatusCode.Conflict, """{"error":"Konto już istnieje."}"""));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal("Konto już istnieje.", vm.ErrorMessage);
+        Assert.False(vm.IsServerVisible);
+    }
+
+    [Fact]
+    public async Task Register_CreatedButLoginCannotReachServer_SaysAccountCreated()
+    {
+        var (vm, _) = StoredServerLogin();
+        _handler.Respond = request => request.RequestUri!.AbsolutePath.EndsWith("/token")
+            ? throw new HttpRequestException("connection refused")
+            : Task.FromResult(Response(HttpStatusCode.OK, "{}"));
+
+        await vm.RegisterCommand.ExecuteAsync(null);
+
+        Assert.Equal("Konto zostało utworzone. Zaloguj się za pomocą formularza logowania.", vm.ErrorMessage);
     }
 
     [Theory]
@@ -225,9 +350,9 @@ public class ServerSettingsServiceTests
 
         Assert.Equal(StoredServer, vm.ServerUrl);
 
-        await vm.LoginCommand.ExecuteAsync(null);
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
 
-        Assert.Equal("dead.example.pl", _handler.Requests.First().RequestUri!.Host);
+        Assert.Equal("dead.example.pl", _handler.Requests.Single().RequestUri!.Host);
         Assert.Equal(StoredServer, Preferences.Default.Get(ServerUrlKey, string.Empty));
     }
 
@@ -238,9 +363,9 @@ public class ServerSettingsServiceTests
         vm.ToggleServerCommand.Execute(null);
         vm.ServerUrl = "https://draft.example.pl";
 
-        await vm.LoginCommand.ExecuteAsync(null);
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
 
-        Assert.Equal("draft.example.pl", _handler.Requests.First().RequestUri!.Host);
+        Assert.Equal("draft.example.pl", _handler.Requests.Single().RequestUri!.Host);
     }
 
     [Fact]
@@ -250,7 +375,7 @@ public class ServerSettingsServiceTests
         vm.ToggleServerCommand.Execute(null);
         Assert.False(vm.IsServerVisible);
 
-        await vm.LoginCommand.ExecuteAsync(null);
+        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
 
         Assert.True(vm.IsServerVisible);
     }

@@ -46,7 +46,7 @@
                        FontFamily="InterBold"
                        HorizontalOptions="Center"
                        TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
-                <Label Text="Zaloguj się do portalu OpenKSeF"
+                <Label Text="{Binding SubtitleText}"
                        FontSize="14"
                        HorizontalOptions="Center"
                        HorizontalTextAlignment="Center"
@@ -65,19 +65,114 @@
                            HorizontalTextAlignment="Center" />
                 </Border>
 
-                <Button Text="{Binding LoginButtonText}"
-                        AutomationId="LoginPageButtonLogin"
-                        Command="{Binding LoginCommand}"
-                        HorizontalOptions="Fill"
-                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                <VerticalStackLayout Spacing="10"
+                                     IsVisible="{Binding IsBrowserLogin, Converter={StaticResource InvertedBoolConverter}}">
+                    <VerticalStackLayout Spacing="10"
+                                         IsVisible="{Binding IsLoginMode}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Email" Style="{StaticResource LabelFormLabel}" />
+                            <Entry Text="{Binding Email}"
+                                   Placeholder="jan@firma.pl"
+                                   Keyboard="Email"
+                                   AutomationId="LoginPageEntryEmail"
+                                   Focused="OnLoginFieldFocused" Unfocused="OnFieldUnfocused"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        </VerticalStackLayout>
 
-                <Button Text="Załóż konto"
-                        AutomationId="LoginPageButtonRegister"
-                        IsVisible="{Binding IsRegistrationAllowed}"
-                        Command="{Binding RegisterCommand}"
-                        Style="{StaticResource ButtonOutline}"
-                        HorizontalOptions="Fill"
-                        IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Hasło" Style="{StaticResource LabelFormLabel}" />
+                            <Entry Text="{Binding Password}"
+                                   Placeholder="••••••••"
+                                   IsPassword="True"
+                                   AutomationId="LoginPageEntryPassword"
+                                   Focused="OnLoginFieldFocused" Unfocused="OnFieldUnfocused"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        </VerticalStackLayout>
+
+                        <Button Text="{Binding LoginButtonText}"
+                                x:Name="LoginButton"
+                                AutomationId="LoginPageButtonLogin"
+                                Command="{Binding LoginWithCredentialsCommand}"
+                                HorizontalOptions="Fill"
+                                Margin="0,8,0,0" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="10"
+                                         IsVisible="{Binding IsLoginMode, Converter={StaticResource InvertedBoolConverter}}">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Imię" Style="{StaticResource LabelFormLabel}" />
+                                <Entry Text="{Binding RegFirstName}"
+                                       Placeholder="Jan"
+                                       AutomationId="LoginPageEntryRegFirstName"
+                                       Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
+                                       IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Spacing="4" Grid.Column="1">
+                                <Label Text="Nazwisko" Style="{StaticResource LabelFormLabel}" />
+                                <Entry Text="{Binding RegLastName}"
+                                       Placeholder="Kowalski"
+                                       AutomationId="LoginPageEntryRegLastName"
+                                       Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
+                                       IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Email" Style="{StaticResource LabelFormLabel}" />
+                            <Entry Text="{Binding RegEmail}"
+                                   Placeholder="jan@firma.pl"
+                                   Keyboard="Email"
+                                   AutomationId="LoginPageEntryRegEmail"
+                                   Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Hasło" Style="{StaticResource LabelFormLabel}" />
+                            <Entry Text="{Binding RegPassword}"
+                                   Placeholder="Min. 8 znaków"
+                                   IsPassword="True"
+                                   AutomationId="LoginPageEntryRegPassword"
+                                   Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Powtórz hasło" Style="{StaticResource LabelFormLabel}" />
+                            <Entry Text="{Binding RegConfirmPassword}"
+                                   Placeholder="Powtórz hasło"
+                                   IsPassword="True"
+                                   AutomationId="LoginPageEntryRegConfirmPassword"
+                                   Focused="OnRegisterFieldFocused" Unfocused="OnFieldUnfocused"
+                                   IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                        </VerticalStackLayout>
+
+                        <Button Text="{Binding RegisterButtonText}"
+                                x:Name="RegisterButton"
+                                AutomationId="LoginPageButtonRegister"
+                                Command="{Binding RegisterCommand}"
+                                HorizontalOptions="Fill"
+                                Margin="0,8,0,0" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="10"
+                                     IsVisible="{Binding IsBrowserLogin}">
+                    <Button Text="{Binding LoginButtonText}"
+                            AutomationId="LoginPageButtonLoginInBrowser"
+                            Command="{Binding LoginInBrowserCommand}"
+                            HorizontalOptions="Fill"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+
+                    <Button Text="Załóż konto"
+                            AutomationId="LoginPageButtonRegisterInBrowser"
+                            IsVisible="{Binding IsRegistrationAllowed}"
+                            Command="{Binding RegisterInBrowserCommand}"
+                            Style="{StaticResource ButtonOutline}"
+                            HorizontalOptions="Fill"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+                </VerticalStackLayout>
 
                 <Grid ColumnDefinitions="*,Auto,*" Margin="0,4">
                     <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" VerticalOptions="Center" />
@@ -87,6 +182,7 @@
 
                 <Button Text="Sparuj z portalem"
                         AutomationId="LoginPageButtonPair"
+                        IsVisible="{Binding IsBrowserLogin}"
                         Command="{Binding PairCommand}"
                         Style="{StaticResource ButtonOutline}"
                         HorizontalOptions="Fill"
@@ -98,6 +194,28 @@
                         Style="{StaticResource ButtonOutline}"
                         HorizontalOptions="Fill"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}" />
+
+                <VerticalStackLayout IsVisible="{Binding IsBrowserLogin, Converter={StaticResource InvertedBoolConverter}}">
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="4" Margin="0,8,0,0"
+                                           IsVisible="{Binding IsRegistrationAllowed}">
+                        <Label Text="{Binding SwitchPromptText}"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
+                               VerticalOptions="Center" />
+                        <Label AutomationId="{Binding SwitchButtonAutomationId}"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource UiLink}, Dark={StaticResource UiLinkDark}}"
+                               FontFamily="InterBold"
+                               VerticalOptions="Center">
+                            <Label.Text>
+                                <Binding Path="SwitchLinkText" />
+                            </Label.Text>
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ToggleModeCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
 
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
                                    AutomationId="LoginPageActivityIndicatorBusy"

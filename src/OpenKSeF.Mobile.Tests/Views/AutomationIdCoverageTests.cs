@@ -13,7 +13,11 @@ public class AutomationIdCoverageTests
             "LoginPageButtonLogin",
             "LoginPageButtonRegister",
             "LoginPageButtonGoogle",
+            "LoginPageButtonLoginInBrowser",
+            "LoginPageButtonRegisterInBrowser",
             "LoginPageButtonPair",
+            "LoginPageEntryEmail",
+            "LoginPageEntryPassword",
             "LoginPageEntryServerUrl",
             "LoginPageButtonSaveServer",
             "LoginPageButtonScanQr",
@@ -129,6 +133,16 @@ public class AutomationIdCoverageTests
         Assert.True(
             content.IndexOf($"AutomationId=\"{automationId}\"", StringComparison.Ordinal) > content.IndexOf("</RefreshView>", StringComparison.Ordinal),
             $"{automationId} sits under the RefreshView, which takes its taps.");
+    }
+
+    [Fact]
+    public void LoginPage_BrowserButtons_VisibleOnlyInBrowserMode()
+    {
+        var doc = System.Xml.Linq.XDocument.Load(GetViewPath("LoginPage.xaml"));
+        System.Xml.Linq.XElement ById(string id) => doc.Descendants().Single(e => (string?)e.Attribute("AutomationId") == id);
+
+        Assert.Equal("{Binding IsBrowserLogin}", (string?)ById("LoginPageButtonPair").Attribute("IsVisible"));
+        Assert.Equal("{Binding IsBrowserLogin}", (string?)ById("LoginPageButtonLoginInBrowser").Parent!.Attribute("IsVisible"));
     }
 
     private static void AssertFileContainsAll(string fileName, params string[] automationIds)

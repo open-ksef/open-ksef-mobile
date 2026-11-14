@@ -12,6 +12,8 @@ public enum AuthResult
     Rejected,
     Success,
     ServerUnreachable,
+    AccountNotSetUp,
+    AccountDisabled,
     ClientRejected,
     GoogleRequiresHttps,
     Cancelled,
@@ -24,8 +26,10 @@ public sealed record DevicePairing(string UserCode, DateTimeOffset ExpiresAt, st
 
 public interface IAuthService
 {
-    Task<AuthResult> LoginInBrowserAsync(bool register = false);
+    Task<AuthResult> LoginWithCredentialsAsync(string email, string password);
     Task<AuthResult> LoginWithGoogleAsync();
+    Task<AuthResult> RegisterAsync(string email, string password, string? firstName, string? lastName);
+    Task<AuthResult> LoginInBrowserAsync(bool register = false);
     Task<(AuthResult Result, DevicePairing? Pairing)> StartPairingAsync(CancellationToken cancellationToken);
 
     /// <summary>Polls the token endpoint until the portal approves, denies or the code expires; network and 5xx failures keep polling.</summary>
