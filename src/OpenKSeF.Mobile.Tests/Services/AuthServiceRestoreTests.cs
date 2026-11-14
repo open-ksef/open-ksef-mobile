@@ -1044,6 +1044,7 @@ public class AuthServiceRestoreTests
         Assert.StartsWith($"{TestAuthority}{endpoint}", startUrl);
         Assert.Contains("code_challenge_method=S256", startUrl);
         Assert.DoesNotContain("kc_idp_hint", startUrl);
+        Assert.Contains("prompt=login", startUrl);
         Assert.Contains("code_verifier=", _handler.Bodies.Single());
         Assert.True(_auth.HasSession);
         Assert.Equal("b-access", await _auth.GetAccessTokenAsync());
@@ -1059,6 +1060,7 @@ public class AuthServiceRestoreTests
         await _auth.LoginWithGoogleAsync();
 
         Assert.Contains("kc_idp_hint=google", BrowserStartUrl());
+        Assert.Contains("prompt=login", BrowserStartUrl());
     }
 
     [Theory]

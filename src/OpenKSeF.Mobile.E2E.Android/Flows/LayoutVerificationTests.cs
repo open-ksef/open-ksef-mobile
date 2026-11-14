@@ -32,51 +32,12 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         Assert.That(title.Displayed, Is.True, "Title 'OpenKSeF' should be visible");
         Assert.That(title.Text, Is.EqualTo("OpenKSeF"), "Title text should be 'OpenKSeF'");
 
-        var emailEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail"));
-        Assert.That(emailEntry.Displayed, Is.True, "Email entry should be visible");
+        foreach (var id in new[] { "LoginPageButtonLogin", "LoginPageButtonPair", "LoginPageButtonGoogle", "LoginPageButtonChangeServer" })
+            Assert.That(AndroidDriver.FindElement(ByAutoId(id)).Displayed, Is.True, $"{id} should be visible");
 
-        var passwordEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryPassword"));
-        Assert.That(passwordEntry.Displayed, Is.True, "Password entry should be visible");
-
-        var loginButton = AndroidDriver.FindElement(ByAutoId("LoginPageButtonLogin"));
-        Assert.That(loginButton.Displayed, Is.True, "Login button should be visible");
-
-        var googleButton = AndroidDriver.FindElement(ByAutoId("LoginPageButtonGoogle"));
-        Assert.That(googleButton.Displayed, Is.True, "Google button should be visible");
+        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageEntryPassword")), Is.Empty, "No password entry in the app");
 
         CaptureLayoutScreenshot("LoginPage_LoginMode");
-    }
-
-    [Test]
-    [Order(2)]
-    public void LoginPage_RegisterModeLayoutIsCorrect()
-    {
-        var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));
-
-        wait.UntilVisible(ByAutoId("LoginPageLabelLogo"));
-
-        var switchLink = AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToRegister"));
-        switchLink.Click();
-
-        Thread.Sleep(500);
-
-        var firstNameEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegFirstName"));
-        Assert.That(firstNameEntry.Count, Is.GreaterThan(0), "First name entry should be visible in register mode");
-
-        var lastNameEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegLastName"));
-        Assert.That(lastNameEntry.Count, Is.GreaterThan(0), "Last name entry should be visible in register mode");
-
-        var regEmailEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegEmail"));
-        Assert.That(regEmailEntry.Count, Is.GreaterThan(0), "Email entry should be visible in register mode");
-
-        var regButton = AndroidDriver.FindElements(ByAutoId("LoginPageButtonRegister"));
-        Assert.That(regButton.Count, Is.GreaterThan(0), "Register button should be visible");
-
-        CaptureLayoutScreenshot("LoginPage_RegisterMode");
-
-        var switchBack = AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToLogin"));
-        switchBack.Click();
-        Thread.Sleep(300);
     }
 
     [Test]

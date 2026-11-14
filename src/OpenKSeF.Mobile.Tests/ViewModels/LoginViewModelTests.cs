@@ -181,6 +181,18 @@ public class LoginViewModelTests
     }
 
     [Fact]
+    public async Task LoginWithGoogle_Success_NavigatesPostLogin()
+    {
+        _auth.LoginWithGoogleAsync().Returns(AuthResult.Success);
+        var vm = CreateViewModel();
+
+        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
+
+        await _postLoginNav.Received(1).NavigateAsync();
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
     public async Task LoginWithGoogle_HttpServer_SaysHttpsRequired()
     {
         _auth.LoginWithGoogleAsync().Returns(AuthResult.GoogleRequiresHttps);

@@ -83,11 +83,16 @@ public class AuthService : IAuthService
         if (new Uri(_authority).Scheme == Uri.UriSchemeHttp)
             return Task.FromResult(AuthResult.GoogleRequiresHttps);
 
-        return BrowserLoginAsync(false, new Parameters { { "kc_idp_hint", "google" } });
+        return BrowserLoginAsync(false, "google");
     }
 
-    private async Task<AuthResult> BrowserLoginAsync(bool register, Parameters? frontChannelParameters)
+    private async Task<AuthResult> BrowserLoginAsync(bool register, string? idpHint)
     {
+        // prompt=login: Keycloak logout is deferred until device cleanup, so the Custom Tab SSO cookie would sign the previous user back in.
+        var frontChannelParameters = new Parameters { { "prompt", "login" } };
+        if (idpHint is not null)
+            frontChannelParameters.Add("kc_idp_hint", idpHint);
+
         LoginResult result;
         try
         {

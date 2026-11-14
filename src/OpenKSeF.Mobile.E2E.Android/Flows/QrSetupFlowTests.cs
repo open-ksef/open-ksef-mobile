@@ -15,7 +15,7 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
         wait.Until(d =>
             d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0 ||
-            d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
+            d.FindElements(ByAutoId("LoginPageButtonLogin")).Count > 0);
 
         var isOnQrPage = AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0;
         if (!isOnQrPage)
@@ -41,7 +41,7 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
         wait.Until(d =>
             d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0 ||
-            d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
+            d.FindElements(ByAutoId("LoginPageButtonLogin")).Count > 0);
 
         var isOnQrPage = AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0;
         if (!isOnQrPage)
@@ -53,10 +53,10 @@ public sealed class QrSetupFlowTests : AndroidTestBase
         var skipButton = AndroidDriver.FindElement(ByAutoId("ScanSetupQrButtonSkip"));
         skipButton.Click();
 
-        wait.Until(d => d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
+        wait.Until(d => d.FindElements(ByAutoId("LoginPageButtonLogin")).Count > 0);
 
-        var emailEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail"));
-        Assert.That(emailEntry.Displayed, Is.True, "Login page should be visible after skipping QR setup");
+        var loginButton = AndroidDriver.FindElement(ByAutoId("LoginPageButtonLogin"));
+        Assert.That(loginButton.Displayed, Is.True, "Login page should be visible after skipping QR setup");
     }
 
     [Test]
@@ -74,7 +74,7 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
         wait.Until(d =>
             d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count > 0 ||
-            d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0);
+            d.FindElements(ByAutoId("LoginPageButtonLogin")).Count > 0);
 
         if (AndroidDriver.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0)
         {
@@ -150,10 +150,10 @@ public sealed class QrSetupFlowTests : AndroidTestBase
             {
                 d.FindElements(switchButton).FirstOrDefault()?.Click();
                 return d.FindElements(ByAutoId("ScanSetupQrPageTitle")).Count == 0 &&
-                    d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0;
+                    d.FindElements(ByAutoId("LoginPageButtonLogin")).Count > 0;
             });
 
-            Assert.That(AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail")).Displayed, Is.True,
+            Assert.That(AndroidDriver.FindElement(ByAutoId("LoginPageButtonLogin")).Displayed, Is.True,
                 "Login page should be visible after scanning a QR with a stale setup token.");
         }
         finally
