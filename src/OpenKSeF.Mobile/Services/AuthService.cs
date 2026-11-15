@@ -43,6 +43,8 @@ public class AuthService : IAuthService
 
     internal string BrowserLoginScope => _oidcClient.Options.Scope;
 
+    internal bool BrowserLoginRequiresHttps => _oidcClient.Options.Policy.Discovery.RequireHttps;
+
     public bool LogoutUnderway { get; set; }
 
     public bool IsAuthenticated => _accessToken is not null && _tokenExpiry > DateTimeOffset.UtcNow;
@@ -542,6 +544,7 @@ public class AuthService : IAuthService
             HttpClientFactory = _ => _httpClient,
             DisablePushedAuthorization = true
         };
+        oidcOptions.Policy.Discovery.RequireHttps = !authority.StartsWith("http://", StringComparison.OrdinalIgnoreCase);
 
         return new OidcClient(oidcOptions);
     }

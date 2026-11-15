@@ -994,6 +994,33 @@ public class AuthServiceRestoreTests
         Assert.False(_auth.HasSession);
     }
 
+    [Theory]
+    [InlineData("http://10.0.2.2:8080/auth/realms/openksef", false)]
+    [InlineData("http://192.168.1.20:8080/auth/realms/openksef", false)]
+    [InlineData("https://ksef.example.com/auth/realms/openksef", true)]
+    public void BrowserLogin_RequiresHttpsOnlyForHttpsServer(string authority, bool requiresHttps)
+    {
+        _settings.Authority.Returns(authority);
+        _ = _auth.SessionGeneration;
+
+        Assert.Equal(requiresHttps, _auth.BrowserLoginRequiresHttps);
+    }
+
+    [Fact]
+    public async Task BrowserLogin_HttpLanServer_RunsDiscoveryAndOpensBrowser()
+    {
+        const string httpAuthority = "http://10.0.2.2:8080/auth/realms/openksef";
+        _settings.Authority.Returns(httpAuthority);
+        _ = _auth.SessionGeneration;
+        _handler.Respond = _ => Task.FromResult(Json(HttpStatusCode.OK, $$"""{"issuer":"{{httpAuthority}}","authorization_endpoint":"{{httpAuthority}}/protocol/openid-connect/auth","token_endpoint":"{{httpAuthority}}/protocol/openid-connect/token","jwks_uri":"{{httpAuthority}}/protocol/openid-connect/certs"}"""));
+        _browser.InvokeAsync(Arg.Any<BrowserOptions>(), Arg.Any<CancellationToken>())
+            .Returns(new BrowserResult { ResultType = BrowserResultType.UserCancel });
+
+        Assert.Equal(AuthResult.Cancelled, await _auth.LoginInBrowserAsync());
+
+        await _browser.Received(1).InvokeAsync(Arg.Is<BrowserOptions>(o => o.StartUrl.StartsWith($"{httpAuthority}/protocol/openid-connect/auth")), Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task GoogleLogin_HttpServer_SaysHttpsRequired_SendsNothing()
     {
