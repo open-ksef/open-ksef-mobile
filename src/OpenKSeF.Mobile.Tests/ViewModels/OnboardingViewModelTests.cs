@@ -39,6 +39,18 @@ public class OnboardingViewModelTests
     }
 
     [Fact]
+    public async Task SubmitStep1_NoCredentialPermission_SkipsTokenStep()
+    {
+        _api.CreateTenantAsync(Arg.Any<CreateTenantRequest>()).Returns(new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111", Role = "Employee", Permissions = ["invoices.read"] });
+        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>()) { Nip = "1111111111" };
+
+        await vm.SubmitStep1Command.ExecuteAsync(null);
+
+        Assert.Equal(3, vm.CurrentStep);
+        Assert.True(vm.TokenSkipped);
+    }
+
+    [Fact]
     public async Task GoToInvoices_AfterTenantCreated_StoresTenantIdAndNip()
     {
         var tenantId = Guid.NewGuid();

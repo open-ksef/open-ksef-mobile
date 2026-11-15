@@ -137,7 +137,10 @@ public partial class OnboardingViewModel : ObservableObject
             _tenantId = Guid.Parse(tenant.Id.ToString());
             _tenantNip = tenant.Nip;
             _tenantLabel = tenant.DisplayName ?? tenant.Nip;
-            CurrentStep = 2;
+            if (tenant.CanManageCredential)
+                CurrentStep = 2;
+            else
+                SkipToken();
         }
         catch (Exception ex)
         {

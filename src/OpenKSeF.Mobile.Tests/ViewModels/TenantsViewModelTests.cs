@@ -28,4 +28,19 @@ public class TenantsViewModelTests : IDisposable
         Assert.Empty(await localDb.GetInvoicesAsync(deleted.Id));
         Assert.Single(await localDb.GetInvoicesAsync(kept));
     }
+
+    [Fact]
+    public async Task DeleteTenant_Forbidden_KeepsTenant_ShowsServerMessage()
+    {
+        var tenant = new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111" };
+        var api = Substitute.For<IApiService>();
+        api.DeleteTenantAsync(tenant.Id).Returns(Task.FromException(new ApiException(System.Net.HttpStatusCode.Forbidden, "Brak uprawnień do tej operacji w tej firmie.")));
+        var vm = new TenantsViewModel(api, new LocalDbService()) { Tenants = [tenant] };
+
+        await vm.DeleteTenantCommand.ExecuteAsync(tenant);
+
+        Assert.Single(vm.Tenants);
+        Assert.Equal("Brak uprawnień do tej operacji w tej firmie.", vm.ErrorMessage);
+        Assert.False(vm.IsBusy);
+    }
 }
