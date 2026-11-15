@@ -256,14 +256,11 @@ public class ApiService : IApiService
                 response = await RefreshAndRetryAsync(response, method, path, body, session, cancellationToken);
         }
 
-        if (response.StatusCode == HttpStatusCode.Forbidden)
-            throw new ApiException(HttpStatusCode.Forbidden, "Brak uprawnien do tego zasobu.");
-
         if (!response.IsSuccessStatusCode)
         {
             var responseBody = await response.Content.ReadAsStringAsync();
             var rejected = response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict;
-            var ruleMessage = rejected || response.StatusCode == HttpStatusCode.ServiceUnavailable ? ParseRuleMessage(responseBody) : null;
+            var ruleMessage = rejected || response.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.Forbidden ? ParseRuleMessage(responseBody) : null;
             var validation = rejected ? ParseValidation(responseBody) : null;
 
             if (ruleMessage is null && validation is not { Errors.Count: > 0 })
@@ -275,9 +272,12 @@ public class ApiService : IApiService
         return response;
     }
 
-    private static string FixedMessage(HttpStatusCode status) => (int)status >= 500
-        ? $"Błąd serwera ({(int)status}). Spróbuj ponownie później."
-        : $"Serwer odrzucił żądanie ({(int)status}).";
+    private static string FixedMessage(HttpStatusCode status) => status switch
+    {
+        HttpStatusCode.Forbidden => "Brak uprawnień do tej operacji.",
+        _ when (int)status >= 500 => $"Błąd serwera ({(int)status}). Spróbuj ponownie później.",
+        _ => $"Serwer odrzucił żądanie ({(int)status}).",
+    };
 
     private static string LogPath(string path) => Redact(PathId.Replace(path.Split('?')[0], "{id}"));
 
