@@ -15,6 +15,8 @@ public class TenantDto
     [JsonIgnore]
     public bool CanEdit => Can("tenant.edit");
     [JsonIgnore]
+    public bool CanReadSellerProfile => Can("invoices.read");
+    [JsonIgnore]
     public bool CanDelete => Can("tenant.delete");
     [JsonIgnore]
     public bool CanManageCredential => Can("credential.manage");

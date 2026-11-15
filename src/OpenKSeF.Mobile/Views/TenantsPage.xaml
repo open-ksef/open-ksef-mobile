@@ -58,7 +58,7 @@
                                                CommandParameter="{Binding .}" />
                                     <SwipeItem BackgroundColor="{StaticResource UiPrimaryHover}"
                                                Text="Dane do faktur"
-                                               IsVisible="{Binding CanEdit}"
+                                               IsVisible="{Binding CanReadSellerProfile}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=OpenSellerProfileCommand}"
                                                CommandParameter="{Binding .}" />
                                     <SwipeItem BackgroundColor="{StaticResource UiError}"
