@@ -17,6 +17,7 @@ public partial class AccountViewModel : ObservableObject
     private readonly IDeviceTokenService _deviceTokenService;
     private readonly INotificationHubService _notificationHub;
     private readonly IPostLoginNavigationService _session;
+    private readonly IApiService _api;
 
     [ObservableProperty]
     private string _serverHost = "";
@@ -40,12 +41,14 @@ public partial class AccountViewModel : ObservableObject
         IServerSettingsService serverSettings,
         IDeviceTokenService deviceTokenService,
         INotificationHubService notificationHub,
-        IPostLoginNavigationService session)
+        IPostLoginNavigationService session,
+        IApiService api)
     {
         _serverSettings = serverSettings;
         _deviceTokenService = deviceTokenService;
         _notificationHub = notificationHub;
         _session = session;
+        _api = api;
         ServerHost = ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
         AppVersion = $"v{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
     }
@@ -171,11 +174,17 @@ public partial class AccountViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenPrivacyPolicyAsync()
     {
+        var url = "https://open-ksef.pl/docs/polityka-prywatnosci";
         try
         {
-            await Browser.Default.OpenAsync(
-                "https://open-ksef.pl/docs/polityka-prywatnosci",
-                BrowserLaunchMode.SystemPreferred);
+            var status = await _api.GetSetupStatusAsync();
+            if (!string.IsNullOrWhiteSpace(status?.DataControllerName))
+                url = $"{_serverSettings.ServerUrl.TrimEnd('/')}/privacy";
+        }
+        catch { }
+        try
+        {
+            await Browser.Default.OpenAsync(url, BrowserLaunchMode.SystemPreferred);
         }
         catch { }
     }

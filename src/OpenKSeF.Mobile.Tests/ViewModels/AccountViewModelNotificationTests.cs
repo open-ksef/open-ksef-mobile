@@ -13,6 +13,7 @@ public class AccountViewModelNotificationTests
     private readonly IDeviceTokenService _deviceTokenService = Substitute.For<IDeviceTokenService>();
     private readonly INotificationHubService _notificationHub = Substitute.For<INotificationHubService>();
     private readonly IPostLoginNavigationService _session = Substitute.For<IPostLoginNavigationService>();
+    private readonly IApiService _api = Substitute.For<IApiService>();
     private readonly AccountViewModel _vm;
 
     public AccountViewModelNotificationTests()
@@ -21,7 +22,7 @@ public class AccountViewModelNotificationTests
         Application.Current!.Windows[0].Page = null;
         var serverSettings = Substitute.For<IServerSettingsService>();
         serverSettings.ServerUrl.Returns("https://ksef.example.com");
-        _vm = new AccountViewModel(serverSettings, _deviceTokenService, _notificationHub, _session);
+        _vm = new AccountViewModel(serverSettings, _deviceTokenService, _notificationHub, _session, _api);
     }
 
     [Fact]
@@ -261,6 +262,39 @@ public class AccountViewModelNotificationTests
         await _vm.OpenThirdPartyNoticesCommand.ExecuteAsync(null);
 
         Assert.EndsWith("/Resources/Raw/pdf/THIRD-PARTY-NOTICES.txt", Browser.Default.LastUri);
+    }
+
+    [Fact]
+    public async Task PrivacyPolicy_InstanceWithDataController_OpensInstancePage()
+    {
+        _api.GetSetupStatusAsync().Returns(new SetupStatusDto { DataControllerName = "Firma Testowa", DataControllerContact = "rodo@ksef.example.com" });
+
+        await _vm.OpenPrivacyPolicyCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://ksef.example.com/privacy", Browser.Default.LastUri);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  ")]
+    public async Task PrivacyPolicy_NoDataController_OpensProjectPolicy(string? name)
+    {
+        _api.GetSetupStatusAsync().Returns(new SetupStatusDto { DataControllerName = name });
+
+        await _vm.OpenPrivacyPolicyCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://open-ksef.pl/docs/polityka-prywatnosci", Browser.Default.LastUri);
+    }
+
+    [Fact]
+    public async Task PrivacyPolicy_SetupStatusFails_OpensProjectPolicy()
+    {
+        _api.GetSetupStatusAsync().ThrowsAsync(new HttpRequestException("offline"));
+
+        await _vm.OpenPrivacyPolicyCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://open-ksef.pl/docs/polityka-prywatnosci", Browser.Default.LastUri);
     }
 
     [Fact]
