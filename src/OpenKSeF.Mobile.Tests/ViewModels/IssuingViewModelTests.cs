@@ -2689,4 +2689,19 @@ public class IssuingViewModelTests : IDisposable
             await Task.Delay(10);
         Assert.False(vm.IsBusy);
     }
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("invoices.read,tenant.edit", "")]
+    [InlineData("invoices.read", "&readOnly=true")]
+    [InlineData("tenant.delete", null)]
+    public async Task List_OpenSellerProfile_RoutesByTenantPermissions(string? permissions, string? suffix)
+    {
+        _api.GetTenantsAsync().Returns([new TenantDto { Id = TenantId, Nip = "1111111111", Permissions = permissions?.Split(',').ToList() }]);
+        var vm = new IssuedInvoiceListViewModel(_api);
+
+        await vm.OpenSellerProfileCommand.ExecuteAsync(null);
+
+        Assert.Equal(suffix is null ? null : $"sellerProfile?tenantId={TenantId}{suffix}", Shell.Current.LastRoute);
+    }
 }

@@ -108,6 +108,9 @@ public partial class SellerProfileViewModel : ObservableObject
         ? $"Następna faktura otrzyma numer {IssuingFormat.NumberPreview(NumberingPattern, n, DateOnly.FromDateTime(DateTime.Today))}"
         : string.Empty;
 
+    public static string Route(TenantDto tenant) =>
+        tenant.CanEdit ? $"sellerProfile?tenantId={tenant.Id}" : $"sellerProfile?tenantId={tenant.Id}&readOnly=true";
+
     public SellerProfileViewModel(IApiService apiService)
     {
         _apiService = apiService;
