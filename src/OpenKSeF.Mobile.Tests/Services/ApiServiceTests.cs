@@ -156,6 +156,28 @@ public class ApiServiceTests
         await _auth.DidNotReceive().GetAccessTokenAsync();
     }
 
+    [Fact]
+    public async Task GetSetupStatus_ReadsDataController()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, "{\"isInitialized\":true,\"registrationAllowed\":true,\"dataControllerName\":\"Firma Testowa\",\"dataControllerContact\":\"rodo@ksef.example.com\"}");
+
+        var status = await CreateService().GetSetupStatusAsync();
+
+        Assert.Equal("Firma Testowa", status!.DataControllerName);
+        Assert.Equal("rodo@ksef.example.com", status.DataControllerContact);
+    }
+
+    [Fact]
+    public async Task GetSetupStatus_OlderBackendWithoutDataController_ReadsNulls()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, "{\"isInitialized\":true,\"registrationAllowed\":true}");
+
+        var status = await CreateService().GetSetupStatusAsync();
+
+        Assert.Null(status!.DataControllerName);
+        Assert.Null(status.DataControllerContact);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.NotFound)]
     [InlineData(HttpStatusCode.InternalServerError)]
