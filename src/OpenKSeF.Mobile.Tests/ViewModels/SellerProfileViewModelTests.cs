@@ -49,6 +49,22 @@ public class SellerProfileViewModelTests
     }
 
     [Fact]
+    public async Task ReadOnly_LoadsProfile_BlocksSaveAndLookup()
+    {
+        var vm = await LoadedAsync(Profile(name: "Firma"));
+        vm.IsReadOnly = true;
+
+        await vm.SaveCommand.ExecuteAsync(null);
+        await vm.LookupNipCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsLoaded);
+        Assert.False(vm.IsEditable);
+        Assert.Equal("Firma", vm.LegalName);
+        await _api.DidNotReceiveWithAnyArgs().UpdateSellerProfileAsync(default, default!);
+        await _api.DidNotReceiveWithAnyArgs().LookupNipAsync(default!);
+    }
+
+    [Fact]
     public async Task Load_IncompleteProfile_ShowsIncompleteAlertAndValues()
     {
         var vm = await LoadedAsync(Profile());
