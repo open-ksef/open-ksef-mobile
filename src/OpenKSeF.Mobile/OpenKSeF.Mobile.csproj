@@ -19,6 +19,7 @@
 
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 
+    <TrimMode Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' AND '$(Configuration)' == 'Release'">partial</TrimMode>
     <AndroidKeyStore Condition="'$(Configuration)' == 'Release'">true</AndroidKeyStore>
     <AndroidSigningKeyStore Condition="'$(Configuration)' == 'Release'">openksef.keystore</AndroidSigningKeyStore>
     <AndroidSigningKeyAlias Condition="'$(Configuration)' == 'Release'">openksef</AndroidSigningKeyAlias>
