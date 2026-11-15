@@ -38,7 +38,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         usernameField.Clear();
         usernameField.SendKeys(username);
         _driver.FindElement(ByHtmlId("password")).SendKeys(password);
-        _driver.FindElement(By.XPath("//android.widget.Button[@text='Zaloguj się']")).Click();
+        FindButton("Zaloguj się").Click();
 
         CompleteTwoFactor(username);
     }
@@ -74,7 +74,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
             if (_driver.FindElements(ByHtmlId("kcRecoveryCodesConfirmationCheck")).Count > 0)
             {
                 _driver.FindElement(ByHtmlId("kcRecoveryCodesConfirmationCheck")).Click();
-                _driver.FindElement(By.XPath("//android.widget.Button[@text='Dalej']")).Click();
+                FindButton("Dalej").Click();
             }
         }
         else if (_driver.FindElements(ByHtmlId("otp")).Count > 0)
@@ -100,7 +100,30 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         LastOtpStep[username] = step;
 
         _driver.FindElement(ByHtmlId(fieldId)).SendKeys(Totp.Code(secret, step));
-        _driver.FindElement(By.XPath($"//android.widget.Button[@text='{buttonText}']")).Click();
+        FindButton(buttonText).Click();
+    }
+
+    // UiAutomator2 drops a below-the-fold button in Chrome (zero height), so swipe up until it has a size.
+    private IWebElement FindButton(string text)
+    {
+        var by = By.XPath($"//android.widget.Button[@text='{text}']");
+        for (var attempt = 0; attempt < 4; attempt++)
+        {
+            var button = _driver.FindElements(by).FirstOrDefault(e => e.Size.Height > 0);
+            if (button is not null)
+                return button;
+            var size = _driver.Manage().Window.Size;
+            _driver.ExecuteScript("mobile: swipeGesture", new Dictionary<string, object>
+            {
+                ["left"] = size.Width / 10,
+                ["top"] = size.Height / 4,
+                ["width"] = size.Width * 8 / 10,
+                ["height"] = size.Height / 2,
+                ["direction"] = "up",
+                ["percent"] = 0.75
+            });
+        }
+        return _driver.FindElement(by);
     }
 
     private static string SecretPath(string username) => Path.Combine(SecretDirectory, $"{username}.txt");
