@@ -223,6 +223,8 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: write
+    outputs:
+      signing: ${{ steps.signing.outputs.enabled }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -326,7 +328,7 @@ jobs:
   publish-release:
     name: Publish Release
     needs: [android, play-upload, ios]
-    if: ${{ !cancelled() && needs.android.result == 'success' && needs.play-upload.result == 'success' }}
+    if: ${{ !cancelled() && needs.android.result == 'success' && needs.play-upload.result == 'success' && (needs.ios.result == 'success' || needs.ios.outputs.signing != 'true') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

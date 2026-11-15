@@ -151,7 +151,7 @@ Unit tests compile app sources as linked files (`OpenKSeF.Mobile.Tests.csproj` `
 ### Build gotchas
 
 - **Debug APK**: .NET 10 MAUI Debug uses fast deployment (no standalone APK). Use `-t:Run` to install directly on emulator.
-- **Release APK**: Do NOT pass `-p:PublishTrimmed=false` -- it breaks JNI bindings and the app crashes on launch (`MauiApplication.n_onCreate not found`). Let Release use default trimming.
+- **Release APK**: Do NOT pass `-p:PublishTrimmed=false` -- it breaks JNI bindings and the app crashes on launch (`MauiApplication.n_onCreate not found`). Android Release pins `TrimMode=partial` (the SDK default) in the csproj: only assemblies marked trimmable are trimmed, the app assembly is kept whole, so reflection-based System.Text.Json on `Models/` works. The SDK suppresses trim warnings; to list them build Release with `-p:SuppressTrimAnalysisWarnings=false -p:EnableTrimAnalyzer=true -p:EnableAotAnalyzer=true`. Do not switch to `TrimMode=full` while JSON uses reflection.
 - **Emulator server URL**: After installing, set `server_url` in shared_prefs to `http://10.0.2.2:8080`.
 - **Cleartext**: Release `Platforms/Android/Resources/xml/network_security_config.xml` allows none. Debug swaps in `Platforms/Android/DebugResources/xml/` (localhost, 10.0.2.2). A stored `server_url` that fails `ServerUrlRules` loads as not configured: no address, server field shown.
 
