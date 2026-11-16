@@ -81,6 +81,7 @@ public partial class InvoiceListViewModel : ObservableObject
             return;
 
         (Guid? TenantId, Guid InvoiceId)? openInvoice = null;
+        var generation = _localDb.Generation;
         try
         {
             IsBusy = true;
@@ -102,7 +103,7 @@ public partial class InvoiceListViewModel : ObservableObject
                 openInvoice = (tappedTenant?.Id, tappedInvoice);
             }
 
-            if (tappedTenant is { } selected)
+            if (tappedTenant is { } selected && generation == _localDb.Generation)
             {
                 Preferences.Default.Set("SelectedTenantId", selected.Id.ToString());
                 Preferences.Default.Set("SelectedTenantNip", selected.Nip);
@@ -112,7 +113,7 @@ public partial class InvoiceListViewModel : ObservableObject
             if (tenantId is null && !_autoSelectAttempted)
             {
                 _autoSelectAttempted = true;
-                tenantId = await TryAutoSelectFirstTenantAsync();
+                tenantId = await TryAutoSelectFirstTenantAsync(generation);
             }
 
             if (tenantId is null)
@@ -136,8 +137,8 @@ public partial class InvoiceListViewModel : ObservableObject
                 IsEmpty = Invoices.Count == 0;
 
                 if (result.Items.Count > 0)
-                    await _localDb.SaveInvoicesAsync(tenantId.Value, result.Items);
-                await CorrectCachedPaidAsync(tenantId.Value, result);
+                    await _localDb.SaveInvoicesAsync(tenantId.Value, result.Items, generation);
+                await CorrectCachedPaidAsync(tenantId.Value, result, generation);
             }
             catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
             {
@@ -232,7 +233,7 @@ public partial class InvoiceListViewModel : ObservableObject
         }
     }
 
-    private async Task CorrectCachedPaidAsync(Guid tenantId, PagedResult<InvoiceDto> page)
+    private async Task CorrectCachedPaidAsync(Guid tenantId, PagedResult<InvoiceDto> page, int generation)
     {
         if (_loadedIsPaid != false)
             return;
@@ -242,7 +243,7 @@ public partial class InvoiceListViewModel : ObservableObject
         foreach (var invoice in page.Items)
             _unpaidSeen.Add(invoice.Id);
         if (!HasMorePages && page.TotalCount == _unpaidFirstTotal && _unpaidSeen.Count == page.TotalCount)
-            await _localDb.MarkPaidExceptAsync(tenantId, _unpaidSeen);
+            await _localDb.MarkPaidExceptAsync(tenantId, _unpaidSeen, generation);
     }
 
     [RelayCommand]
@@ -259,6 +260,7 @@ public partial class InvoiceListViewModel : ObservableObject
             return;
 
         var load = _loadVersion;
+        var generation = _localDb.Generation;
         try
         {
             IsLoadingMore = true;
@@ -278,7 +280,7 @@ public partial class InvoiceListViewModel : ObservableObject
             _totalPages = result.TotalPages;
             HasMorePages = _currentPage < _totalPages;
             ErrorMessage = null;
-            await CorrectCachedPaidAsync(tenantId.Value, result);
+            await CorrectCachedPaidAsync(tenantId.Value, result, generation);
         }
         catch (ApiException ex) when (load == _loadVersion)
         {
@@ -307,12 +309,12 @@ public partial class InvoiceListViewModel : ObservableObject
         try { await Shell.Current.GoToAsync($"invoiceDetails?tenantId={tenantId}&invoiceId={invoice.Id}"); } catch { }
     }
 
-    private async Task<Guid?> TryAutoSelectFirstTenantAsync()
+    private async Task<Guid?> TryAutoSelectFirstTenantAsync(int generation)
     {
         try
         {
             var tenants = await _apiService.GetTenantsAsync();
-            if (tenants.Count == 0)
+            if (tenants.Count == 0 || generation != _localDb.Generation)
                 return null;
 
             var first = tenants[0];
