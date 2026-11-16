@@ -1,7 +1,6 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
-using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
@@ -10,25 +9,24 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Regression")]
 public sealed class LayoutVerificationTests : AndroidTestBase
 {
-    private E2EBackend.User _user = null!;
+    private readonly List<E2EBackend.User> _onboardingUsers = [];
 
-    protected override bool SignOutBeforeEachTest => false;
-
-    [OneTimeSetUp]
-    public async Task CreateOnboardingUser() => _user = await E2EBackend.CreateUserAsync();
+    protected override bool UsesSeededUser => true;
 
     [OneTimeTearDown]
-    public async Task SignOutAndDeleteOnboardingUser()
+    public async Task SignOutAndDeleteOnboardingUsers()
     {
         new AndroidOidcLoginFlow(AndroidDriver).SignOut();
         try
         {
-            Assert.That(await E2EBackend.WaitForNoDevicesAsync(_user, TimeSpan.FromSeconds(30)), Is.Zero,
-                "Device token rows left for the onboarding user after sign-out.");
+            foreach (var user in _onboardingUsers)
+                Assert.That(await E2EBackend.WaitForNoDevicesAsync(user, TimeSpan.FromSeconds(30)), Is.Zero,
+                    $"Device token rows left for {user.Username} after sign-out.");
         }
         finally
         {
-            await E2EBackend.DeleteUserAsync(_user);
+            foreach (var user in _onboardingUsers)
+                await E2EBackend.DeleteUserAsync(user);
         }
     }
 
@@ -41,8 +39,24 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         TestContext.Progress.WriteLine($"Layout screenshot captured: {name}");
     }
 
+    private async Task<AndroidOnboardingFlow> StartOnboardingAsync()
+    {
+        var user = await E2EBackend.CreateUserAsync();
+        _onboardingUsers.Add(user);
+        new AndroidOidcLoginFlow(AndroidDriver).Login(user.Username, user.Password);
+        var onboarding = new AndroidOnboardingFlow(AndroidDriver);
+        onboarding.WaitForOnboardingPage();
+        return onboarding;
+    }
+
+    private void OpenSeededTenantList()
+    {
+        LoginAsSeededUser();
+        new AndroidOidcLoginFlow(AndroidDriver).WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
+        new AndroidTenantNavigationFlow(AndroidDriver).OpenTenantList();
+    }
+
     [Test]
-    [Order(1)]
     public void LoginPage_LayoutElementsAreVisible()
     {
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(30));
@@ -70,47 +84,36 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     }
 
     [Test]
-    [Order(2)]
-    public void LoginPage_RegisterModeLayoutIsCorrect()
+    public async Task LoginPage_RegisterModeMatchesServerSetting()
     {
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));
-
         wait.UntilVisible(ByAutoId("LoginPageLabelLogo"));
 
         var switchLink = AndroidDriver.FindElements(ByAutoId("LoginPageButtonSwitchToRegister"));
-        if (switchLink.Count == 0)
-            Assert.Ignore("Server reports registrationAllowed=false (GET /api/system/setup-status), so the app shows no register mode.");
+        if (!await E2EBackend.RegistrationAllowedAsync())
+        {
+            Assert.That(switchLink, Is.Empty, "Register link must stay hidden when setup-status reports registrationAllowed=false");
+            return;
+        }
+
+        Assert.That(switchLink, Is.Not.Empty, "Register link should show when setup-status reports registrationAllowed=true");
         switchLink[0].Click();
 
-        Thread.Sleep(500);
-
-        var firstNameEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegFirstName"));
-        Assert.That(firstNameEntry.Count, Is.GreaterThan(0), "First name entry should be visible in register mode");
-
-        var lastNameEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegLastName"));
-        Assert.That(lastNameEntry.Count, Is.GreaterThan(0), "Last name entry should be visible in register mode");
-
-        var regEmailEntry = AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegEmail"));
-        Assert.That(regEmailEntry.Count, Is.GreaterThan(0), "Email entry should be visible in register mode");
-
-        var regButton = AndroidDriver.FindElements(ByAutoId("LoginPageButtonRegister"));
-        Assert.That(regButton.Count, Is.GreaterThan(0), "Register button should be visible");
+        Assert.That(wait.UntilVisible(ByAutoId("LoginPageEntryRegFirstName")).Displayed, Is.True, "First name entry should be visible in register mode");
+        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegLastName")), Is.Not.Empty, "Last name entry should be visible in register mode");
+        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegEmail")), Is.Not.Empty, "Email entry should be visible in register mode");
+        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageButtonRegister")), Is.Not.Empty, "Register button should be visible");
 
         CaptureLayoutScreenshot("LoginPage_RegisterMode");
 
-        var switchBack = AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToLogin"));
-        switchBack.Click();
-        Thread.Sleep(300);
+        AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToLogin")).Click();
+        wait.UntilVisible(ByAutoId("LoginPageButtonLogin"));
     }
 
     [Test]
-    [Order(3)]
-    public void OnboardingPage_Step1LayoutElementsAreVisible()
+    public async Task OnboardingPage_Step1LayoutElementsAreVisible()
     {
-        new AndroidOidcLoginFlow(AndroidDriver).Login(_user.Username, _user.Password);
-
-        var onboarding = new AndroidOnboardingFlow(AndroidDriver);
-        onboarding.WaitForOnboardingPage();
+        await StartOnboardingAsync();
 
         var stepIndicator = AndroidDriver.FindElement(ByAutoId("OnboardingStepIndicator"));
         Assert.That(stepIndicator.Displayed, Is.True, "Step indicator should be visible on onboarding");
@@ -131,16 +134,9 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     }
 
     [Test]
-    [Order(4)]
-    public void OnboardingPage_Step2LayoutElementsAreVisible()
+    public async Task OnboardingPage_Step2LayoutElementsAreVisible()
     {
-        var onboarding = new AndroidOnboardingFlow(AndroidDriver);
-
-        if (!onboarding.IsStepIndicatorVisible())
-        {
-            Assert.Ignore("Not on onboarding page -- previous test may have failed.");
-        }
-
+        var onboarding = await StartOnboardingAsync();
         onboarding.FillCompanyData(
             nip: "1111111111",
             displayName: "Layout Test Co",
@@ -157,10 +153,13 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     }
 
     [Test]
-    [Order(5)]
-    public void OnboardingPage_Step3SuccessLayoutElementsAreVisible()
+    public async Task OnboardingPage_Step3SuccessLayoutElementsAreVisible()
     {
-        var onboarding = new AndroidOnboardingFlow(AndroidDriver);
+        var onboarding = await StartOnboardingAsync();
+        onboarding.FillCompanyData(
+            nip: "1111111111",
+            displayName: "Layout Test Co",
+            email: "layout@test.open-ksef.pl");
         onboarding.SkipKsefToken();
         onboarding.WaitForSuccessStep();
 
@@ -170,14 +169,14 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         CaptureLayoutScreenshot("OnboardingPage_Step3_Success");
 
         onboarding.FinishOnboarding();
+        onboarding.WaitForMainApp(TimeSpan.FromSeconds(60));
     }
 
     [Test]
-    [Order(6)]
     public void InvoiceListPage_LayoutElementsAreVisible()
     {
-        var wait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(60));
-        wait.Until(d =>
+        LoginAsSeededUser();
+        new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(60)).Until(d =>
             d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0);
 
         var titleLabel = AndroidDriver.FindElement(ByAutoId("InvoiceListPageLabelTitle"));
@@ -188,51 +187,28 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     }
 
     [Test]
-    [Order(7)]
     public void TenantsPage_LayoutElementsAreVisible()
     {
-        var tenantsTab = AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'Firmy')]"));
-        if (tenantsTab.Count > 0)
-        {
-            tenantsTab[0].Click();
-            Thread.Sleep(1000);
-        }
-        else
-        {
-            Assert.Ignore("Cannot navigate to Tenants tab.");
-        }
+        OpenSeededTenantList();
 
-        var tenantList = AndroidDriver.FindElements(ByAutoId("TenantsPageCollectionViewTenants"));
-        var addButton = AndroidDriver.FindElements(ByAutoId("TenantsPageButtonAdd"));
-
-        Assert.That(
-            tenantList.Count > 0 || addButton.Count > 0,
-            Is.True,
-            "Tenants page should show either a tenant list or add button");
+        Assert.That(AndroidDriver.FindElements(ByAutoId("TenantsPageFrameTenantItem")), Has.Count.GreaterThanOrEqualTo(2),
+            "Tenants page should list the seeded tenants");
+        Assert.That(AndroidDriver.FindElements(ByAutoId("TenantsPageButtonAdd")), Is.Not.Empty,
+            "Tenants page should show the add button");
 
         CaptureLayoutScreenshot("TenantsPage");
     }
 
     [Test]
-    [Order(8)]
     public void TenantsPage_TenantFormLayoutIsCorrect()
     {
-        var addButton = AndroidDriver.FindElements(ByAutoId("TenantsPageButtonAdd"));
-        if (addButton.Count == 0)
-        {
-            addButton = AndroidDriver.FindElements(ByAutoId("TenantsPageButtonAddEmptyState"));
-        }
+        OpenSeededTenantList();
 
-        if (addButton.Count == 0)
-        {
-            Assert.Ignore("Cannot find add tenant button.");
-        }
+        var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));
+        wait.UntilVisible(ByAutoId("TenantsPageButtonAdd")).Click();
 
-        addButton[0].Click();
-        Thread.Sleep(1000);
-
-        var nipEntry = AndroidDriver.FindElements(ByAutoId("TenantFormPageEntryNip"));
-        Assert.That(nipEntry.Count, Is.GreaterThan(0), "NIP entry should be visible on tenant form");
+        var nipEntry = wait.UntilVisible(ByAutoId("TenantFormPageEntryNip"));
+        Assert.That(nipEntry.Displayed, Is.True, "NIP entry should be visible on tenant form");
 
         var nameEntry = AndroidDriver.FindElements(ByAutoId("TenantFormPageEntryDisplayName"));
         Assert.That(nameEntry.Count, Is.GreaterThan(0), "Display name entry should be visible on tenant form");
@@ -246,6 +222,6 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         CaptureLayoutScreenshot("TenantFormPage");
 
         cancelButton[0].Click();
-        Thread.Sleep(500);
+        wait.UntilVisible(ByAutoId("TenantsPageCollectionViewTenants"));
     }
 }

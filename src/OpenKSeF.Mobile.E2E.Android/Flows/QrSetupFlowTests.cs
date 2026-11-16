@@ -131,10 +131,15 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
             AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'Download')]")).FirstOrDefault()?.Click();
 
-            Thread.Sleep(1000);
-
-            var qrFile = AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'openksef-setup-qr') or starts-with(@content-desc, 'openksef-setup-qr')]"))
-                .FirstOrDefault();
+            IWebElement? qrFile = null;
+            try
+            {
+                qrFile = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(10)).Until(d =>
+                    d.FindElements(By.XPath("//*[contains(@text, 'openksef-setup-qr') or starts-with(@content-desc, 'openksef-setup-qr')]")).FirstOrDefault());
+            }
+            catch (WebDriverTimeoutException)
+            {
+            }
 
             if (qrFile is null)
             {

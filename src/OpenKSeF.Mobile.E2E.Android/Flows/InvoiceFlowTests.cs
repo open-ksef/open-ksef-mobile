@@ -10,11 +10,13 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Regression")]
 public sealed class InvoiceFlowTests : AndroidTestBase
 {
+    protected override bool UsesSeededUser => true;
+
     [Test]
     public void InvoiceList_RendersItems_AndSupportsScrollAndRefresh()
     {
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        LoginAsSeededUser();
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
         var tenantFlow = new AndroidTenantNavigationFlow(AndroidDriver);

@@ -138,6 +138,11 @@ Write-Check "Android emulator" $emulatorRunning $(
     if (-not $emulatorRunning) { "No emulator device found. Start one from Android Studio or run setup-android-e2e.ps1" }
 )
 
+if ($emulatorRunning) {
+    & $adb shell settings put secure autofill_service null | Out-Null
+    Write-Check "Autofill off" $true "No password-manager breach prompt over the login form"
+}
+
 $appInstalled = $false
 if ($emulatorRunning) {
     try {

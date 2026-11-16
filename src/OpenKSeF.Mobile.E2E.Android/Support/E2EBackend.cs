@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -6,7 +7,7 @@ using OpenKSeF.Mobile.Models;
 namespace OpenKSeF.Mobile.E2E.Android.Support;
 
 /// <summary>
-/// Host-side calls to the dev backend: proof that no device token row is left behind, and throwaway Keycloak users for flows that write.
+/// Host-side calls to the dev backend: proof that no device token row is left behind, and throwaway Keycloak users with seeded tenants and invoices.
 /// </summary>
 public static class E2EBackend
 {
@@ -59,6 +60,66 @@ public static class E2EBackend
         });
         response.EnsureSuccessStatusCode();
         return user;
+    }
+
+    public static async Task<User> CreateSeededUserAsync()
+    {
+        var user = await CreateUserAsync();
+        try
+        {
+            await SeedTenantsAsync(user);
+        }
+        catch
+        {
+            await DeleteUserAsync(user);
+            throw;
+        }
+        return user;
+    }
+
+    private static async Task SeedTenantsAsync(User user)
+    {
+        using var http = await AuthorizedClientAsync(user);
+        foreach (var (nip, name) in new[] { ("1111111111", "E2E Seed A"), ("2222222222", "E2E Seed B") })
+        {
+            var response = await http.PostAsJsonAsync($"{ServerUrl}/api/tenants", new { nip, displayName = name });
+            response.EnsureSuccessStatusCode();
+            var tenant = (await response.Content.ReadFromJsonAsync<TenantDto>())!;
+            await PsqlAsync($"""
+                INSERT INTO "InvoiceHeaders" ("Id","TenantId","KSeFInvoiceNumber","KSeFReferenceNumber","InvoiceNumber","VendorName","VendorNip",
+                  "AmountNet","AmountVat","AmountGross","Currency","IssueDate","DueDate","FirstSeenAt","LastUpdatedAt","NotifiedAt","Direction","IsPaid")
+                VALUES (gen_random_uuid(),'{tenant.Id}','E2E-{tenant.Id:N}','E2E-REF-{tenant.Id:N}','FV/E2E/1','E2E Vendor','1111111111',
+                  100.00,23.00,123.00,'PLN',now(),current_date + 14,now(),now(),now(),'Received',false)
+                """);
+        }
+    }
+
+    public static async Task<bool> RegistrationAllowedAsync()
+    {
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        var status = await http.GetFromJsonAsync<JsonElement>($"{ServerUrl}/api/system/setup-status");
+        return status.GetProperty("registrationAllowed").GetBoolean();
+    }
+
+    public static void Unmet(string reason)
+    {
+        if (Environment.GetEnvironmentVariable("E2E_ALLOW_SKIP") == "1")
+            Assert.Ignore(reason);
+        Assert.Fail($"{reason} Set E2E_ALLOW_SKIP=1 to skip instead.");
+    }
+
+    private static async Task PsqlAsync(string sql)
+    {
+        var container = Environment.GetEnvironmentVariable("E2E_POSTGRES_CONTAINER") ?? "openksef-postgres";
+        var psi = new ProcessStartInfo("docker") { RedirectStandardError = true, RedirectStandardOutput = true };
+        foreach (var arg in new[] { "exec", container, "psql", "-U", "openksef", "-d", "openksef", "-v", "ON_ERROR_STOP=1", "-c", sql })
+            psi.ArgumentList.Add(arg);
+        using var process = Process.Start(psi)!;
+        var error = process.StandardError.ReadToEndAsync();
+        await process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"psql failed: {await error}");
     }
 
     public static async Task DeleteUserAsync(User user)
