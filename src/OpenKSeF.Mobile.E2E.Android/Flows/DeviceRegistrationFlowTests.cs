@@ -14,15 +14,10 @@ public sealed class DeviceRegistrationFlowTests : AndroidTestBase
     [Test]
     public async Task Login_RegistersAndroidDevice()
     {
-        AndroidDriver.TerminateApp(AndroidOptions.AppPackage);
-        AndroidDriver.ExecuteScript("mobile: shell", new Dictionary<string, object>
-        {
-            ["command"] = "run-as",
-            ["args"] = new[] { AndroidOptions.AppPackage, "sed", "-i", "/push_disabled_by_user/d", $"shared_prefs/{AndroidOptions.AppPackage}_preferences.xml" }
-        });
-        AndroidDriver.ActivateApp(AndroidOptions.AppPackage);
-        LoginAsSeededUser();
-        new AndroidOidcLoginFlow(AndroidDriver).WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
+        var flow = new AndroidOidcLoginFlow(AndroidDriver);
+        LoginAsSeededUser(pushConsent: null);
+        Assert.That(flow.AnswerPushConsent(accept: true, TimeSpan.FromSeconds(60)), Is.True, "Expected the push consent alert for a new account.");
+        flow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
         var deadline = DateTime.UtcNow.AddSeconds(30);
         List<DeviceTokenDto> devices;
