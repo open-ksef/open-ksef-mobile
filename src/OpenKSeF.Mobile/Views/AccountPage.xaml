@@ -45,6 +45,21 @@
             </Border>
 
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12"
+                    AutomationId="AccountPageSectionPrivacy">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Prywatność" Style="{StaticResource LabelCaption}" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                        <Label Text="Wysyłaj raporty awarii" FontSize="15" VerticalOptions="Center" />
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding CrashReportsEnabled}"
+                                AutomationId="AccountPageToggleCrashReports" />
+                    </Grid>
+                    <Label Text="Pomaga naprawiać błędy aplikacji. Wyłączenie działa od razu."
+                           Style="{StaticResource LabelCaption}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12"
                     AutomationId="AccountPageSectionTheme">
                 <VerticalStackLayout Spacing="8">
                     <Label Text="Motyw" Style="{StaticResource LabelCaption}" />

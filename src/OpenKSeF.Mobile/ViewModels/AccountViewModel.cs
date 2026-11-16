@@ -37,6 +37,9 @@ public partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private string _themeChoice = ThemeSettings.Load();
 
+    [ObservableProperty]
+    private bool _crashReportsEnabled = CrashReporting.Enabled;
+
     public AccountViewModel(
         IServerSettingsService serverSettings,
         IDeviceTokenService deviceTokenService,
@@ -58,6 +61,8 @@ public partial class AccountViewModel : ObservableObject
         ThemeSettings.Save(value);
         ThemeSettings.Apply(value);
     }
+
+    partial void OnCrashReportsEnabledChanged(bool value) => CrashReporting.Enabled = value;
 
     [RelayCommand]
     public async Task LoadSettingsAsync()

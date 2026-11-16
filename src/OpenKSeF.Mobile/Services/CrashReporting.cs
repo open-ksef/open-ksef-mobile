@@ -22,6 +22,14 @@ public static class CrashReporting
 
     private static readonly HashSet<string> HttpBreadcrumbKeys = ["url", "method", "status_code", "reason"];
 
+    private const string EnabledKey = "crash_reports_enabled";
+
+    public static bool Enabled
+    {
+        get => Preferences.Default.Get(EnabledKey, true);
+        set => Preferences.Default.Set(EnabledKey, value);
+    }
+
     public static void Configure(SentryOptions options, string dsn, string release)
     {
         options.Dsn = dsn;
@@ -29,6 +37,7 @@ public static class CrashReporting
         options.SendDefaultPii = false;
         options.CaptureFailedRequests = false;
         options.EnableLogs = false;
+        options.SendClientReports = false;
         options.SetBeforeSend(ScrubEvent);
         options.SetBeforeBreadcrumb(ScrubBreadcrumb);
 #if ANDROID
@@ -46,8 +55,11 @@ public static class CrashReporting
         return text;
     }
 
-    public static SentryEvent ScrubEvent(SentryEvent e)
+    public static SentryEvent? ScrubEvent(SentryEvent e)
     {
+        if (!Enabled)
+            return null;
+
         e.User = new SentryUser();
         e.Request = new SentryRequest();
         e.ServerName = null;

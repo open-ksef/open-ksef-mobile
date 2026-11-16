@@ -26,6 +26,20 @@ public class AccountViewModelNotificationTests
     }
 
     [Fact]
+    public void CrashReportsSwitch_SavesChoice()
+    {
+        CrashReporting.Enabled = true;
+        var serverSettings = Substitute.For<IServerSettingsService>();
+        var vm = new AccountViewModel(serverSettings, _deviceTokenService, _notificationHub, _session, _api);
+        Assert.True(vm.CrashReportsEnabled);
+
+        vm.CrashReportsEnabled = false;
+
+        Assert.False(CrashReporting.Enabled);
+        CrashReporting.Enabled = true;
+    }
+
+    [Fact]
     public void Constructor_ShowsServerHost()
     {
         Assert.Equal("ksef.example.com", _vm.ServerHost);

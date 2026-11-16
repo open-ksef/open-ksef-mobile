@@ -27,7 +27,7 @@ public static class MauiProgram
             });
 
         var sentryDsn = typeof(MauiProgram).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "SentryDsn")?.Value;
-        if (!string.IsNullOrWhiteSpace(sentryDsn))
+        if (!string.IsNullOrWhiteSpace(sentryDsn) && CrashReporting.Enabled)
             builder.UseSentry(options => CrashReporting.Configure(options, sentryDsn, $"{AppInfo.PackageName}@{AppInfo.VersionString}+{AppInfo.BuildString}"));
 
         builder.Services.AddSingleton<IServerSettingsService, ServerSettingsService>();

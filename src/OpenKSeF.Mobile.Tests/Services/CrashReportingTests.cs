@@ -11,8 +11,11 @@ using Xunit;
 
 namespace OpenKSeF.Mobile.Tests.Services;
 
+[Collection("Shell")]
 public class CrashReportingTests
 {
+    public CrashReportingTests() => CrashReporting.Enabled = true;
+
     private const string Nip = "1111111111";
     private const string Nrb = "11 0000 0000 0000 0000 0000 0000";
     private const string Email = "jan.testowy@example.com";
@@ -86,7 +89,7 @@ public class CrashReportingTests
         e.SetExtra("body", "{\"buyerNip\":\"" + Nip + "\"}");
         e.SetTag("account", Nrb);
 
-        var scrubbed = CrashReporting.ScrubEvent(e);
+        var scrubbed = CrashReporting.ScrubEvent(e)!;
 
         Assert.Null(scrubbed.User.Email);
         Assert.Null(scrubbed.User.Id);
@@ -105,7 +108,7 @@ public class CrashReportingTests
         var e = new SentryEvent();
         e.Contexts.Device.Name = "Telefon Jana Kowalskiego";
 
-        var scrubbed = CrashReporting.ScrubEvent(e);
+        var scrubbed = CrashReporting.ScrubEvent(e)!;
 
         Assert.Null(scrubbed.Contexts.Device.Name);
     }
@@ -117,10 +120,56 @@ public class CrashReportingTests
         e.Contexts.Device.DeviceUniqueIdentifier = "a1b2c3d4-0000-0000-0000-000000000000";
         e.Contexts.App.Hash = "deadbeef";
 
-        var scrubbed = CrashReporting.ScrubEvent(e);
+        var scrubbed = CrashReporting.ScrubEvent(e)!;
 
         Assert.Null(scrubbed.Contexts.Device.DeviceUniqueIdentifier);
         Assert.Null(scrubbed.Contexts.App.Hash);
+    }
+
+    [Fact]
+    public void Enabled_DefaultsToOnAndPersists()
+    {
+        Preferences.Default.Remove("crash_reports_enabled");
+        Assert.True(CrashReporting.Enabled);
+
+        CrashReporting.Enabled = false;
+
+        Assert.False(Preferences.Default.Get("crash_reports_enabled", true));
+    }
+
+    [Fact]
+    public void ScrubEvent_SwitchOff_DropsEvent()
+    {
+        CrashReporting.Enabled = false;
+
+        Assert.Null(CrashReporting.ScrubEvent(new SentryEvent(new InvalidOperationException("boom"))));
+    }
+
+    [Fact]
+    public async Task SwitchOffInRunningSession_SdkSendsNoEvent()
+    {
+        var probe = new TcpListener(IPAddress.Loopback, 0);
+        probe.Start();
+        var port = ((IPEndPoint)probe.LocalEndpoint).Port;
+        probe.Stop();
+        using var listener = new HttpListener { Prefixes = { $"http://localhost:{port}/" } };
+        listener.Start();
+        var envelope = ReceiveEnvelopeAsync(listener);
+
+        using (var factory = LoggerFactory.Create(b => b.AddSentry(o =>
+        {
+            CrashReporting.Configure(o, $"http://fakepublickey@localhost:{port}/1", Release);
+            o.AutoSessionTracking = false;
+            o.CacheDirectoryPath = null;
+            o.InitializeSdk = true;
+        })))
+        {
+            CrashReporting.Enabled = false;
+            factory.CreateLogger("Test").LogError(new InvalidOperationException("boom"), "crash");
+            await SentrySdk.FlushAsync(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.NotSame(envelope, await Task.WhenAny(envelope, Task.Delay(TimeSpan.FromSeconds(3))));
     }
 
     [Fact]
