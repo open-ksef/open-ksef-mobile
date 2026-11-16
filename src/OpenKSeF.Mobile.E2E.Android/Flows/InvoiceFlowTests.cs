@@ -1,6 +1,7 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
@@ -17,7 +18,7 @@ public sealed class InvoiceFlowTests : AndroidTestBase
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
         var tenantFlow = new AndroidTenantNavigationFlow(AndroidDriver);
-        tenantFlow.SelectAnyTenant();
+        tenantFlow.SelectTenantWithInvoices();
 
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(45));
         wait.UntilVisible(ByAutoId("InvoiceListPageCollectionViewInvoices"));
@@ -25,8 +26,10 @@ public sealed class InvoiceFlowTests : AndroidTestBase
         var invoiceItems = AndroidDriver.FindElements(ByAutoId("InvoiceListPageFrameInvoiceItem"));
         Assert.That(invoiceItems.Count, Is.GreaterThan(0), "Expected at least one invoice item.");
 
-        var firstInvoiceText = invoiceItems[0].Text;
-        Assert.That(firstInvoiceText, Is.Not.Empty);
+        var firstInvoiceTexts = invoiceItems[0].FindElements(By.ClassName("android.widget.TextView"))
+            .Select(label => label.Text)
+            .Where(text => !string.IsNullOrWhiteSpace(text));
+        Assert.That(firstInvoiceTexts, Is.Not.Empty, "Expected the first invoice item to show text.");
 
         // Scroll a bit down and ensure list still present.
         AndroidDriver.ExecuteScript("mobile: scrollGesture", new Dictionary<string, object>

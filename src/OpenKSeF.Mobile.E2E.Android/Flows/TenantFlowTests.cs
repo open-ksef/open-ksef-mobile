@@ -34,9 +34,7 @@ public sealed class TenantFlowTests : AndroidTestBase
         var invoiceTitle = AndroidDriver.FindElement(ByAutoId("InvoiceListPageLabelTitle"));
         Assert.That(invoiceTitle.Text, Does.Contain("Otrzymane"));
 
-        AndroidDriver.Navigate().Back();
-
-        wait.UntilVisible(ByAutoId("TenantsPageCollectionViewTenants"));
+        tenantFlow.OpenTenantList();
 
         var secondTenant = AndroidDriver.FindElements(ByAutoId("TenantsPageFrameTenantItem")).Last();
         secondTenant.Click();

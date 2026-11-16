@@ -7,24 +7,34 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Onboarding")]
 public sealed class OnboardingFlowTests : AndroidTestBase
 {
+    private E2EBackend.User _user = null!;
+
+    [SetUp]
+    public async Task CreateUserWithoutTenant() => _user = await E2EBackend.CreateUserAsync();
+
+    [TearDown]
+    public async Task SignOutAndDeleteUser()
+    {
+        new AndroidOidcLoginFlow(AndroidDriver).SignOut();
+        await E2EBackend.DeleteUserAsync(_user);
+    }
+
     [Test]
     public void OnboardingFlow_NewUser_FullFlowWithToken()
     {
-        var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        new AndroidOidcLoginFlow(AndroidDriver).Login(_user.Username, _user.Password);
 
         var onboarding = new AndroidOnboardingFlow(AndroidDriver);
         onboarding.WaitForOnboardingPage();
 
         // Step 1: Company data
         onboarding.FillCompanyData(
-            nip: "9999999999",
+            nip: "1111111111",
             displayName: "Mobile E2E Company",
             email: "mobile@test.open-ksef.pl");
 
         // Step 2: KSeF token
-        var testToken = Environment.GetEnvironmentVariable("E2E_TEST_KSEF_TOKEN") ?? "e2e-mobile-test-token";
-        onboarding.FillKsefToken(testToken);
+        onboarding.FillKsefToken("e2e-mobile-fake-token");
 
         // Step 3: Success -- then finish
         onboarding.WaitForSuccessStep();
@@ -45,15 +55,14 @@ public sealed class OnboardingFlowTests : AndroidTestBase
     [Test]
     public void OnboardingFlow_SkipToken()
     {
-        var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        new AndroidOidcLoginFlow(AndroidDriver).Login(_user.Username, _user.Password);
 
         var onboarding = new AndroidOnboardingFlow(AndroidDriver);
         onboarding.WaitForOnboardingPage();
 
         // Step 1: Company data
         onboarding.FillCompanyData(
-            nip: "8888888888",
+            nip: "1111111111",
             displayName: "Skip Token Co",
             email: "skip@test.open-ksef.pl");
 
@@ -74,8 +83,7 @@ public sealed class OnboardingFlowTests : AndroidTestBase
     [Test]
     public void OnboardingFlow_NipValidation()
     {
-        var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        new AndroidOidcLoginFlow(AndroidDriver).Login(_user.Username, _user.Password);
 
         var onboarding = new AndroidOnboardingFlow(AndroidDriver);
         onboarding.WaitForOnboardingPage();

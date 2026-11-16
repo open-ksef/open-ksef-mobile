@@ -182,6 +182,7 @@ Configured in `.cursor/mcp.json` (Cursor only, gitignored, not in the repo). Cla
 
 No skills are committed (`.cursor/skills/` is whitelisted in `.gitignore` but absent).
 - Android E2E: `./scripts/run-mobile-e2e.ps1` (setup: `./scripts/setup-android-e2e.ps1`). Fall back to Appium MCP only for new features.
+- E2E state: every fixture signs out through Konto before each test (or once, for ordered `LayoutVerificationTests`) and asserts `GET /api/devices` is empty for the env user afterwards. Onboarding and layout flows log in as a throwaway Keycloak user (`E2EBackend.CreateUserAsync`, admin on `:8082`, creds `KEYCLOAK_ADMIN`/`KEYCLOAK_ADMIN_PASSWORD`) whose tenants, devices and account are deleted in teardown. Appium needs `--allow-insecure=uiautomator2:adb_shell` (permission reset, prefs wipe on a stuck onboarding). Never `pm clear` a Debug build: it deletes the fast-deploy assemblies and the app no longer starts until reinstalled.
 
 ## Push notifications
 

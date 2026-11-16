@@ -6,19 +6,19 @@ namespace OpenKSeF.Mobile.E2E.Android.Infrastructure;
 
 public static class AndroidDriverFactory
 {
-    public static AndroidDriver CreateDriver(AndroidE2ETestOptions options)
+    public static AndroidDriver CreateDriver(AndroidE2ETestOptions options, bool autoGrantPermissions = true)
     {
         ArgumentNullException.ThrowIfNull(options);
         EnsureAppAvailable(options);
 
-        var appiumOptions = BuildAppiumOptions(options);
+        var appiumOptions = BuildAppiumOptions(options, autoGrantPermissions);
         return new AndroidDriver(
             new Uri(options.AppiumServerUrl),
             appiumOptions,
             TimeSpan.FromSeconds(options.CommandTimeoutSeconds));
     }
 
-    public static AppiumOptions BuildAppiumOptions(AndroidE2ETestOptions options)
+    public static AppiumOptions BuildAppiumOptions(AndroidE2ETestOptions options, bool autoGrantPermissions = true)
     {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -35,7 +35,7 @@ public static class AndroidDriverFactory
         appiumOptions.AddAdditionalAppiumOption("appPackage", options.AppPackage);
         appiumOptions.AddAdditionalAppiumOption("appActivity", options.AppActivity);
         appiumOptions.AddAdditionalAppiumOption("noReset", true);
-        appiumOptions.AddAdditionalAppiumOption("autoGrantPermissions", true);
+        appiumOptions.AddAdditionalAppiumOption("autoGrantPermissions", autoGrantPermissions);
         return appiumOptions;
     }
 

@@ -49,6 +49,7 @@ function Write-Check {
 
 # ── Load .env.test defaults ──────────────────────────────────────────
 $envTestFile = Join-Path $root '.env.test'
+if (-not (Test-Path $envTestFile)) { $envTestFile = Join-Path (Split-Path -Parent $root) 'open-ksef\.env.test' }
 $testEnv = @{}
 if (Test-Path $envTestFile) {
     Get-Content $envTestFile | ForEach-Object {
@@ -85,39 +86,35 @@ foreach ($port in $ngrokApiPorts) {
     } catch { }
 }
 
-$ngrokOk = $null -ne $ngrokUrl
-Write-Check "ngrok HTTPS tunnel" $ngrokOk $(
-    if ($ngrokOk) { $ngrokUrl }
-    else { "No HTTPS tunnel found. Run: ngrok http 8080 (or dev-env-up.ps1 from the open-ksef backend repo)" }
-)
-
-if ($ngrokUrl -and $ngrokUrl -notmatch '^https://') {
-    Write-Check "ngrok URL is HTTPS" $false "URL '$ngrokUrl' is not HTTPS. Android OIDC requires HTTPS."
+if ($ngrokUrl) {
+    Write-Check "ngrok HTTPS tunnel" $true $ngrokUrl
+} else {
+    Write-Host "  [--] No ngrok tunnel: fine for the in-app ROPC login on 10.0.2.2, needed only for browser/Google login" -ForegroundColor DarkGray
 }
+$authBaseUrl = if ($ngrokUrl) { $ngrokUrl } else { 'http://localhost:8080' }
 
 # ── 3. ROPC login test ───────────────────────────────────────────────
 Write-Host "`n[auth]" -ForegroundColor Cyan
 $ropcOk = $false
-if ($ngrokUrl) {
+if ($authBaseUrl) {
     try {
         $body = @{
             grant_type = "password"
             client_id  = "openksef-mobile"
-            username   = ($testEnv['E2E_TEST_USER'] ?? "testuser")
-            password   = ($testEnv['E2E_TEST_PASSWORD'] ?? "Test1234!")
+            username   = ($(if ($testEnv['E2E_TEST_USER']) { $testEnv['E2E_TEST_USER'] } else { "testuser" }))
+            password   = ($(if ($testEnv['E2E_TEST_PASSWORD']) { $testEnv['E2E_TEST_PASSWORD'] } else { "Test1234!" }))
         }
         $headers = @{ "ngrok-skip-browser-warning" = "true" }
         $tokenResp = Invoke-RestMethod `
-            -Uri "$ngrokUrl/auth/realms/openksef/protocol/openid-connect/token" `
+            -Uri "$authBaseUrl/auth/realms/openksef/protocol/openid-connect/token" `
             -Method POST -Body $body -Headers $headers -TimeoutSec 15 -ErrorAction Stop
         $ropcOk = $null -ne $tokenResp.access_token
     } catch {
         $ropcError = $_.Exception.Message
     }
 }
-Write-Check "ROPC login via ngrok" $ropcOk $(
+Write-Check "ROPC login ($authBaseUrl)" $ropcOk $(
     if ($ropcOk) { "Token acquired for testuser" }
-    elseif (-not $ngrokUrl) { "Skipped (no ngrok URL)" }
     else { "Failed: $ropcError" }
 )
 
@@ -169,7 +166,7 @@ if (-not $appiumRunning -and -not $SkipPreflightFix) {
 
     $appiumCmd = (Get-Command appium -ErrorAction SilentlyContinue).Source
     if ($appiumCmd) {
-        Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Minimized -Command `"& '$appiumCmd' --address 127.0.0.1 --port 4723`"" -WindowStyle Hidden
+        Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Minimized -Command `"& '$appiumCmd' --address 127.0.0.1 --port 4723 --allow-insecure=uiautomator2:adb_shell`"" -WindowStyle Hidden
         Start-Sleep -Seconds 10
 
         try {
@@ -185,11 +182,11 @@ Write-Check "Appium server (:4723)" $appiumRunning $(
 
 # ── 6. Set environment variables ─────────────────────────────────────
 Write-Host "`n[env]" -ForegroundColor Cyan
-if (-not $env:KEYCLOAK_USERNAME) { $env:KEYCLOAK_USERNAME = $testEnv['E2E_TEST_USER'] ?? "testuser" }
-if (-not $env:KEYCLOAK_PASSWORD) { $env:KEYCLOAK_PASSWORD = $testEnv['E2E_TEST_PASSWORD'] ?? "Test1234!" }
-if (-not $env:E2E_TEST_KSEF_TOKEN -and $testEnv['E2E_TEST_KSEF_TOKEN']) {
-    $env:E2E_TEST_KSEF_TOKEN = $testEnv['E2E_TEST_KSEF_TOKEN']
-}
+if (-not $env:KEYCLOAK_USERNAME) { $env:KEYCLOAK_USERNAME = $(if ($testEnv['E2E_TEST_USER']) { $testEnv['E2E_TEST_USER'] } else { "testuser" }) }
+if (-not $env:KEYCLOAK_PASSWORD) { $env:KEYCLOAK_PASSWORD = $(if ($testEnv['E2E_TEST_PASSWORD']) { $testEnv['E2E_TEST_PASSWORD'] } else { "Test1234!" }) }
+if (-not $env:KEYCLOAK_ADMIN) { $env:KEYCLOAK_ADMIN = $(if ($testEnv['KEYCLOAK_ADMIN']) { $testEnv['KEYCLOAK_ADMIN'] } else { "admin" }) }
+if (-not $env:KEYCLOAK_ADMIN_PASSWORD) { $env:KEYCLOAK_ADMIN_PASSWORD = $(if ($testEnv['KEYCLOAK_ADMIN_PASSWORD']) { $testEnv['KEYCLOAK_ADMIN_PASSWORD'] } else { "admin" }) }
+if (-not $env:ANDROID_APP_ACTIVITY) { $env:ANDROID_APP_ACTIVITY = "crc6464956e39085f5526.MainActivity" }
 Write-Host "  KEYCLOAK_USERNAME  = $($env:KEYCLOAK_USERNAME)" -ForegroundColor DarkGray
 Write-Host "  KEYCLOAK_PASSWORD  = ****" -ForegroundColor DarkGray
 Write-Host "  ANDROID_HOME       = $($env:ANDROID_HOME)" -ForegroundColor DarkGray

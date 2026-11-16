@@ -17,7 +17,7 @@ public sealed class InvoiceDetailsFlowTests : AndroidTestBase
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
         var tenantFlow = new AndroidTenantNavigationFlow(AndroidDriver);
-        tenantFlow.SelectAnyTenant();
+        tenantFlow.SelectTenantWithInvoices();
 
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(45));
         wait.UntilVisible(ByAutoId("InvoiceListPageCollectionViewInvoices"));

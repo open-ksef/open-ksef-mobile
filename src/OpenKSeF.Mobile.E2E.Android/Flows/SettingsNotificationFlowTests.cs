@@ -61,38 +61,50 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
 
     private static bool IsToggleOn(WaitHelper wait) =>
         wait.UntilVisible(ByAutoId("AccountPageToggleNotifications")).GetAttribute("checked") == "true";
+}
+
+[Category("Regression")]
+public sealed class SettingsNotificationDeniedFlowTests : AndroidTestBase
+{
+    protected override bool AutoGrantPermissions => false;
 
     [Test]
     public void AccountPage_NotificationToggle_ShowsDeniedMessage_WhenPermissionDenied()
     {
+        const string permission = "android.permission.POST_NOTIFICATIONS";
+        try
+        {
+            AndroidDriver.ExecuteScript("mobile: shell", new Dictionary<string, object>
+            {
+                ["command"] = "pm",
+                ["args"] = new[] { "revoke", AndroidOptions.AppPackage, permission }
+            });
+            AndroidDriver.ExecuteScript("mobile: shell", new Dictionary<string, object>
+            {
+                ["command"] = "pm",
+                ["args"] = new[] { "clear-permission-flags", AndroidOptions.AppPackage, permission, "user-set", "user-fixed" }
+            });
+        }
+        catch (WebDriverException ex) when (ex.Message.Contains("adb_shell", StringComparison.Ordinal))
+        {
+            Assert.Ignore("Resetting the notification permission needs Appium started with --allow-insecure=uiautomator2:adb_shell.");
+        }
+
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
+        authFlow.SignOut();
         authFlow.LoginWithKeycloakFromEnvironment();
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
-        // Navigate to Account (Konto) tab
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));
-        var accountTab = wait.UntilVisible(By.XPath("//*[contains(@text, 'Konto')]"));
-        accountTab.Click();
+        wait.UntilVisible(By.XPath("//*[@text='Konto' or @content-desc='Konto']")).Click();
 
         var toggle = wait.UntilVisible(ByAutoId("AccountPageToggleNotifications"));
+        Assert.That(toggle.GetAttribute("checked"), Is.EqualTo("false"), "Push should start off without the permission");
         toggle.Click();
 
-        // Deny Android notification permission
-        try
-        {
-            var permissionWait = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(5));
-            var denyButton = permissionWait.Until(d =>
-            {
-                var buttons = d.FindElements(By.Id("com.android.permissioncontroller:id/permission_deny_button"));
-                return buttons.Count > 0 ? buttons[0] : null;
-            });
-            denyButton?.Click();
-        }
-        catch (WebDriverTimeoutException)
-        {
-            // autoGrantPermissions in AndroidDriverFactory grants the permission, so this path needs a session without it
-            Assert.Inconclusive("No permission dialog: the tap only changed the push state, denial was not exercised.");
-        }
+        var denyButton = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(10)).Until(d =>
+            d.FindElements(By.Id("com.android.permissioncontroller:id/permission_deny_button")).FirstOrDefault());
+        denyButton.Click();
 
         new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(20)).Until(d =>
             d.FindElement(ByAutoId("AccountPageLabelNotificationStatus")).Text.StartsWith("Brak uprawnień", StringComparison.Ordinal));

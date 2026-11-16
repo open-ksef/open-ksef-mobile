@@ -1,5 +1,7 @@
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
 
 namespace OpenKSeF.Mobile.E2E.Android.Support;
@@ -15,8 +17,8 @@ public sealed class AndroidInvoiceDetailsAssertions(AndroidDriver driver)
         var amount = wait.UntilVisible(ByAutoId("InvoiceDetailsPageLabelAmount"));
         var vendorName = wait.UntilVisible(ByAutoId("InvoiceDetailsPageLabelVendorName"));
         var ksefNumber = wait.UntilVisible(ByAutoId("InvoiceDetailsPageLabelKsefNumber"));
-        var copyTransfer = wait.UntilVisible(ByAutoId("InvoiceDetailsPageButtonCopyTransfer"));
-        var showQr = wait.UntilVisible(ByAutoId("InvoiceDetailsPageButtonShowQr"));
+        var copyTransfer = ScrollIntoView("InvoiceDetailsPageButtonCopyTransfer");
+        var showQr = ScrollIntoView("InvoiceDetailsPageButtonShowQr");
 
         Assert.Multiple(() =>
         {
@@ -27,4 +29,8 @@ public sealed class AndroidInvoiceDetailsAssertions(AndroidDriver driver)
             Assert.That(showQr.Displayed, Is.True);
         });
     }
+
+    private IWebElement ScrollIntoView(string automationId) =>
+        _driver.FindElement(MobileBy.AndroidUIAutomator(
+            $"new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().resourceId(\"{_driver.CurrentPackage}:id/{automationId}\"))"));
 }
