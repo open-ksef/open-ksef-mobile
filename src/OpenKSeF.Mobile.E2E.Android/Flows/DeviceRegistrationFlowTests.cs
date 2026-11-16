@@ -1,4 +1,5 @@
 using OpenKSeF.Mobile.E2E.Android.Infrastructure;
+using OpenKSeF.Mobile.Models;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenQA.Selenium.Support.UI;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
@@ -9,6 +10,29 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 public sealed class DeviceRegistrationFlowTests : AndroidTestBase
 {
     protected override bool UsesSeededUser => true;
+
+    [Test]
+    public async Task Login_RegistersAndroidDevice()
+    {
+        AndroidDriver.TerminateApp(AndroidOptions.AppPackage);
+        AndroidDriver.ExecuteScript("mobile: shell", new Dictionary<string, object>
+        {
+            ["command"] = "run-as",
+            ["args"] = new[] { AndroidOptions.AppPackage, "sed", "-i", "/push_disabled_by_user/d", $"shared_prefs/{AndroidOptions.AppPackage}_preferences.xml" }
+        });
+        AndroidDriver.ActivateApp(AndroidOptions.AppPackage);
+        LoginAsSeededUser();
+        new AndroidOidcLoginFlow(AndroidDriver).WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
+
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        List<DeviceTokenDto> devices;
+        while ((devices = await E2EBackend.GetDevicesAsync(SeededUser)).Count == 0 && DateTime.UtcNow < deadline)
+            await Task.Delay(1000);
+
+        Assert.That(devices, Has.Count.EqualTo(1), $"Expected one device row for {SeededUser.Username} after login.");
+        Assert.That(devices[0].Platform, Is.Zero, "Expected platform 0 (Android).");
+        Assert.That(devices[0].Token, Is.Not.Empty);
+    }
 
     [Test]
     public void ReturningUser_DeviceRegisteredSilently_NoNotificationDialog()
