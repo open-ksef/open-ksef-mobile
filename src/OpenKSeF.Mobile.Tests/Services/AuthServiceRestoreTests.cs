@@ -474,7 +474,7 @@ public class AuthServiceRestoreTests
             : ++apiCalls == 1
                 ? Json(HttpStatusCode.OK, $$"""{"id":"{{invoiceId}}","status":"Sending"}""")
                 : Json(HttpStatusCode.Unauthorized, string.Empty));
-        var vm = new IssuedInvoiceDetailsViewModel(CreateApi(), _settings)
+        var vm = new IssuedInvoiceDetailsViewModel(CreateApi(), _settings, new LocalDbService())
         {
             TenantId = Guid.NewGuid().ToString(),
             InvoiceId = invoiceId.ToString(),

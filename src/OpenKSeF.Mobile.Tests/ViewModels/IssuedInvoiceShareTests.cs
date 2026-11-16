@@ -19,6 +19,7 @@ public class IssuedInvoiceShareTests
     private static readonly byte[] Pdf = [0x25, 0x50, 0x44, 0x46];
 
     private readonly IApiService _api = Substitute.For<IApiService>();
+    private readonly LocalDbService _db = new();
 
     public IssuedInvoiceShareTests()
     {
@@ -38,9 +39,37 @@ public class IssuedInvoiceShareTests
             Number = "FV/12/11/2026",
             Ksef = new KsefSubmissionDto { Environment = "test", KsefNumber = KsefNumber, VerificationUrl = url, HasUpo = hasUpo }
         });
-        var vm = new IssuedInvoiceDetailsViewModel(_api, Substitute.For<IServerSettingsService>()) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
+        var vm = new IssuedInvoiceDetailsViewModel(_api, Substitute.For<IServerSettingsService>(), _db) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
         await vm.LoadCommand.ExecuteAsync(null);
         return vm;
+    }
+
+    [Theory]
+    [InlineData("pdf")]
+    [InlineData("xml")]
+    [InlineData("upo")]
+    public async Task DownloadAnsweredAfterSignOut_WritesNoFile(string kind)
+    {
+        var vm = await Loaded();
+        foreach (var entry in new DirectoryInfo(FileSystem.CacheDirectory).GetFiles())
+            entry.Delete();
+        var response = new TaskCompletionSource<byte[]>();
+        _api.GetIssuedInvoiceXmlAsync(TenantId, InvoiceId).Returns(response.Task);
+        _api.GetIssuedInvoiceUpoAsync(TenantId, InvoiceId).Returns(response.Task);
+        vm.RenderPdf = (_, _, _) => Task.FromResult(Pdf);
+
+        var share = kind switch
+        {
+            "pdf" => vm.SharePdfCommand.ExecuteAsync(null),
+            "xml" => vm.ShareXmlCommand.ExecuteAsync(null),
+            _ => vm.ShareUpoCommand.ExecuteAsync(null),
+        };
+        await _db.ClearUserDataAsync();
+        response.SetResult(Xml);
+        await share;
+
+        Assert.Empty(Directory.GetFiles(FileSystem.CacheDirectory));
+        Assert.Empty(Share.Default.Requests);
     }
 
     [Fact]

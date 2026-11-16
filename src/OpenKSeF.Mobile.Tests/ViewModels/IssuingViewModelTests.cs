@@ -691,7 +691,7 @@ public class IssuingViewModelTests : IDisposable
         _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
     }
 
-    private IssuedInvoiceDetailsViewModel Details(List<TimeSpan> delays) => new(_api, _serverSettings)
+    private IssuedInvoiceDetailsViewModel Details(List<TimeSpan> delays) => new(_api, _serverSettings, new LocalDbService())
     {
         TenantId = TenantId.ToString(),
         InvoiceId = InvoiceId.ToString(),
@@ -988,7 +988,7 @@ public class IssuingViewModelTests : IDisposable
     private async Task<IssuedInvoiceDetailsViewModel> DetailsOf(IssuedInvoiceDto invoice)
     {
         _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(invoice);
-        var vm = new IssuedInvoiceDetailsViewModel(_api, _serverSettings) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
+        var vm = new IssuedInvoiceDetailsViewModel(_api, _serverSettings, new LocalDbService()) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
         await vm.LoadCommand.ExecuteAsync(null);
         return vm;
     }

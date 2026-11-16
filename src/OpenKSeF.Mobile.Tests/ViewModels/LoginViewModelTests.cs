@@ -575,7 +575,7 @@ public class PostLoginNavigationServiceTests
         OnboardingComplete(true);
         var tenantId = Guid.NewGuid();
         await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|previous-user");
-        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }], _localDb.Generation);
         Assert.Single(await _localDb.GetInvoicesAsync(tenantId));
 
         await _nav.NavigateAsync();
@@ -589,7 +589,7 @@ public class PostLoginNavigationServiceTests
         OnboardingComplete(true);
         var tenantId = Guid.NewGuid();
         await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
-        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }], _localDb.Generation);
 
         await _nav.NavigateAsync();
 
@@ -634,7 +634,7 @@ public class PostLoginNavigationServiceTests
     {
         var tenantId = Guid.NewGuid();
         await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
-        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }], _localDb.Generation);
         _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Unverified);
 
         await _nav.RestoreSessionAsync();
@@ -650,7 +650,7 @@ public class PostLoginNavigationServiceTests
     {
         var tenantId = Guid.NewGuid();
         await _localDb.EnsureCurrentUserAsync("https://ksef.example.com|u1");
-        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }]);
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow }], _localDb.Generation);
         _auth.RestoreSessionAsync().Returns(SessionRestoreResult.Restored);
         _api.GetMeAsync().ThrowsAsync(new ApiException(System.Net.HttpStatusCode.ServiceUnavailable, "down"));
 
@@ -738,7 +738,7 @@ public class PostLoginNavigationServiceTests
     public async Task SignOut_RemovesCachedInvoiceTextFromDatabaseFile()
     {
         var tenantId = Guid.NewGuid();
-        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow, VendorName = "ZZTOPSECRETVENDORZZ" }]);
+        await _localDb.SaveInvoicesAsync(tenantId, [new InvoiceDto { Id = Guid.NewGuid(), IssueDate = DateTime.UtcNow, VendorName = "ZZTOPSECRETVENDORZZ" }], _localDb.Generation);
 
         await _nav.SignOutAsync();
 

@@ -17,8 +17,8 @@ public class TenantsViewModelTests : IDisposable
         var deleted = new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111" };
         var kept = Guid.NewGuid();
         var localDb = new LocalDbService();
-        await localDb.SaveInvoicesAsync(deleted.Id, [new InvoiceDto { Id = Guid.NewGuid() }]);
-        await localDb.SaveInvoicesAsync(kept, [new InvoiceDto { Id = Guid.NewGuid() }]);
+        await localDb.SaveInvoicesAsync(deleted.Id, [new InvoiceDto { Id = Guid.NewGuid() }], localDb.Generation);
+        await localDb.SaveInvoicesAsync(kept, [new InvoiceDto { Id = Guid.NewGuid() }], localDb.Generation);
         var api = Substitute.For<IApiService>();
         var vm = new TenantsViewModel(api, localDb) { Tenants = [deleted] };
 
