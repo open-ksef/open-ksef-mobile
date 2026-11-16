@@ -46,6 +46,63 @@ public class InvoiceListViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task LateInvoicesResponse_AfterUserDataCleared_IsNotCached()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        await db.ClearCacheForTenantAsync(tenantId);
+        var response = new TaskCompletionSource<PagedResult<InvoiceDto>>();
+        _api.GetInvoicesAsync(tenantId, 1).Returns(response.Task);
+        var vm = new InvoiceListViewModel(_api, db);
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        await db.ClearUserDataAsync();
+        response.SetResult(new PagedResult<InvoiceDto> { Items = [new InvoiceDto { Id = Guid.NewGuid(), VendorName = "A" }], PageSize = 20, TotalCount = 1 });
+        await load;
+
+        Assert.Empty(await db.GetInvoicesAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task LateUnpaidListing_AfterUserDataCleared_DoesNotMarkCachePaid()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        var response = new TaskCompletionSource<PagedResult<InvoiceDto>>();
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(response.Task);
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await db.ClearUserDataAsync();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var otherUsers = Due("B unpaid", null);
+        await db.SaveInvoicesAsync(tenantId, [otherUsers]);
+        response.SetResult(new PagedResult<InvoiceDto> { Items = [], PageSize = 20, TotalCount = 0 });
+        await Until(() => !vm.IsBusy);
+
+        Assert.False((await db.GetInvoicesAsync(tenantId)).Single().IsPaid);
+    }
+
+    [Fact]
+    public async Task LateTenantsResponse_AfterUserDataCleared_DoesNotSelectTenant()
+    {
+        Preferences.Default.Clear();
+        var tenants = new TaskCompletionSource<List<TenantDto>>();
+        _api.GetTenantsAsync().Returns(tenants.Task);
+        var db = new LocalDbService();
+        var vm = new InvoiceListViewModel(_api, db);
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        await db.ClearUserDataAsync();
+        tenants.SetResult([new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111" }]);
+        await load;
+
+        Assert.False(Preferences.Default.ContainsKey("SelectedTenantId"));
+    }
+
+    [Fact]
     public async Task LoadMore_UnexpectedException_ShowsErrorAndRetriesSamePage()
     {
         var vm = await LoadedVm();
