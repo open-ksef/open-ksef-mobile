@@ -59,6 +59,27 @@ public static class E2EBackend
         return count;
     }
 
+    public static async Task<int> WaitForDevicesAsync(User user, int expected, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        int count;
+        while ((count = await CountDevicesAsync(user)) < expected && DateTime.UtcNow < deadline)
+            await Task.Delay(1000);
+        return count;
+    }
+
+    public static async Task<bool> StaysWithoutDevicesAsync(User user, TimeSpan period)
+    {
+        var deadline = DateTime.UtcNow + period;
+        do
+        {
+            if (await CountDevicesAsync(user) > 0)
+                return false;
+            await Task.Delay(1000);
+        } while (DateTime.UtcNow < deadline);
+        return true;
+    }
+
     public static async Task<User> CreateUserAsync()
     {
         var name = $"e2e-mobile-{Guid.NewGuid():N}"[..24];

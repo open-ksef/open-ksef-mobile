@@ -34,8 +34,8 @@ public abstract class AndroidTestBase : BaseMobileTest
             SeededUser = await E2EBackend.CreateSeededUserAsync();
     }
 
-    protected void LoginAsSeededUser() =>
-        new AndroidOidcLoginFlow(AndroidDriver).Login(SeededUser.Username, SeededUser.Password);
+    protected void LoginAsSeededUser(bool? pushConsent = false) =>
+        new AndroidOidcLoginFlow(AndroidDriver).Login(SeededUser.Username, SeededUser.Password, pushConsent);
 
     [SetUp]
     public void SignOutBeforeTest() => new AndroidOidcLoginFlow(AndroidDriver).SignOut();

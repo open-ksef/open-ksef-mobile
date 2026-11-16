@@ -1395,6 +1395,12 @@ public class AuthServiceRestoreTests
         Assert.Contains("refresh_token=r1", _handler.Bodies.Last());
     }
 
+    private static void OptedIn(DeviceTokenService device, string account)
+    {
+        device.SetAccount(account);
+        Preferences.Default.Set("push_choice_" + account, true);
+    }
+
     private PostLoginNavigationService Navigation(IDeviceTokenService? device = null)
     {
         if (device is null)
@@ -1474,12 +1480,14 @@ public class AuthServiceRestoreTests
         try
         {
             Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("a@b.pl", "x"));
+            OptedIn(device, "a");
             await device.EnsureDeviceRegisteredAsync();
             devicesOffline = true;
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Equal(AuthResult.Success, await _auth.LoginWithCredentialsAsync("b@b.pl", "x"));
+            OptedIn(device, "b");
             await device.EnsureDeviceRegisteredAsync();
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));

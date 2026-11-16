@@ -4,6 +4,9 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 {
     internal static TimeSpan SignOutLimit { get; set; } = TimeSpan.FromSeconds(15);
 
+    internal const string PushConsentTitle = "Powiadomienia";
+    internal const string PushConsentMessage = "Czy chcesz dostawać powiadomienia o nowych fakturach? Telefon pokaże sprzedawcę i kwotę, gdy faktura trafi do KSeF. Zmienisz to w zakładce Konto.";
+
     private readonly IApiService _apiService;
     private readonly IAuthService _authService;
     private readonly IDeviceTokenService _deviceTokenService;
@@ -51,12 +54,16 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         try
         {
             var me = await _apiService.GetMeAsync();
+            _deviceTokenService.SetAccount(me.UserId);
             await _localDb.EnsureCurrentUserAsync($"{_serverSettings.ServerUrl}|{me.UserId}");
         }
         catch
         {
             if (!sameUserAsCache)
+            {
+                _deviceTokenService.SetAccount(null);
                 try { await _localDb.ClearUserDataAsync(); } catch { }
+            }
         }
 
         try
@@ -66,12 +73,6 @@ public class PostLoginNavigationService : IPostLoginNavigationService
         }
         catch { }
 
-        if (!needsOnboarding)
-        {
-            _ = RegisterDeviceAsync();
-            _ = StartHubAsync();
-        }
-
         try
         {
             if (needsOnboarding)
@@ -80,6 +81,32 @@ public class PostLoginNavigationService : IPostLoginNavigationService
                 await Shell.Current.GoToAsync("//main/invoices");
         }
         catch { }
+
+        if (!needsOnboarding)
+            _ = ActivatePushAsync();
+    }
+
+    public async Task ActivatePushAsync()
+    {
+        if (_deviceTokenService.PushChoicePending)
+        {
+            var account = _deviceTokenService.PushAccount;
+            try
+            {
+                var accepted = await Shell.Current.DisplayAlertAsync(PushConsentTitle, PushConsentMessage, "Tak", "Nie teraz");
+                if (_deviceTokenService.PushAccount != account)
+                    return;
+                if (!accepted || !await _deviceTokenService.EnableNotificationsAsync())
+                    await _deviceTokenService.DisableNotificationsAsync();
+            }
+            catch { }
+        }
+        else
+        {
+            _ = RegisterDeviceAsync();
+        }
+
+        _ = StartHubAsync();
     }
 
     private async Task RegisterDeviceAsync()
@@ -97,6 +124,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
     public async Task HandleSessionEndedAsync()
     {
+        _deviceTokenService.SetAccount(null);
         try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
         ClearCacheDirectory();
         try { await Shell.Current.DisplayAlertAsync("Sesja wygasła", "Zaloguj się ponownie.", "OK"); } catch { }

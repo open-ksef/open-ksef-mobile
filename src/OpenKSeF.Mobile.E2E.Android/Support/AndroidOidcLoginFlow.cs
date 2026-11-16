@@ -24,7 +24,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         Login(username!, password!);
     }
 
-    public void Login(string username, string password)
+    public void Login(string username, string password, bool? pushConsent = false)
     {
         var nativeWait = new WaitHelper(_driver, TimeSpan.FromSeconds(45));
 
@@ -39,6 +39,23 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
         var loginButton = _driver.FindElement(ByAutoId("LoginPageButtonLogin"));
         loginButton.Click();
+
+        if (pushConsent is not { } accept)
+            return;
+
+        try
+        {
+            new WebDriverWait(_driver, TimeSpan.FromSeconds(60)).Until(d =>
+                IsInvoiceList(d) ||
+                d.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0 ||
+                d.FindElements(PushConsentMessage).Count > 0);
+        }
+        catch (WebDriverTimeoutException)
+        {
+            return;
+        }
+
+        AnswerPushConsent(accept, TimeSpan.FromSeconds(3));
     }
 
     public void SignOut()
@@ -47,11 +64,16 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         _driver.ActivateApp(AppPackage);
 
         var settle = new WebDriverWait(_driver, TimeSpan.FromSeconds(60));
+        settle.IgnoreExceptionTypes(typeof(WebDriverException));
         settle.Until(d =>
             d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0 ||
             d.FindElements(ByAutoId("LoginPageEntryServerUrl")).Count > 0 ||
             d.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0 ||
-            d.FindElements(AccountTab).Count > 0);
+            d.FindElements(AccountTab).Count > 0 ||
+            d.FindElements(PushConsentMessage).Count > 0);
+
+        if (AnswerPushConsent(accept: false, TimeSpan.FromSeconds(3)))
+            new WebDriverWait(_driver, TimeSpan.FromSeconds(15)).Until(d => d.FindElements(AccountTab).Count > 0);
 
         if (_driver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0)
         {
@@ -118,16 +140,41 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         wait.Until(currentDriver =>
             currentDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
             currentDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0 ||
-            currentDriver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0);
+            currentDriver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0 ||
+            currentDriver.FindElements(PushConsentMessage).Count > 0);
+        AnswerPushConsent(accept: false, TimeSpan.FromSeconds(3));
+        wait.Until(currentDriver =>
+            IsInvoiceList(currentDriver) || currentDriver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0);
     }
 
     public void WaitForAuthenticatedInvoiceList(TimeSpan timeout)
     {
-        var wait = new WebDriverWait(_driver, timeout);
-        wait.Until(currentDriver =>
-            currentDriver.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
-            currentDriver.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0);
+        new WebDriverWait(_driver, timeout).Until(d => IsInvoiceList(d) || d.FindElements(PushConsentMessage).Count > 0);
+        AnswerPushConsent(accept: false, TimeSpan.FromSeconds(3));
+        new WebDriverWait(_driver, timeout).Until(IsInvoiceList);
     }
+
+    public static By PushConsentMessage =>
+        By.XPath("//*[@resource-id='android:id/message' and contains(@text, 'powiadomienia o nowych fakturach')]");
+
+    public bool AnswerPushConsent(bool accept, TimeSpan timeout)
+    {
+        try
+        {
+            new WebDriverWait(_driver, timeout).Until(d => d.FindElements(PushConsentMessage).Count > 0);
+        }
+        catch (WebDriverTimeoutException)
+        {
+            return false;
+        }
+
+        _driver.FindElement(By.Id(accept ? "android:id/button1" : "android:id/button2")).Click();
+        return true;
+    }
+
+    private static bool IsInvoiceList(IWebDriver d) =>
+        d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
+        d.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0;
 
     private void SwitchToBrowserContext()
     {

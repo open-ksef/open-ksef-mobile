@@ -64,13 +64,8 @@ public sealed class AndroidOnboardingFlow(AndroidDriver driver)
         finishButton.Click();
     }
 
-    public void WaitForMainApp(TimeSpan? timeout = null)
-    {
-        var wait = new WebDriverWait(_driver, timeout ?? TimeSpan.FromSeconds(30));
-        wait.Until(d =>
-            d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
-            d.FindElements(ByAutoId("InvoiceListPageCollectionViewInvoices")).Count > 0);
-    }
+    public void WaitForMainApp(TimeSpan? timeout = null) =>
+        new AndroidOidcLoginFlow(_driver).WaitForAuthenticatedInvoiceList(timeout ?? TimeSpan.FromSeconds(30));
 
     public bool IsStepIndicatorVisible()
     {

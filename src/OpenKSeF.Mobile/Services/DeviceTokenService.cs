@@ -19,6 +19,9 @@ public class DeviceTokenService : IDeviceTokenService
     private const string DeviceIdKey = "device_stable_id";
     private const string PushDisabledKey = "push_disabled_by_user";
     private const string PendingSignOutKey = "pending_signout_sessions";
+    private const string PushAccountKey = "push_account";
+    private const string PushChoicePrefix = "push_choice_";
+    private const string PushChoiceMigratedKey = "push_choice_migrated";
 
     private readonly IApiService _apiService;
     private readonly IAuthService _authService;
@@ -36,7 +39,39 @@ public class DeviceTokenService : IDeviceTokenService
         _authService = authService;
     }
 
-    public bool PushDisabledByUser => Preferences.Default.Get(PushDisabledKey, false);
+    public bool PushDisabledByUser => PushChoice() != true;
+
+    public bool PushChoicePending => Account() is not null && PushChoice() is null;
+
+    public string? PushAccount => Account();
+
+    /// <summary>Upgrade from a build with the per-device <c>push_disabled_by_user</c>: the first account set after it inherits that state once.</summary>
+    public void SetAccount(string? accountId)
+    {
+        if (string.IsNullOrEmpty(accountId))
+        {
+            Preferences.Default.Remove(PushAccountKey);
+            return;
+        }
+
+        Preferences.Default.Set(PushAccountKey, accountId);
+        if (Preferences.Default.Get(PushChoiceMigratedKey, false))
+            return;
+
+        if (Preferences.Default.Get(PushDisabledKey, false))
+            Preferences.Default.Set(PushChoicePrefix + accountId, false);
+        else if (Preferences.Default.Get(DeviceRegisteredKey, false) || Preferences.Default.Get(TokenStorageKey, string.Empty).Length > 0)
+            Preferences.Default.Set(PushChoicePrefix + accountId, true);
+        Preferences.Default.Remove(PushDisabledKey);
+        Preferences.Default.Set(PushChoiceMigratedKey, true);
+    }
+
+    private static string? Account() => Preferences.Default.Get(PushAccountKey, string.Empty) is { Length: > 0 } account ? account : null;
+
+    private static bool? PushChoice() =>
+        Account() is { } account && Preferences.Default.ContainsKey(PushChoicePrefix + account)
+            ? Preferences.Default.Get(PushChoicePrefix + account, false)
+            : null;
 
     public bool PushRemovalPending =>
         PushDisabledByUser && !string.IsNullOrEmpty(Preferences.Default.Get(TokenStorageKey, string.Empty));
@@ -123,9 +158,12 @@ public class DeviceTokenService : IDeviceTokenService
 
     private async Task EnsureRegisteredAsync(CancellationToken ct)
     {
+        if (Account() is null)
+            return;
+
         if (PushDisabledByUser)
         {
-            await DisableNotificationsAsync();
+            await RemoveServerDevicesAsync();
             return;
         }
 
@@ -162,6 +200,9 @@ public class DeviceTokenService : IDeviceTokenService
 
     public async Task<bool> EnableNotificationsAsync()
     {
+        if (Account() is not { } account)
+            return false;
+
         var status = await Permissions.CheckStatusAsync<Permissions.PostNotifications>();
         if (status != PermissionStatus.Granted)
         {
@@ -175,6 +216,9 @@ public class DeviceTokenService : IDeviceTokenService
 
         return await Enqueue(async ct =>
         {
+            if (Account() != account)
+                return false;
+
             var platformInt = GetCurrentPlatform();
 
             var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
@@ -193,7 +237,7 @@ public class DeviceTokenService : IDeviceTokenService
             Preferences.Default.Set(TokenStorageKey, token);
             Preferences.Default.Set(PlatformStorageKey, GetCurrentPlatformName());
             Preferences.Default.Set(DeviceRegisteredKey, true);
-            Preferences.Default.Remove(PushDisabledKey);
+            Preferences.Default.Set(PushChoicePrefix + account, true);
             return true;
         });
     }
@@ -209,8 +253,14 @@ public class DeviceTokenService : IDeviceTokenService
 
     public async Task<bool> DisableNotificationsAsync()
     {
-        Preferences.Default.Set(PushDisabledKey, true);
+        if (Account() is { } account)
+            Preferences.Default.Set(PushChoicePrefix + account, false);
 
+        return await RemoveServerDevicesAsync();
+    }
+
+    private async Task<bool> RemoveServerDevicesAsync()
+    {
         if (!await TryDeleteServerDevicesAsync(StoredTokens()))
             return false;
 
@@ -228,6 +278,7 @@ public class DeviceTokenService : IDeviceTokenService
             session = _session?.Token ?? CancellationToken.None;
             _session?.Cancel();
             _session = null;
+            Preferences.Default.Remove(PushAccountKey);
             tokens = StoredTokens();
             tokens.UnionWith(_posting);
             _posting.Clear();
@@ -384,7 +435,7 @@ public class DeviceTokenService : IDeviceTokenService
         Preferences.Default.Set(PlatformStorageKey, platform);
         Preferences.Default.Set(DeviceRegisteredKey, true);
         if (PushDisabledByUser)
-            await DisableNotificationsAsync();
+            await RemoveServerDevicesAsync();
     }
 
     private static HashSet<string> StoredTokens() =>
