@@ -106,6 +106,9 @@ if ($emulatorRunning) {
     }
 }
 
+& adb shell settings put secure autofill_service null | Out-Null
+Write-Host "  [OK] Autofill off (no password-manager breach prompt over the login form)" -ForegroundColor Green
+
 # ── 4. Appium + UiAutomator2 ─────────────────────────────────────────
 if (-not $SkipAppiumInstall) {
     Write-Host "`n[appium] Installing/updating ..." -ForegroundColor Cyan
@@ -130,7 +133,7 @@ if ($appiumRunning) {
     Write-Host "  Starting Appium server ..." -ForegroundColor Yellow
     $appiumCmd = (Get-Command appium -ErrorAction SilentlyContinue).Source
     if (-not $appiumCmd) { Write-Error "appium not found in PATH. Run: npm install -g appium" }
-    Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Minimized -Command `"& '$appiumCmd' --address 127.0.0.1 --port 4723`"" -WindowStyle Hidden
+    Start-Process powershell -ArgumentList "-NoProfile -WindowStyle Minimized -Command `"& '$appiumCmd' --address 127.0.0.1 --port 4723 --allow-insecure=uiautomator2:adb_shell`"" -WindowStyle Hidden
     Start-Sleep -Seconds 8
 
     try {

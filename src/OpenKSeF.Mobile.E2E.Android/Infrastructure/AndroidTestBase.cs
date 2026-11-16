@@ -15,9 +15,11 @@ public abstract class AndroidTestBase : BaseMobileTest
     protected AndroidE2ETestOptions AndroidOptions { get; private set; } = null!;
     protected AndroidDriver AndroidDriver => (AndroidDriver)Driver;
 
-    protected virtual bool SignOutBeforeEachTest => true;
-
     protected virtual bool AutoGrantPermissions => true;
+
+    protected virtual bool UsesSeededUser => false;
+
+    protected E2EBackend.User SeededUser { get; private set; } = null!;
 
     protected override AppiumDriver CreateDriver(MobileTestConfiguration configuration)
     {
@@ -26,23 +28,35 @@ public abstract class AndroidTestBase : BaseMobileTest
     }
 
     [OneTimeSetUp]
-    public void StartSignedOut()
+    public async Task CreateSeededUser()
     {
-        if (!SignOutBeforeEachTest)
-            new AndroidOidcLoginFlow(AndroidDriver).SignOut();
+        if (UsesSeededUser)
+            SeededUser = await E2EBackend.CreateSeededUserAsync();
     }
 
+    protected void LoginAsSeededUser() =>
+        new AndroidOidcLoginFlow(AndroidDriver).Login(SeededUser.Username, SeededUser.Password);
+
     [SetUp]
-    public void SignOutBeforeTest()
-    {
-        if (SignOutBeforeEachTest)
-            new AndroidOidcLoginFlow(AndroidDriver).SignOut();
-    }
+    public void SignOutBeforeTest() => new AndroidOidcLoginFlow(AndroidDriver).SignOut();
 
     [OneTimeTearDown]
     public async Task SignOutAndAssertNoDeviceRows()
     {
         new AndroidOidcLoginFlow(AndroidDriver).SignOut();
+
+        if (UsesSeededUser && SeededUser is not null)
+        {
+            try
+            {
+                Assert.That(await E2EBackend.WaitForNoDevicesAsync(SeededUser, TimeSpan.FromSeconds(30)), Is.Zero,
+                    $"Device token rows left for {SeededUser.Username} after sign-out.");
+            }
+            finally
+            {
+                await E2EBackend.DeleteUserAsync(SeededUser);
+            }
+        }
 
         var user = E2EBackend.EnvironmentUser();
         if (user is null)

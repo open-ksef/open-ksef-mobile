@@ -10,11 +10,13 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Regression")]
 public sealed class SettingsNotificationFlowTests : AndroidTestBase
 {
+    protected override bool UsesSeededUser => true;
+
     [Test]
     public void AccountPage_NotificationToggle_FlipsSwitchAndStatusBothWays()
     {
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        LoginAsSeededUser();
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
         // Navigate to Account (Konto) tab
@@ -66,6 +68,8 @@ public sealed class SettingsNotificationFlowTests : AndroidTestBase
 [Category("Regression")]
 public sealed class SettingsNotificationDeniedFlowTests : AndroidTestBase
 {
+    protected override bool UsesSeededUser => true;
+
     protected override bool AutoGrantPermissions => false;
 
     [Test]
@@ -87,12 +91,12 @@ public sealed class SettingsNotificationDeniedFlowTests : AndroidTestBase
         }
         catch (WebDriverException ex) when (ex.Message.Contains("adb_shell", StringComparison.Ordinal))
         {
-            Assert.Ignore("Resetting the notification permission needs Appium started with --allow-insecure=uiautomator2:adb_shell.");
+            E2EBackend.Unmet("Resetting the notification permission needs Appium started with --allow-insecure=uiautomator2:adb_shell.");
         }
 
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
         authFlow.SignOut();
-        authFlow.LoginWithKeycloakFromEnvironment();
+        LoginAsSeededUser();
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));

@@ -18,10 +18,10 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
         {
-            Assert.Ignore("KEYCLOAK_USERNAME / KEYCLOAK_PASSWORD are required for login E2E test.");
+            E2EBackend.Unmet("KEYCLOAK_USERNAME / KEYCLOAK_PASSWORD are required for login E2E test.");
         }
 
-        Login(username, password);
+        Login(username!, password!);
     }
 
     public void Login(string username, string password)

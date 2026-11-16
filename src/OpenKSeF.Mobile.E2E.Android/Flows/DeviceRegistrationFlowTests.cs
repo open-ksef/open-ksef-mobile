@@ -8,11 +8,13 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Regression")]
 public sealed class DeviceRegistrationFlowTests : AndroidTestBase
 {
+    protected override bool UsesSeededUser => true;
+
     [Test]
     public void ReturningUser_DeviceRegisteredSilently_NoNotificationDialog()
     {
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        LoginAsSeededUser();
 
         // Returning user with existing tenant should go straight to invoices.
         // No notification permission dialog should appear.
@@ -27,7 +29,7 @@ public sealed class DeviceRegistrationFlowTests : AndroidTestBase
     public void SecondLogin_SkipsDeviceRegistration_NavigatesDirectly()
     {
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        LoginAsSeededUser();
 
         authFlow.WaitForAuthenticatedInvoiceList(TimeSpan.FromSeconds(60));
 

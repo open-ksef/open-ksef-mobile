@@ -10,11 +10,12 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Regression")]
 public sealed class TenantFlowTests : AndroidTestBase
 {
+    protected override bool UsesSeededUser => true;
+
     [Test]
     public void TenantList_SelectionFlow_ChangesCurrentTenantContext()
     {
-        var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        LoginAsSeededUser();
 
         var tenantFlow = new AndroidTenantNavigationFlow(AndroidDriver);
         tenantFlow.OpenTenantList();

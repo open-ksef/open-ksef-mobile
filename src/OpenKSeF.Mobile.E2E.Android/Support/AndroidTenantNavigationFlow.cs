@@ -44,6 +44,6 @@ public sealed class AndroidTenantNavigationFlow(AndroidDriver driver)
             }
         }
 
-        Assert.Ignore("No tenant of the E2E user has invoices; seed them with open-ksef/scripts/setup-test-data.ps1.");
+        E2EBackend.Unmet("No tenant of the E2E user shows invoices; E2EBackend.CreateSeededUserAsync seeds one per tenant.");
     }
 }
