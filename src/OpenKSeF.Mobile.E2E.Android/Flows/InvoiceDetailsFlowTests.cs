@@ -3,8 +3,7 @@ using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
+using SkiaSharp;
 using ZXing;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
@@ -57,11 +56,10 @@ public sealed class InvoiceDetailsFlowTests : AndroidTestBase
         details.ScrollIntoView("InvoiceDetailsPageButtonShowQr").Click();
 
         var qr = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(45)).UntilVisible(ByAutoId("QrCodePageImageQr"));
-        using var image = Image.Load<Rgba32>(((ITakesScreenshot)qr).GetScreenshot().AsByteArray);
-        var pixels = new byte[image.Width * image.Height * 4];
-        image.CopyPixelDataTo(pixels);
+        using var png = SKBitmap.Decode(((ITakesScreenshot)qr).GetScreenshot().AsByteArray);
+        using var image = png.Copy(SKColorType.Rgba8888);
         var reader = new BarcodeReaderGeneric { Options = { PossibleFormats = [BarcodeFormat.QR_CODE], TryHarder = true } };
-        var decoded = reader.Decode(new RGBLuminanceSource(pixels, image.Width, image.Height, RGBLuminanceSource.BitmapFormat.RGBA32));
+        var decoded = reader.Decode(new RGBLuminanceSource(image.Bytes, image.Width, image.Height, RGBLuminanceSource.BitmapFormat.RGBA32));
         Assert.That(decoded, Is.Not.Null, "QR image on QrCodePage did not decode.");
 
         var segments = decoded!.Text.Split('|');
