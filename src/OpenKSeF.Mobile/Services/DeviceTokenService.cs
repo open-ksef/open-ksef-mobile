@@ -158,6 +158,9 @@ public class DeviceTokenService : IDeviceTokenService
 
     private async Task EnsureRegisteredAsync(CancellationToken ct)
     {
+        if (Account() is null)
+            return;
+
         if (PushDisabledByUser)
         {
             await RemoveServerDevicesAsync();
@@ -213,6 +216,9 @@ public class DeviceTokenService : IDeviceTokenService
 
         return await Enqueue(async ct =>
         {
+            if (Account() != account)
+                return false;
+
             var platformInt = GetCurrentPlatform();
 
             var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);

@@ -177,6 +177,48 @@ public class PushConsentTests
         Assert.False(_device.PushDisabledByUser);
     }
 
+    [Theory]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    public async Task Upgrade_MeFails_KeepsOldRowAndTokenKeys_MigratesAtNextSuccess(string failure)
+    {
+        Preferences.Default.Set("device_push_token", "device-old");
+        Preferences.Default.Set("device_registered", true);
+        _rows.Add((Guid.NewGuid(), "a", "device-old"));
+        Exception error = failure == "5xx"
+            ? new ApiException(HttpStatusCode.ServiceUnavailable, "down")
+            : new TaskCanceledException("HttpClient.Timeout");
+        _api.GetMeAsync().Returns(Task.FromException<UserInfo>(error));
+
+        await Navigation().RestoreAfterUpgrade(_auth);
+
+        Assert.Single(_rows);
+        Assert.Equal("device-old", Preferences.Default.Get("device_push_token", ""));
+        Assert.True(Preferences.Default.Get("device_registered", false));
+        await _api.DidNotReceiveWithAnyArgs().UnregisterDeviceAsync(default);
+
+        _api.GetMeAsync().Returns(_ => new UserInfo { UserId = _user });
+        await Navigation().RestoreAfterUpgrade(_auth);
+
+        Assert.Equal(0, Prompts);
+        Assert.Empty(_posts);
+        Assert.Single(_rows);
+        Assert.False(_device.PushDisabledByUser);
+    }
+
+    [Fact]
+    public async Task SessionEnded_ClearsAccount_NextUserTokenRefreshNotRegistered()
+    {
+        await Navigation().NavigateAsync();
+        Assert.Equal(["a"], _posts);
+
+        await Navigation().HandleSessionEndedAsync();
+        await _device.RegisterTokenAsync("fcm-rotated", "Android");
+
+        Assert.Null(_device.PushAccount);
+        Assert.Equal(["a"], _posts);
+    }
+
     [Fact]
     public async Task Upgrade_MigratesOnce_SecondAccountWithStaleTokenKeysIsAsked()
     {

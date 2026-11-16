@@ -124,6 +124,7 @@ public class PostLoginNavigationService : IPostLoginNavigationService
 
     public async Task HandleSessionEndedAsync()
     {
+        _deviceTokenService.SetAccount(null);
         try { await _notificationHub.StopAsync().WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
         ClearCacheDirectory();
         try { await Shell.Current.DisplayAlertAsync("Sesja wygasła", "Zaloguj się ponownie.", "OK"); } catch { }
