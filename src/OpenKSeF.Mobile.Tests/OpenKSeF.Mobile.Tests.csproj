@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <SentryImplicitUsings>false</SentryImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,6 +19,7 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.15" />
     <PackageReference Include="QRCoder" Version="1.8.1" />
     <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
+    <PackageReference Include="Sentry.Extensions.Logging" Version="6.12.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,6 +27,7 @@
     <Compile Include="..\OpenKSeF.Mobile\Services\ApiService.cs" Link="Linked\Services\ApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\AuthOptions.cs" Link="Linked\Services\AuthOptions.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\AuthService.cs" Link="Linked\Services\AuthService.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\CrashReporting.cs" Link="Linked\Services\CrashReporting.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\DeviceTokenService.cs" Link="Linked\Services\DeviceTokenService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IApiService.cs" Link="Linked\Services\IApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IAuthService.cs" Link="Linked\Services\IAuthService.cs" />

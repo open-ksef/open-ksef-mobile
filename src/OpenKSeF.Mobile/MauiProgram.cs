@@ -1,3 +1,4 @@
+using System.Reflection;
 using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using OpenKSeF.Mobile.Services;
@@ -24,6 +25,10 @@ public static class MauiProgram
                 fonts.AddFont("Inter-Bold.ttf", "InterBold");
                 fonts.AddFont("JetBrainsMono-Regular.ttf", "JetBrainsMono");
             });
+
+        var sentryDsn = typeof(MauiProgram).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "SentryDsn")?.Value;
+        if (!string.IsNullOrWhiteSpace(sentryDsn))
+            builder.UseSentry(options => CrashReporting.Configure(options, sentryDsn, $"{AppInfo.PackageName}@{AppInfo.VersionString}+{AppInfo.BuildString}"));
 
         builder.Services.AddSingleton<IServerSettingsService, ServerSettingsService>();
         builder.Services.AddSingleton(new AuthOptions());

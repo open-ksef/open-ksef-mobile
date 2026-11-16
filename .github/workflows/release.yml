@@ -143,6 +143,8 @@ jobs:
           echo "store_pass=$STORE_PASS" >> $GITHUB_OUTPUT
 
       - name: Build Android AAB + APK
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
             -f net10.0-android \
