@@ -10,6 +10,28 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Regression")]
 public sealed class LayoutVerificationTests : AndroidTestBase
 {
+    private E2EBackend.User _user = null!;
+
+    protected override bool SignOutBeforeEachTest => false;
+
+    [OneTimeSetUp]
+    public async Task CreateOnboardingUser() => _user = await E2EBackend.CreateUserAsync();
+
+    [OneTimeTearDown]
+    public async Task SignOutAndDeleteOnboardingUser()
+    {
+        new AndroidOidcLoginFlow(AndroidDriver).SignOut();
+        try
+        {
+            Assert.That(await E2EBackend.WaitForNoDevicesAsync(_user, TimeSpan.FromSeconds(30)), Is.Zero,
+                "Device token rows left for the onboarding user after sign-out.");
+        }
+        finally
+        {
+            await E2EBackend.DeleteUserAsync(_user);
+        }
+    }
+
     private string ScreenshotDir =>
         Path.Combine(TestContext.CurrentContext.WorkDirectory, "TestResults", "LayoutScreenshots");
 
@@ -55,8 +77,10 @@ public sealed class LayoutVerificationTests : AndroidTestBase
 
         wait.UntilVisible(ByAutoId("LoginPageLabelLogo"));
 
-        var switchLink = AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToRegister"));
-        switchLink.Click();
+        var switchLink = AndroidDriver.FindElements(ByAutoId("LoginPageButtonSwitchToRegister"));
+        if (switchLink.Count == 0)
+            Assert.Ignore("Server reports registrationAllowed=false (GET /api/system/setup-status), so the app shows no register mode.");
+        switchLink[0].Click();
 
         Thread.Sleep(500);
 
@@ -83,8 +107,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     [Order(3)]
     public void OnboardingPage_Step1LayoutElementsAreVisible()
     {
-        var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        new AndroidOidcLoginFlow(AndroidDriver).Login(_user.Username, _user.Password);
 
         var onboarding = new AndroidOnboardingFlow(AndroidDriver);
         onboarding.WaitForOnboardingPage();
@@ -119,7 +142,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         }
 
         onboarding.FillCompanyData(
-            nip: "7777777777",
+            nip: "1111111111",
             displayName: "Layout Test Co",
             email: "layout@test.open-ksef.pl");
 

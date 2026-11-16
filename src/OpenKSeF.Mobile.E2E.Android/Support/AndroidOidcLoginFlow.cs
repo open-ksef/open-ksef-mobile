@@ -1,6 +1,7 @@
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 using OpenQA.Selenium;
+using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
 using OpenQA.Selenium.Support.UI;
 
@@ -27,6 +28,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     {
         var nativeWait = new WaitHelper(_driver, TimeSpan.FromSeconds(45));
 
+        EnsureServerConfigured();
         var emailEntry = nativeWait.UntilVisible(ByAutoId("LoginPageEntryEmail"));
         emailEntry.Clear();
         emailEntry.SendKeys(username);
@@ -38,6 +40,60 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         var loginButton = _driver.FindElement(ByAutoId("LoginPageButtonLogin"));
         loginButton.Click();
     }
+
+    public void SignOut()
+    {
+        _driver.TerminateApp(AppPackage);
+        _driver.ActivateApp(AppPackage);
+
+        var settle = new WebDriverWait(_driver, TimeSpan.FromSeconds(60));
+        settle.Until(d =>
+            d.FindElements(ByAutoId("LoginPageEntryEmail")).Count > 0 ||
+            d.FindElements(ByAutoId("LoginPageEntryServerUrl")).Count > 0 ||
+            d.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0 ||
+            d.FindElements(AccountTab).Count > 0);
+
+        if (_driver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0)
+        {
+            _driver.TerminateApp(AppPackage);
+            _driver.ExecuteScript("mobile: shell", new Dictionary<string, object>
+            {
+                ["command"] = "run-as",
+                ["args"] = new[] { AppPackage, "rm", "-rf", "shared_prefs" }
+            });
+            _driver.ActivateApp(AppPackage);
+            return;
+        }
+
+        if (_driver.FindElements(AccountTab).Count == 0)
+            return;
+
+        _driver.FindElement(AccountTab).Click();
+        _driver.FindElement(MobileBy.AndroidUIAutomator(
+            "new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().resourceId(\"" + AppPackage + ":id/AccountPageRowLogout\"))")).Click();
+        new WaitHelper(_driver, TimeSpan.FromSeconds(15)).UntilVisible(By.Id("android:id/button1")).Click();
+        new WaitHelper(_driver, TimeSpan.FromSeconds(60)).UntilVisible(ByAutoId("LoginPageEntryEmail"));
+    }
+
+    private void EnsureServerConfigured()
+    {
+        var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(45));
+        wait.Until(d =>
+            d.FindElements(ByAutoId("LoginPageEntryEmail")).Any(e => e.Displayed) ||
+            d.FindElements(ByAutoId("LoginPageEntryServerUrl")).Any(e => e.Displayed));
+
+        var serverEntry = _driver.FindElements(ByAutoId("LoginPageEntryServerUrl")).FirstOrDefault(e => e.Displayed);
+        if (serverEntry is null)
+            return;
+
+        serverEntry.Clear();
+        serverEntry.SendKeys(Environment.GetEnvironmentVariable("E2E_APP_SERVER_URL") ?? "http://10.0.2.2:8080");
+        _driver.FindElement(ByAutoId("LoginPageButtonSaveServer")).Click();
+    }
+
+    private static string AppPackage => Environment.GetEnvironmentVariable("ANDROID_APP_PACKAGE") ?? "com.openksef.mobile";
+
+    private static By AccountTab => By.XPath("//*[@text='Konto' or @content-desc='Konto']");
 
     public void LoginViaKeycloakRedirect(string username, string password)
     {
