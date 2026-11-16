@@ -30,7 +30,7 @@ public sealed class AndroidInvoiceDetailsAssertions(AndroidDriver driver)
         });
     }
 
-    private IWebElement ScrollIntoView(string automationId) =>
+    public IWebElement ScrollIntoView(string automationId) =>
         _driver.FindElement(MobileBy.AndroidUIAutomator(
             $"new UiScrollable(new UiSelector().scrollable(true)).scrollIntoView(new UiSelector().resourceId(\"{_driver.CurrentPackage}:id/{automationId}\"))"));
 }

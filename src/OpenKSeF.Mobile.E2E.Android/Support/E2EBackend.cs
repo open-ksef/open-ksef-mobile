@@ -26,11 +26,28 @@ public static class E2EBackend
         return string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password) ? null : new User(username, password);
     }
 
-    public static async Task<int> CountDevicesAsync(User user)
+    public const string SeedAccount = "95000000009999000011112222";
+    public const string SeedVendorNip = "1234567890";
+    public const string SeedGrossGrosze = "012300";
+
+    public static async Task<List<DeviceTokenDto>> GetDevicesAsync(User user)
     {
         using var http = await AuthorizedClientAsync(user);
-        var devices = await http.GetFromJsonAsync<List<DeviceTokenDto>>($"{ServerUrl}/api/devices");
-        return devices!.Count;
+        return (await http.GetFromJsonAsync<List<DeviceTokenDto>>($"{ServerUrl}/api/devices"))!;
+    }
+
+    public static async Task<int> CountDevicesAsync(User user) => (await GetDevicesAsync(user)).Count;
+
+    public static async Task<List<string>> GetInvoiceNumbersAsync(User user)
+    {
+        using var http = await AuthorizedClientAsync(user);
+        var numbers = new List<string>();
+        foreach (var tenant in (await http.GetFromJsonAsync<List<TenantDto>>($"{ServerUrl}/api/tenants"))!)
+        {
+            var page = await http.GetFromJsonAsync<PagedResult<InvoiceDto>>($"{ServerUrl}/api/tenants/{tenant.Id}/invoices");
+            numbers.AddRange(page!.Items.Select(i => i.DisplayNumber));
+        }
+        return numbers;
     }
 
     public static async Task<int> WaitForNoDevicesAsync(User user, TimeSpan timeout)
@@ -87,9 +104,11 @@ public static class E2EBackend
             var tenant = (await response.Content.ReadFromJsonAsync<TenantDto>())!;
             await PsqlAsync($"""
                 INSERT INTO "InvoiceHeaders" ("Id","TenantId","KSeFInvoiceNumber","KSeFReferenceNumber","InvoiceNumber","VendorName","VendorNip",
-                  "AmountNet","AmountVat","AmountGross","Currency","IssueDate","DueDate","FirstSeenAt","LastUpdatedAt","NotifiedAt","Direction","IsPaid")
-                VALUES (gen_random_uuid(),'{tenant.Id}','E2E-{tenant.Id:N}','E2E-REF-{tenant.Id:N}','FV/E2E/1','E2E Vendor','1111111111',
-                  100.00,23.00,123.00,'PLN',now(),current_date + 14,now(),now(),now(),'Received',false)
+                  "AmountNet","AmountVat","AmountGross","Currency","IssueDate","DueDate","FirstSeenAt","LastUpdatedAt","NotifiedAt","Direction","IsPaid",
+                  "InvoiceType","Settlement","VendorBankAccount")
+                VALUES (gen_random_uuid(),'{tenant.Id}','E2E-{tenant.Id:N}','E2E-REF-{tenant.Id:N}','FV/E2E/{tenant.Id.ToString("N")[..8]}','E2E Vendor','{SeedVendorNip}',
+                  100.00,23.00,123.00,'PLN',now(),current_date + 14,now(),now(),now(),'Received',false,
+                  'Vat',1,'{SeedAccount}')
                 """);
         }
     }
