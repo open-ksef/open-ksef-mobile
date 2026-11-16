@@ -16,7 +16,7 @@ public class OnboardingViewModelTests
     [InlineData("1234567890")]
     public async Task SubmitStep1_InvalidNipChecksum_RejectsWithoutApiCall(string nip)
     {
-        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>()) { Nip = nip };
+        var vm = new OnboardingViewModel(_api, Substitute.For<IPostLoginNavigationService>()) { Nip = nip };
 
         await vm.SubmitStep1Command.ExecuteAsync(null);
 
@@ -29,7 +29,7 @@ public class OnboardingViewModelTests
     public async Task SubmitStep1_ValidNip_CreatesTenant()
     {
         _api.CreateTenantAsync(Arg.Any<CreateTenantRequest>()).Returns(new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111" });
-        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>()) { Nip = " 1111111111 " };
+        var vm = new OnboardingViewModel(_api, Substitute.For<IPostLoginNavigationService>()) { Nip = " 1111111111 " };
 
         await vm.SubmitStep1Command.ExecuteAsync(null);
 
@@ -42,7 +42,7 @@ public class OnboardingViewModelTests
     public async Task SubmitStep1_NoCredentialPermission_SkipsTokenStep()
     {
         _api.CreateTenantAsync(Arg.Any<CreateTenantRequest>()).Returns(new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111", Role = "Employee", Permissions = ["invoices.read"] });
-        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>()) { Nip = "1111111111" };
+        var vm = new OnboardingViewModel(_api, Substitute.For<IPostLoginNavigationService>()) { Nip = "1111111111" };
 
         await vm.SubmitStep1Command.ExecuteAsync(null);
 
@@ -56,7 +56,7 @@ public class OnboardingViewModelTests
         var tenantId = Guid.NewGuid();
         Preferences.Default.Set("SelectedTenantNip", "stale");
         _api.CreateTenantAsync(Arg.Any<CreateTenantRequest>()).Returns(new TenantDto { Id = tenantId, Nip = "1111111111" });
-        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>()) { Nip = "1111111111" };
+        var vm = new OnboardingViewModel(_api, Substitute.For<IPostLoginNavigationService>()) { Nip = "1111111111" };
         await vm.SubmitStep1Command.ExecuteAsync(null);
 
         await vm.GoToInvoicesCommand.ExecuteAsync(null);
@@ -68,7 +68,7 @@ public class OnboardingViewModelTests
     [Fact]
     public async Task OpenTokenDocs_OpensSiteTokenPage()
     {
-        var vm = new OnboardingViewModel(_api, Substitute.For<IDeviceTokenService>());
+        var vm = new OnboardingViewModel(_api, Substitute.For<IPostLoginNavigationService>());
 
         await vm.OpenTokenDocsCommand.ExecuteAsync(null);
 
