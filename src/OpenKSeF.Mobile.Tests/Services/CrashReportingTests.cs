@@ -100,6 +100,30 @@ public class CrashReportingTests
     }
 
     [Fact]
+    public void ScrubEvent_DropsUserSetDeviceName()
+    {
+        var e = new SentryEvent();
+        e.Contexts.Device.Name = "Telefon Jana Kowalskiego";
+
+        var scrubbed = CrashReporting.ScrubEvent(e);
+
+        Assert.Null(scrubbed.Contexts.Device.Name);
+    }
+
+    [Fact]
+    public void ScrubEvent_DropsDeviceAndAppIdentifiers()
+    {
+        var e = new SentryEvent();
+        e.Contexts.Device.DeviceUniqueIdentifier = "a1b2c3d4-0000-0000-0000-000000000000";
+        e.Contexts.App.Hash = "deadbeef";
+
+        var scrubbed = CrashReporting.ScrubEvent(e);
+
+        Assert.Null(scrubbed.Contexts.Device.DeviceUniqueIdentifier);
+        Assert.Null(scrubbed.Contexts.App.Hash);
+    }
+
+    [Fact]
     public async Task LoggerEventThroughSdk_ReachesEndpointScrubbedWithRelease()
     {
         var probe = new TcpListener(IPAddress.Loopback, 0);

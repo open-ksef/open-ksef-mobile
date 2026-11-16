@@ -51,6 +51,9 @@ public static class CrashReporting
         e.User = new SentryUser();
         e.Request = new SentryRequest();
         e.ServerName = null;
+        e.Contexts.Device.Name = null;
+        e.Contexts.Device.DeviceUniqueIdentifier = null;
+        e.Contexts.App.Hash = null;
         e.TransactionName = Scrub(e.TransactionName);
         if (e.Message is { } message)
             e.Message = new SentryMessage { Message = Scrub(message.Message), Formatted = Scrub(message.Formatted) };
