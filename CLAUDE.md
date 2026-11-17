@@ -197,7 +197,7 @@ Firebase is optional. If `src/OpenKSeF.Mobile/Platforms/Android/google-services.
 | Problem | How to debug |
 |---------|-------------|
 | Build fails | Check .NET 10 SDK + MAUI workload: `dotnet workload list` |
-| App can't login (ROPC) | Run integration tests: `dotnet test ... --filter "Category=Integration"`. If they pass, the backend is fine -- check emulator server URL (`10.0.2.2:8080` not `localhost`) |
+| App can't login (browser/pairing) | `ServerUnreachable` = discovery failed or no server answer: check the server URL (`10.0.2.2:8080` for pairing, ngrok HTTPS for browser login). Pairing `PairingNotSupported` = `unauthorized_client`, server without the device grant. `ClientRejected` = `invalid_client` (or `unauthorized_client` in browser login): `openksef-mobile` client missing or misconfigured in the realm. `PairingExpired`/`PairingDenied` = code timed out or refused on the verification page |
 | App can't login (Google/OIDC) | Verify ngrok is running and URL is HTTPS. Run `dev-env-up.ps1` to refresh Keycloak redirect URIs |
 | Release APK crashes on start | You probably built with `-p:PublishTrimmed=false`. Remove that flag -- Release needs trimming for JNI bindings |
 | E2E login timeout on emulator | Check server URL in prefs: `adb shell "run-as com.openksef.mobile cat shared_prefs/com.openksef.mobile_preferences.xml"`. `http://10.0.2.2:8080` for pairing/API; browser and Google login need the ngrok HTTPS URL |
