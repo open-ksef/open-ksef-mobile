@@ -8,7 +8,7 @@ namespace OpenKSeF.Mobile.ViewModels;
 public partial class OnboardingViewModel : ObservableObject
 {
     private readonly IApiService _apiService;
-    private readonly IDeviceTokenService _deviceTokenService;
+    private readonly IPostLoginNavigationService _postLoginNav;
 
     [ObservableProperty]
     private int _currentStep = 1;
@@ -71,10 +71,10 @@ public partial class OnboardingViewModel : ObservableObject
     public string NextButtonText => IsBusy ? "Zapisywanie…" : "Dalej";
     public string SuccessMessage => $"Firma {_tenantLabel} (NIP: {Nip}) została skonfigurowana.";
 
-    public OnboardingViewModel(IApiService apiService, IDeviceTokenService deviceTokenService)
+    public OnboardingViewModel(IApiService apiService, IPostLoginNavigationService postLoginNav)
     {
         _apiService = apiService;
-        _deviceTokenService = deviceTokenService;
+        _postLoginNav = postLoginNav;
     }
 
     partial void OnCurrentStepChanged(int value)
@@ -137,7 +137,10 @@ public partial class OnboardingViewModel : ObservableObject
             _tenantId = Guid.Parse(tenant.Id.ToString());
             _tenantNip = tenant.Nip;
             _tenantLabel = tenant.DisplayName ?? tenant.Nip;
-            CurrentStep = 2;
+            if (tenant.CanManageCredential)
+                CurrentStep = 2;
+            else
+                SkipToken();
         }
         catch (Exception ex)
         {
@@ -210,9 +213,9 @@ public partial class OnboardingViewModel : ObservableObject
             Preferences.Default.Set("SelectedTenantNip", _tenantNip);
         }
 
-        try { await _deviceTokenService.EnsureDeviceRegisteredAsync(); } catch { }
-
         try { await Shell.Current.GoToAsync("//main/invoices"); } catch { }
+
+        await _postLoginNav.ActivatePushAsync();
     }
 
     private async Task RunSyncAsync()

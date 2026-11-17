@@ -156,6 +156,28 @@ public class ApiServiceTests
         await _auth.DidNotReceive().GetAccessTokenAsync();
     }
 
+    [Fact]
+    public async Task GetSetupStatus_ReadsDataController()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, "{\"isInitialized\":true,\"registrationAllowed\":true,\"dataControllerName\":\"Firma Testowa\",\"dataControllerContact\":\"rodo@ksef.example.com\"}");
+
+        var status = await CreateService().GetSetupStatusAsync();
+
+        Assert.Equal("Firma Testowa", status!.DataControllerName);
+        Assert.Equal("rodo@ksef.example.com", status.DataControllerContact);
+    }
+
+    [Fact]
+    public async Task GetSetupStatus_OlderBackendWithoutDataController_ReadsNulls()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, "{\"isInitialized\":true,\"registrationAllowed\":true}");
+
+        var status = await CreateService().GetSetupStatusAsync();
+
+        Assert.Null(status!.DataControllerName);
+        Assert.Null(status.DataControllerContact);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.NotFound)]
     [InlineData(HttpStatusCode.InternalServerError)]
@@ -223,6 +245,75 @@ public class ApiServiceTests
 
         Assert.Equal(status, ex.StatusCode);
         Assert.False(ApiException.IsNetworkFailure(ex));
+    }
+
+    [Theory]
+    [InlineData("""{"error":"Brak uprawnień do tej operacji w tej firmie."}""", "Brak uprawnień do tej operacji w tej firmie.")]
+    [InlineData("", "Brak uprawnień do tej operacji.")]
+    [InlineData("<html>403</html>", "Brak uprawnień do tej operacji.")]
+    public async Task Forbidden_ShowsServerError_OrPolishFallback(string body, string message)
+    {
+        _handler.RespondJson(HttpStatusCode.Forbidden, body);
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().DeleteTenantAsync(Guid.NewGuid()));
+
+        Assert.Equal(HttpStatusCode.Forbidden, ex.StatusCode);
+        Assert.Equal(message, ex.Message);
+    }
+
+    [Fact]
+    public async Task Tenants_OldBackendWithoutRole_AllActionsVisible_NoRoleName()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, """[{"id":"7d1f0c1e-0000-0000-0000-000000000001","nip":"1111111111","displayName":"Firma","notificationEmail":null,"createdAt":"2026-01-01T00:00:00Z"}]""");
+
+        var tenant = Assert.Single(await CreateService().GetTenantsAsync());
+
+        Assert.Null(tenant.Role);
+        Assert.Null(tenant.Permissions);
+        Assert.Null(tenant.RoleName);
+        Assert.True(tenant.CanEdit);
+        Assert.True(tenant.CanDelete);
+        Assert.True(tenant.CanManageCredential);
+    }
+
+    [Theory]
+    [InlineData("Owner", "Właściciel", true, true, true)]
+    [InlineData("Administrator", "Administrator", true, false, true)]
+    [InlineData("Accountant", "Księgowy", false, false, false)]
+    [InlineData("Employee", "Pracownik", false, false, false)]
+    public async Task Tenants_RolePermissions_GateActions(string role, string roleName, bool canEdit, bool canDelete, bool canManageCredential)
+    {
+        string[] every = ["invoices.read", "invoices.markPaid", "sync.run", "notifications.self", "issuing.draft"];
+        string[] managers = ["issuing.submit", "sync.fullResync", "credential.manage", "tenant.edit", "members.manage"];
+        var permissions = role switch
+        {
+            "Owner" => [.. every, .. managers, "tenant.delete"],
+            "Administrator" => [.. every, .. managers],
+            "Accountant" => [.. every, "issuing.submit"],
+            _ => every,
+        };
+        var json = $$"""[{"id":"7d1f0c1e-0000-0000-0000-000000000001","nip":"1111111111","displayName":null,"notificationEmail":null,"createdAt":"2026-01-01T00:00:00Z","role":"{{role}}","permissions":{{System.Text.Json.JsonSerializer.Serialize(permissions.Order(StringComparer.Ordinal))}}}]""";
+        _handler.RespondJson(HttpStatusCode.OK, json);
+
+        var tenant = Assert.Single(await CreateService().GetTenantsAsync());
+
+        Assert.Equal(roleName, tenant.RoleName);
+        Assert.Equal(canEdit, tenant.CanEdit);
+        Assert.Equal(canDelete, tenant.CanDelete);
+        Assert.Equal(canManageCredential, tenant.CanManageCredential);
+    }
+
+    [Fact]
+    public async Task Tenants_UnknownRole_NoRoleName_EmptyPermissionsHideActions()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, """[{"id":"7d1f0c1e-0000-0000-0000-000000000001","nip":"1111111111","createdAt":"2026-01-01T00:00:00Z","role":"Auditor","permissions":[]}]""");
+
+        var tenant = Assert.Single(await CreateService().GetTenantsAsync());
+
+        Assert.Null(tenant.RoleName);
+        Assert.False(tenant.CanEdit);
+        Assert.False(tenant.CanDelete);
+        Assert.False(tenant.CanManageCredential);
     }
 
     [Fact]

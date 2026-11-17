@@ -19,6 +19,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
 
     private readonly IApiService _apiService;
     private readonly IServerSettingsService _serverSettings;
+    private readonly LocalDbService _localDb;
     private const string NoConnection = "Brak połączenia z serwerem. Status faktury pojawi się tu po powrocie sieci. Nie wystawiaj jej drugi raz.";
     private const string ChangedMessage = "Ta faktura została zmieniona w innym miejscu. Sprawdź aktualne dane i wybierz „Wystaw i wyślij” jeszcze raz.";
 
@@ -56,10 +57,11 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
-    public IssuedInvoiceDetailsViewModel(IApiService apiService, IServerSettingsService serverSettings)
+    public IssuedInvoiceDetailsViewModel(IApiService apiService, IServerSettingsService serverSettings, LocalDbService localDb)
     {
         _apiService = apiService;
         _serverSettings = serverSettings;
+        _localDb = localDb;
     }
 
     public string? Status => Invoice?.Status;
@@ -312,6 +314,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         if (!IsAccepted || !Guid.TryParse(TenantId, out var tenantId))
             return;
 
+        var generation = _localDb.Generation;
         try
         {
             IsBusy = true;
@@ -325,7 +328,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
                 return;
             }
 
-            await ShareFileAsync(pdf, ".pdf", "application/pdf", "Faktura PDF");
+            await ShareFileAsync(pdf, ".pdf", "application/pdf", "Faktura PDF", generation);
         }
         catch (Exception ex)
         {
@@ -384,11 +387,12 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         if (!Guid.TryParse(TenantId, out var tenantId))
             return;
 
+        var generation = _localDb.Generation;
         try
         {
             IsBusy = true;
             ErrorMessage = null;
-            await ShareFileAsync(await download(tenantId, Invoice!.Id), suffix, "application/xml", title);
+            await ShareFileAsync(await download(tenantId, Invoice!.Id), suffix, "application/xml", title, generation);
         }
         catch (Exception ex)
         {
@@ -400,8 +404,11 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         }
     }
 
-    private async Task ShareFileAsync(byte[] content, string suffix, string contentType, string title)
+    private async Task ShareFileAsync(byte[] content, string suffix, string contentType, string title, int generation)
     {
+        if (generation != _localDb.Generation)
+            return;
+
         var path = Path.Combine(FileSystem.CacheDirectory, IssuingFormat.FileStem(Invoice!.Number ?? Invoice.Id.ToString()) + suffix);
         await File.WriteAllBytesAsync(path, content);
         await Share.Default.RequestAsync(new ShareFileRequest { Title = title, File = new ShareFile(path, contentType) });

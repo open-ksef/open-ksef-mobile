@@ -15,6 +15,7 @@ public class DeviceTokenServiceTests : IDisposable
     private const string RegisteredKey = "device_registered";
     private const string DeviceIdKey = "device_stable_id";
     private const string PushDisabledKey = "push_disabled_by_user";
+    private const string ChoiceKey = "push_choice_u1";
 
     private readonly IApiService _api = Substitute.For<IApiService>();
     private readonly IAuthService _auth = Substitute.For<IAuthService>();
@@ -31,6 +32,8 @@ public class DeviceTokenServiceTests : IDisposable
         _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns(new List<DeviceTokenDto>());
         _auth.CompleteDeferredLogoutAsync(Arg.Any<string>(), Arg.Any<bool>()).Returns(true);
         _service = new DeviceTokenService(_api, _auth);
+        _service.SetAccount("u1");
+        Preferences.Default.Set(ChoiceKey, true);
     }
 
     public void Dispose() => DeviceTokenService.LateRegistrationWait = _lateRegistrationWait;
@@ -53,7 +56,7 @@ public class DeviceTokenServiceTests : IDisposable
         Assert.False(_service.ShowHubNotification(true));
 
         await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
-        Assert.True(_service.ShowHubNotification(true));
+        Assert.False(_service.ShowHubNotification(true));
     }
 
     [Fact]
@@ -734,17 +737,34 @@ public class DeviceTokenServiceTests : IDisposable
         Assert.Equal("", Preferences.Default.Get(TokenKey, ""));
     }
 
-    private static void TurnedOff() => Preferences.Default.Set(PushDisabledKey, true);
+    private static void TurnedOff() => Preferences.Default.Set(ChoiceKey, false);
 
     [Fact]
-    public async Task ExistingInstall_NoKey_StaysOnAndRegisters()
+    public async Task NoChoiceForAccount_Pending_DoesNotRegister()
     {
-        Assert.False(_service.PushDisabledByUser);
-        Assert.True(await _service.AreNotificationsEnabledAsync());
+        Preferences.Default.Remove(ChoiceKey);
+
+        Assert.True(_service.PushChoicePending);
+        Assert.True(_service.PushDisabledByUser);
+        Assert.False(await _service.AreNotificationsEnabledAsync());
 
         await _service.EnsureDeviceRegisteredAsync();
+        await _service.RegisterTokenAsync("fcm-new", "Android");
 
-        await _api.ReceivedWithAnyArgs(1).RegisterDeviceTokenAsync(default!);
+        await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!);
+    }
+
+    [Fact]
+    public async Task NoAccount_EnableReturnsFalseWithoutPermissionPrompt()
+    {
+        _service.SetAccount(null);
+        Permissions.Status = PermissionStatus.Denied;
+
+        Assert.False(await _service.EnableNotificationsAsync());
+
+        Assert.Equal(0, Permissions.RequestCount);
+        Assert.False(_service.PushChoicePending);
+        await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!);
     }
 
     [Fact]
@@ -799,6 +819,7 @@ public class DeviceTokenServiceTests : IDisposable
         await _service.DisableNotificationsAsync();
 
         await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
+        _service.SetAccount("u1");
         await _service.EnsureDeviceRegisteredAsync();
 
         Assert.True(_service.PushDisabledByUser);

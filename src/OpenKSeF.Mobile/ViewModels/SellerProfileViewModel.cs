@@ -8,6 +8,7 @@ using OpenKSeF.Mobile.Services;
 namespace OpenKSeF.Mobile.ViewModels;
 
 [QueryProperty(nameof(TenantId), "tenantId")]
+[QueryProperty(nameof(IsReadOnly), "readOnly")]
 public partial class SellerProfileViewModel : ObservableObject
 {
     public const string OtherAccount = "Inny rachunek";
@@ -19,6 +20,10 @@ public partial class SellerProfileViewModel : ObservableObject
 
     [ObservableProperty]
     private string? _tenantId;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEditable))]
+    private bool _isReadOnly;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -93,6 +98,8 @@ public partial class SellerProfileViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
+    public bool IsEditable => !IsReadOnly;
+
     public bool HasBankAccountOptions => BankAccountOptions.Count > 0;
 
     public bool IsOtherAccount => BankAccountOptions.Count == 0 || SelectedBankAccount == OtherAccount;
@@ -100,6 +107,9 @@ public partial class SellerProfileViewModel : ObservableObject
     public string NumberPreview => int.TryParse(NextNumber, out var n) && !string.IsNullOrWhiteSpace(NumberingPattern)
         ? $"Następna faktura otrzyma numer {IssuingFormat.NumberPreview(NumberingPattern, n, DateOnly.FromDateTime(DateTime.Today))}"
         : string.Empty;
+
+    public static string Route(TenantDto tenant) =>
+        tenant.CanEdit ? $"sellerProfile?tenantId={tenant.Id}" : $"sellerProfile?tenantId={tenant.Id}&readOnly=true";
 
     public SellerProfileViewModel(IApiService apiService)
     {
@@ -155,7 +165,7 @@ public partial class SellerProfileViewModel : ObservableObject
     [RelayCommand]
     private async Task LookupNipAsync()
     {
-        if (IsLookingUp || string.IsNullOrEmpty(Nip))
+        if (IsReadOnly || IsLookingUp || string.IsNullOrEmpty(Nip))
             return;
 
         try
@@ -204,7 +214,7 @@ public partial class SellerProfileViewModel : ObservableObject
     [RelayCommand]
     private async Task SaveAsync()
     {
-        if (IsBusy || !Guid.TryParse(TenantId, out var tenantId))
+        if (IsReadOnly || IsBusy || !Guid.TryParse(TenantId, out var tenantId))
             return;
 
         LegalNameError = AddressError = BankAccountError = NumberingPatternError = NextNumberError = ErrorMessage = null;

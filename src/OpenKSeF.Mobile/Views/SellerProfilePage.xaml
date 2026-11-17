@@ -37,6 +37,7 @@
                                    AutomationId="SellerProfilePageEntryNip" />
                             <Button Text="Pobierz z NIP (biała lista)"
                                     Style="{StaticResource UiButtonTonal}"
+                                    IsVisible="{Binding IsEditable}"
                                     Command="{Binding LookupNipCommand}"
                                     AutomationId="SellerProfilePageButtonLookup" />
                             <ActivityIndicator IsRunning="{Binding IsLookingUp}" IsVisible="{Binding IsLookingUp}" HeightRequest="24" />
@@ -56,16 +57,16 @@
                             </Label>
 
                             <Label Text="Nazwa firmy" Style="{StaticResource UiFieldLabel}" Margin="0,8,0,0" />
-                            <Entry Text="{Binding LegalName}" Style="{StaticResource UiEntry}"
+                            <Entry Text="{Binding LegalName}" Style="{StaticResource UiEntry}" IsReadOnly="{Binding IsReadOnly}"
                                    AutomationId="SellerProfilePageEntryLegalName" />
                             <Label Text="{Binding LegalNameError}" Style="{StaticResource UiFieldError}"
                                    IsVisible="{Binding LegalNameError, Converter={StaticResource IsNotNullConverter}}" />
 
                             <Label Text="Adres (ulica i numer)" Style="{StaticResource UiFieldLabel}" />
-                            <Entry Text="{Binding AddressLine1}" Style="{StaticResource UiEntry}"
+                            <Entry Text="{Binding AddressLine1}" Style="{StaticResource UiEntry}" IsReadOnly="{Binding IsReadOnly}"
                                    AutomationId="SellerProfilePageEntryAddressLine1" />
                             <Label Text="Kod pocztowy i miejscowość" Style="{StaticResource UiFieldLabel}" />
-                            <Entry Text="{Binding AddressLine2}" Style="{StaticResource UiEntry}"
+                            <Entry Text="{Binding AddressLine2}" Style="{StaticResource UiEntry}" IsReadOnly="{Binding IsReadOnly}"
                                    AutomationId="SellerProfilePageEntryAddressLine2" />
                             <Label Text="{Binding AddressError}" Style="{StaticResource UiFieldError}"
                                    IsVisible="{Binding AddressError, Converter={StaticResource IsNotNullConverter}}" />
@@ -86,7 +87,7 @@
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
-                            <Entry Text="{Binding OtherBankAccount}" Style="{StaticResource UiEntry}"
+                            <Entry Text="{Binding OtherBankAccount}" Style="{StaticResource UiEntry}" IsReadOnly="{Binding IsReadOnly}"
                                    IsVisible="{Binding IsOtherAccount}"
                                    Keyboard="Numeric"
                                    Placeholder="61 1090 1014 0000 0712 1981 2874"
@@ -103,14 +104,14 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Text="Numeracja" Style="{StaticResource UiH2}" />
                             <Label Text="Wzór numeru" Style="{StaticResource UiFieldLabel}" />
-                            <Entry Text="{Binding NumberingPattern}" Style="{StaticResource UiEntry}"
+                            <Entry Text="{Binding NumberingPattern}" Style="{StaticResource UiEntry}" IsReadOnly="{Binding IsReadOnly}"
                                    FontFamily="JetBrainsMono"
                                    AutomationId="SellerProfilePageEntryPattern" />
                             <Label Style="{StaticResource UiMutedText}" FontSize="12" Text="Znaczniki: {nr} {MM} {RRRR}" />
                             <Label Text="{Binding NumberingPatternError}" Style="{StaticResource UiFieldError}"
                                    IsVisible="{Binding NumberingPatternError, Converter={StaticResource IsNotNullConverter}}" />
                             <Label Text="Następny numer" Style="{StaticResource UiFieldLabel}" />
-                            <Entry Text="{Binding NextNumber}" Style="{StaticResource UiEntry}" Keyboard="Numeric"
+                            <Entry Text="{Binding NextNumber}" Style="{StaticResource UiEntry}" IsReadOnly="{Binding IsReadOnly}" Keyboard="Numeric"
                                    AutomationId="SellerProfilePageEntryNextNumber" />
                             <Label Text="{Binding NextNumberError}" Style="{StaticResource UiFieldError}"
                                    IsVisible="{Binding NextNumberError, Converter={StaticResource IsNotNullConverter}}" />
@@ -124,7 +125,7 @@
                             <Label Text="Metoda kasowa" Style="{StaticResource UiFieldLabel}" />
                             <Label Grid.Row="1" Style="{StaticResource UiMutedText}" FontSize="12"
                                    Text="Dodaje adnotację „metoda kasowa” (P_16)" />
-                            <Switch Grid.Column="1" Grid.RowSpan="2" IsToggled="{Binding CashAccounting}"
+                            <Switch Grid.Column="1" Grid.RowSpan="2" IsToggled="{Binding CashAccounting}" IsEnabled="{Binding IsEditable}"
                                     AutomationId="SellerProfilePageSwitchCashAccounting" />
                         </Grid>
                     </Border>
@@ -135,6 +136,7 @@
 
                     <Button Text="Zapisz dane"
                             Style="{StaticResource UiButtonPrimary}"
+                            IsVisible="{Binding IsEditable}"
                             Command="{Binding SaveCommand}"
                             AutomationId="SellerProfilePageButtonSave" />
                 </VerticalStackLayout>

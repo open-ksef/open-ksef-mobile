@@ -18,7 +18,8 @@ public class AccountViewModelThemeTests
         Substitute.For<IServerSettingsService>(),
         Substitute.For<IDeviceTokenService>(),
         Substitute.For<INotificationHubService>(),
-        Substitute.For<IPostLoginNavigationService>());
+        Substitute.For<IPostLoginNavigationService>(),
+        Substitute.For<IApiService>());
 
     [Theory]
     [InlineData("System", AppTheme.Unspecified)]

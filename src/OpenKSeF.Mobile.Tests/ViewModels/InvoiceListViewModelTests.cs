@@ -46,6 +46,63 @@ public class InvoiceListViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task LateInvoicesResponse_AfterUserDataCleared_IsNotCached()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        await db.ClearCacheForTenantAsync(tenantId);
+        var response = new TaskCompletionSource<PagedResult<InvoiceDto>>();
+        _api.GetInvoicesAsync(tenantId, 1).Returns(response.Task);
+        var vm = new InvoiceListViewModel(_api, db);
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        await db.ClearUserDataAsync();
+        response.SetResult(new PagedResult<InvoiceDto> { Items = [new InvoiceDto { Id = Guid.NewGuid(), VendorName = "A" }], PageSize = 20, TotalCount = 1 });
+        await load;
+
+        Assert.Empty(await db.GetInvoicesAsync(tenantId));
+    }
+
+    [Fact]
+    public async Task LateUnpaidListing_AfterUserDataCleared_DoesNotMarkCachePaid()
+    {
+        var tenantId = Guid.NewGuid();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var db = new LocalDbService();
+        var response = new TaskCompletionSource<PagedResult<InvoiceDto>>();
+        _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(response.Task);
+        var vm = new InvoiceListViewModel(_api, db);
+
+        vm.SelectedFilter = "unpaid";
+        await db.ClearUserDataAsync();
+        Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
+        var otherUsers = Due("B unpaid", null);
+        await db.SaveInvoicesAsync(tenantId, [otherUsers], db.Generation);
+        response.SetResult(new PagedResult<InvoiceDto> { Items = [], PageSize = 20, TotalCount = 0 });
+        await Until(() => !vm.IsBusy);
+
+        Assert.False((await db.GetInvoicesAsync(tenantId)).Single().IsPaid);
+    }
+
+    [Fact]
+    public async Task LateTenantsResponse_AfterUserDataCleared_DoesNotSelectTenant()
+    {
+        Preferences.Default.Clear();
+        var tenants = new TaskCompletionSource<List<TenantDto>>();
+        _api.GetTenantsAsync().Returns(tenants.Task);
+        var db = new LocalDbService();
+        var vm = new InvoiceListViewModel(_api, db);
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        await db.ClearUserDataAsync();
+        tenants.SetResult([new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111" }]);
+        await load;
+
+        Assert.False(Preferences.Default.ContainsKey("SelectedTenantId"));
+    }
+
+    [Fact]
     public async Task LoadMore_UnexpectedException_ShowsErrorAndRetriesSamePage()
     {
         var vm = await LoadedVm();
@@ -122,6 +179,25 @@ public class InvoiceListViewModelTests : IDisposable
         Assert.Equal("1111111112", vm.TenantNip);
         Assert.Equal(OtherTenantId.ToString(), Preferences.Default.Get("SelectedTenantId", ""));
         Assert.False(NotificationHubService.HasTappedTenant);
+    }
+
+    [Fact]
+    public async Task SummaryTap_TenantsAnsweredAfterUserDataCleared_DoesNotSelectTenant()
+    {
+        var tenants = new TaskCompletionSource<List<TenantDto>>();
+        _api.GetTenantsAsync().Returns(tenants.Task);
+        OtherTenantHas("Other");
+        NotificationHubService.OnNotificationTapped("newInvoicesSummary", OtherTenantId.ToString());
+        var db = new LocalDbService();
+        var vm = new InvoiceListViewModel(_api, db);
+
+        var load = vm.LoadInvoicesCommand.ExecuteAsync(null);
+        await db.ClearUserDataAsync();
+        tenants.SetResult([new TenantDto { Id = OtherTenantId, Nip = "1111111112" }]);
+        await load;
+
+        Assert.False(Preferences.Default.ContainsKey("SelectedTenantId"));
+        Assert.False(Preferences.Default.ContainsKey("SelectedTenantNip"));
     }
 
     [Theory]
@@ -503,7 +579,7 @@ public class InvoiceListViewModelTests : IDisposable
             Due("Undated", null),
             Due("Due today", today),
             Due("Was not overdue when cached", today.AddDays(-1)),
-        ]);
+        ], db.Generation);
         _api.GetInvoicesAsync(tenantId, 1, 20, false).Throws(new HttpRequestException("offline"));
         var vm = new InvoiceListViewModel(_api, db);
 
@@ -522,7 +598,7 @@ public class InvoiceListViewModelTests : IDisposable
         var tenantId = Guid.NewGuid();
         Preferences.Default.Set("SelectedTenantId", tenantId.ToString());
         var db = new LocalDbService();
-        await db.SaveInvoicesAsync(tenantId, [Due("Paid", null, isPaid: true)]);
+        await db.SaveInvoicesAsync(tenantId, [Due("Paid", null, isPaid: true)], db.Generation);
         _api.GetInvoicesAsync(tenantId, 1).Returns(new PagedResult<InvoiceDto> { Items = [Due("Paid", null, isPaid: true)], PageSize = 20, TotalCount = 1 });
         _api.GetInvoicesAsync(tenantId, 1, 20, false).Throws(new HttpRequestException("offline"));
         var vm = new InvoiceListViewModel(_api, db);
@@ -561,7 +637,7 @@ public class InvoiceListViewModelTests : IDisposable
         var db = new LocalDbService();
         var stillUnpaid = Due("Still unpaid", null);
         var paidElsewhere = Due("Paid elsewhere", null);
-        await db.SaveInvoicesAsync(tenantId, [stillUnpaid, paidElsewhere]);
+        await db.SaveInvoicesAsync(tenantId, [stillUnpaid, paidElsewhere], db.Generation);
         _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [stillUnpaid], PageSize = 20, TotalCount = 1 });
         var vm = new InvoiceListViewModel(_api, db);
 
@@ -582,7 +658,7 @@ public class InvoiceListViewModelTests : IDisposable
         var firstPage = Due("Page 1", null);
         var secondPage = Due("Page 2", null);
         var paidElsewhere = Due("Paid elsewhere", null);
-        await db.SaveInvoicesAsync(tenantId, [firstPage, secondPage, paidElsewhere]);
+        await db.SaveInvoicesAsync(tenantId, [firstPage, secondPage, paidElsewhere], db.Generation);
         _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [firstPage], PageSize = 1, TotalCount = 2 });
         _api.GetInvoicesAsync(tenantId, 2, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [secondPage], PageSize = 1, TotalCount = 2 });
         var vm = new InvoiceListViewModel(_api, db);
@@ -606,7 +682,7 @@ public class InvoiceListViewModelTests : IDisposable
         var firstPage = Due("Page 1", null);
         var secondPage = Due("Page 2", null);
         var paidElsewhere = Due("Paid elsewhere", null);
-        await db.SaveInvoicesAsync(tenantId, [firstPage, secondPage, paidElsewhere]);
+        await db.SaveInvoicesAsync(tenantId, [firstPage, secondPage, paidElsewhere], db.Generation);
         _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(
             _ => Task.FromResult(new PagedResult<InvoiceDto> { Items = [firstPage], PageSize = 1, TotalCount = 2 }),
             _ => throw new HttpRequestException("offline"));
@@ -635,8 +711,8 @@ public class InvoiceListViewModelTests : IDisposable
         var otherTenant = Guid.NewGuid();
         Preferences.Default.Set("SelectedTenantId", activeTenant.ToString());
         var db = new LocalDbService();
-        await db.SaveInvoicesAsync(activeTenant, [Due("Active paid elsewhere", null)]);
-        await db.SaveInvoicesAsync(otherTenant, [Due("Other unpaid", null)]);
+        await db.SaveInvoicesAsync(activeTenant, [Due("Active paid elsewhere", null)], db.Generation);
+        await db.SaveInvoicesAsync(otherTenant, [Due("Other unpaid", null)], db.Generation);
         _api.GetInvoicesAsync(activeTenant, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [], PageSize = 20, TotalCount = 0 });
         var vm = new InvoiceListViewModel(_api, db);
 
@@ -656,7 +732,7 @@ public class InvoiceListViewModelTests : IDisposable
         var paidMidPaging = Due("Paid mid paging", null);
         var skipped = Due("Skipped", null);
         var last = Due("Last", null);
-        await db.SaveInvoicesAsync(tenantId, [paidMidPaging, skipped, last]);
+        await db.SaveInvoicesAsync(tenantId, [paidMidPaging, skipped, last], db.Generation);
         _api.GetInvoicesAsync(tenantId, 1, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [paidMidPaging], PageSize = 1, TotalCount = 3 });
         _api.GetInvoicesAsync(tenantId, 2, 20, false).Returns(new PagedResult<InvoiceDto> { Items = [last], PageSize = 1, TotalCount = 2 });
         var vm = new InvoiceListViewModel(_api, db);

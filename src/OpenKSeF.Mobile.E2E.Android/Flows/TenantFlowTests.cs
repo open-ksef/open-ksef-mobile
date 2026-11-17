@@ -10,11 +10,12 @@ namespace OpenKSeF.Mobile.E2E.Android.Flows;
 [Category("Regression")]
 public sealed class TenantFlowTests : AndroidTestBase
 {
+    protected override bool UsesSeededUser => true;
+
     [Test]
     public void TenantList_SelectionFlow_ChangesCurrentTenantContext()
     {
-        var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
-        authFlow.LoginWithKeycloakFromEnvironment();
+        LoginAsSeededUser();
 
         var tenantFlow = new AndroidTenantNavigationFlow(AndroidDriver);
         tenantFlow.OpenTenantList();
@@ -34,9 +35,7 @@ public sealed class TenantFlowTests : AndroidTestBase
         var invoiceTitle = AndroidDriver.FindElement(ByAutoId("InvoiceListPageLabelTitle"));
         Assert.That(invoiceTitle.Text, Does.Contain("Otrzymane"));
 
-        AndroidDriver.Navigate().Back();
-
-        wait.UntilVisible(ByAutoId("TenantsPageCollectionViewTenants"));
+        tenantFlow.OpenTenantList();
 
         var secondTenant = AndroidDriver.FindElements(ByAutoId("TenantsPageFrameTenantItem")).Last();
         secondTenant.Click();

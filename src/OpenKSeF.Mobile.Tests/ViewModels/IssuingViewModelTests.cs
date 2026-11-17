@@ -691,7 +691,7 @@ public class IssuingViewModelTests : IDisposable
         _api.DidNotReceiveWithAnyArgs().CreateIssuedInvoiceAsync(default, default!);
     }
 
-    private IssuedInvoiceDetailsViewModel Details(List<TimeSpan> delays) => new(_api, _serverSettings)
+    private IssuedInvoiceDetailsViewModel Details(List<TimeSpan> delays) => new(_api, _serverSettings, new LocalDbService())
     {
         TenantId = TenantId.ToString(),
         InvoiceId = InvoiceId.ToString(),
@@ -988,7 +988,7 @@ public class IssuingViewModelTests : IDisposable
     private async Task<IssuedInvoiceDetailsViewModel> DetailsOf(IssuedInvoiceDto invoice)
     {
         _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(invoice);
-        var vm = new IssuedInvoiceDetailsViewModel(_api, _serverSettings) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
+        var vm = new IssuedInvoiceDetailsViewModel(_api, _serverSettings, new LocalDbService()) { TenantId = TenantId.ToString(), InvoiceId = InvoiceId.ToString() };
         await vm.LoadCommand.ExecuteAsync(null);
         return vm;
     }
@@ -2688,5 +2688,20 @@ public class IssuingViewModelTests : IDisposable
         for (var i = 0; i < 100 && vm.IsBusy; i++)
             await Task.Delay(10);
         Assert.False(vm.IsBusy);
+    }
+
+    [Theory]
+    [InlineData(null, "")]
+    [InlineData("invoices.read,tenant.edit", "")]
+    [InlineData("invoices.read", "&readOnly=true")]
+    [InlineData("tenant.delete", null)]
+    public async Task List_OpenSellerProfile_RoutesByTenantPermissions(string? permissions, string? suffix)
+    {
+        _api.GetTenantsAsync().Returns([new TenantDto { Id = TenantId, Nip = "1111111111", Permissions = permissions?.Split(',').ToList() }]);
+        var vm = new IssuedInvoiceListViewModel(_api);
+
+        await vm.OpenSellerProfileCommand.ExecuteAsync(null);
+
+        Assert.Equal(suffix is null ? null : $"sellerProfile?tenantId={TenantId}{suffix}", Shell.Current.LastRoute);
     }
 }

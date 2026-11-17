@@ -464,7 +464,7 @@ public class AuthServiceRestoreTests
             : ++apiCalls == 1
                 ? Json(HttpStatusCode.OK, $$"""{"id":"{{invoiceId}}","status":"Sending"}""")
                 : Json(HttpStatusCode.Unauthorized, string.Empty));
-        var vm = new IssuedInvoiceDetailsViewModel(CreateApi(), _settings)
+        var vm = new IssuedInvoiceDetailsViewModel(CreateApi(), _settings, new LocalDbService())
         {
             TenantId = Guid.NewGuid().ToString(),
             InvoiceId = invoiceId.ToString(),
@@ -1367,6 +1367,12 @@ public class AuthServiceRestoreTests
         Assert.Contains("refresh_token=r1", _handler.Bodies.Last());
     }
 
+    private static void OptedIn(DeviceTokenService device, string account)
+    {
+        device.SetAccount(account);
+        Preferences.Default.Set("push_choice_" + account, true);
+    }
+
     private PostLoginNavigationService Navigation(IDeviceTokenService? device = null)
     {
         if (device is null)
@@ -1447,12 +1453,14 @@ public class AuthServiceRestoreTests
         try
         {
             Assert.Equal(AuthResult.Success, await PairAsync());
+            OptedIn(device, "a");
             await device.EnsureDeviceRegisteredAsync();
             devicesOffline = true;
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Equal(AuthResult.Success, await PairAsync());
+            OptedIn(device, "b");
             await device.EnsureDeviceRegisteredAsync();
             await Navigation(device).SignOutAsync();
             await device.CompleteSignOutCleanupAsync().WaitAsync(TimeSpan.FromSeconds(5));
@@ -1576,7 +1584,7 @@ public class AuthServiceRestoreTests
         RespondToRefresh(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
         var settings = Substitute.For<IServerSettingsService>();
         settings.ServerUrl.Returns("https://ksef.example.com");
-        var vm = new AccountViewModel(settings, Substitute.For<IDeviceTokenService>(), Substitute.For<INotificationHubService>(), nav);
+        var vm = new AccountViewModel(settings, Substitute.For<IDeviceTokenService>(), Substitute.For<INotificationHubService>(), nav, Substitute.For<IApiService>());
         var window = Application.Current!.Windows[0];
         window.Page = null;
 

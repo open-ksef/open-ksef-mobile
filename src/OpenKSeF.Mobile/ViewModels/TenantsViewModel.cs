@@ -81,7 +81,7 @@ public partial class TenantsViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenSellerProfileAsync(TenantDto tenant)
     {
-        try { await Shell.Current.GoToAsync($"sellerProfile?tenantId={tenant.Id}"); } catch { }
+        try { await Shell.Current.GoToAsync(SellerProfileViewModel.Route(tenant)); } catch { }
     }
 
     [RelayCommand]

@@ -53,14 +53,17 @@
                                 <SwipeItems>
                                     <SwipeItem BackgroundColor="{StaticResource UiPrimary}"
                                                Text="Edytuj"
+                                               IsVisible="{Binding CanEdit}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=EditTenantCommand}"
                                                CommandParameter="{Binding .}" />
                                     <SwipeItem BackgroundColor="{StaticResource UiPrimaryHover}"
                                                Text="Dane do faktur"
+                                               IsVisible="{Binding CanReadSellerProfile}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=OpenSellerProfileCommand}"
                                                CommandParameter="{Binding .}" />
                                     <SwipeItem BackgroundColor="{StaticResource UiError}"
                                                Text="Usuń"
+                                               IsVisible="{Binding CanDelete}"
                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=DeleteTenantCommand}"
                                                CommandParameter="{Binding .}" />
                                 </SwipeItems>
@@ -73,7 +76,7 @@
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:TenantsViewModel}}, Path=SelectTenantCommand}"
                                         CommandParameter="{Binding .}" />
                                 </Border.GestureRecognizers>
-                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
                                     <Label Text="{Binding Nip}"
                                            FontSize="18"
                                            FontFamily="InterBold" />
@@ -81,8 +84,13 @@
                                            Text="{Binding DisplayName}"
                                            FontSize="14"
                                            TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
+                                    <Label Grid.Row="2"
+                                           Text="{Binding RoleName}"
+                                           IsVisible="{Binding RoleName, Converter={StaticResource IsNotNullConverter}}"
+                                           FontSize="12"
+                                           TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" />
                                     <Label Grid.Column="1"
-                                           Grid.RowSpan="2"
+                                           Grid.RowSpan="3"
                                            VerticalOptions="Center"
                                            FontSize="20"
                                            TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"

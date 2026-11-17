@@ -242,8 +242,19 @@ public partial class IssuedInvoiceListViewModel : ObservableObject, IQueryAttrib
     [RelayCommand]
     private async Task OpenSellerProfileAsync()
     {
-        if (SelectedTenantId() is { } tenantId)
-            try { await Shell.Current.GoToAsync($"sellerProfile?tenantId={tenantId}"); } catch { }
+        if (SelectedTenantId() is not { } tenantId)
+            return;
+
+        try
+        {
+            var tenant = (await _apiService.GetTenantsAsync()).FirstOrDefault(t => t.Id == tenantId);
+            if (tenant is { CanReadSellerProfile: true })
+                await Shell.Current.GoToAsync(SellerProfileViewModel.Route(tenant));
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
     }
 
     private string? Status() => SelectedStatus.Length == 0 ? null : SelectedStatus;

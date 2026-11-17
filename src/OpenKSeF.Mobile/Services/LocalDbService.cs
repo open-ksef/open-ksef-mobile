@@ -9,6 +9,10 @@ public class LocalDbService
     private const int MaxCachedInvoicesPerTenant = 100;
     private const int CacheExpirationDays = 7;
     private const string LastUserKey = "last_user";
+    private int _generation;
+
+    /// <summary>Changes on every user-data clear; a writer passes the value read before its request so a late response of a previous session is dropped.</summary>
+    public int Generation => Volatile.Read(ref _generation);
 
     public async Task InitAsync()
     {
@@ -46,19 +50,21 @@ public class LocalDbService
             : invoices.ToList();
     }
 
-    public async Task SaveInvoicesAsync(Guid tenantId, List<InvoiceDto> invoices)
+    public async Task SaveInvoicesAsync(Guid tenantId, List<InvoiceDto> invoices, int generation)
     {
         await InitAsync();
 
         var cached = invoices.Select(i => CachedInvoice.FromDto(i, tenantId)).ToList();
         await _db!.RunInTransactionAsync(conn =>
         {
+            if (generation != Generation)
+                return;
             foreach (var item in cached)
                 conn.InsertOrReplace(item);
         });
     }
 
-    public async Task MarkPaidExceptAsync(Guid tenantId, IReadOnlyCollection<Guid> unpaidIds)
+    public async Task MarkPaidExceptAsync(Guid tenantId, IReadOnlyCollection<Guid> unpaidIds, int generation)
     {
         await InitAsync();
 
@@ -66,6 +72,8 @@ public class LocalDbService
         var unpaid = unpaidIds.Select(i => i.ToString()).ToHashSet();
         await _db!.RunInTransactionAsync(conn =>
         {
+            if (generation != Generation)
+                return;
             foreach (var row in conn.Table<CachedInvoice>().Where(i => i.TenantId == tenantIdStr && !i.IsPaid).ToList())
             {
                 if (unpaid.Contains(row.Id))
@@ -105,6 +113,7 @@ public class LocalDbService
 
     public async Task ClearUserDataAsync()
     {
+        Interlocked.Increment(ref _generation);
         Preferences.Default.Remove("SelectedTenantId");
         Preferences.Default.Remove("SelectedTenantNip");
         Preferences.Default.Remove(LastUserKey);
