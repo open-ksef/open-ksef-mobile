@@ -41,6 +41,13 @@ public class IssuingViewModelTests : IDisposable
         Ksef = new KsefSubmissionDto { Environment = "test" }
     };
 
+    private static void AddSavedLine(InvoiceDraftViewModel vm)
+    {
+        vm.AddLineCommand.Execute(null);
+        vm.EditingLine!.UnitNetPrice = "1";
+        vm.SaveLineCommand.Execute(null);
+    }
+
     private InvoiceDraftViewModel Draft(SellerProfileDto profile)
     {
         _api.GetSellerProfileAsync(TenantId).Returns(profile);
@@ -175,14 +182,142 @@ public class IssuingViewModelTests : IDisposable
     {
         var vm = Draft(Profile());
         vm.AddLineCommand.Execute(null);
-        vm.Lines[1].Name = "Towar";
-        vm.Lines[1].Quantity = "2";
-        vm.Lines[1].UnitNetPrice = "50";
-        vm.Lines[1].VatRateLabel = "8%";
+        vm.EditingLine!.Name = "Towar";
+        vm.EditingLine.Quantity = "2";
+        vm.EditingLine.UnitNetPrice = "50";
+        vm.EditingLine.VatRateLabel = "8%";
+        vm.SaveLineCommand.Execute(null);
 
         Assert.Equal("231,00 PLN", vm.TotalGrossText);
         Assert.Equal(["23%", "8%"], vm.VatSummary.Select(s => s.Rate));
         Assert.Equal("108,00 PLN", vm.Lines[1].Gross);
+    }
+
+    [Fact]
+    public void LineSheet_EditThenSave_UpdatesCardAndTotals()
+    {
+        var vm = Draft(Profile());
+        var line = vm.Lines[0];
+
+        vm.EditLineCommand.Execute(line);
+        Assert.Equal("Pozycja 1", vm.EditingTitle);
+        Assert.True(vm.CanDeleteEditingLine);
+        Assert.NotSame(line, vm.EditingLine);
+        vm.EditingLine!.Name = "Konsultacje";
+        vm.EditingLine.Quantity = "3";
+        vm.EditingLine.UnitNetPrice = "200,00";
+        vm.EditingLine.VatRateLabel = "8%";
+        vm.EditingLine.Unit = "godz.";
+        Assert.Equal("123,00 PLN", vm.TotalGrossText);
+
+        vm.SaveLineCommand.Execute(null);
+
+        Assert.Null(vm.EditingLine);
+        Assert.Same(line, Assert.Single(vm.Lines));
+        Assert.Equal(("Konsultacje", "godz.", "8"), (line.Name, line.Unit, line.VatRate));
+        Assert.Equal("648,00 PLN", line.Gross);
+        Assert.Equal("648,00 PLN", vm.TotalGrossText);
+        var request = Assert.Single(vm.BuildRequest().Lines);
+        Assert.Equal((3m, 200m, "8"), (request.Quantity, request.UnitNetPrice, request.VatRate));
+    }
+
+    [Fact]
+    public void LineSheet_Close_DiscardsEdits()
+    {
+        var vm = Draft(Profile());
+        var before = vm.BuildRequest().Lines[0];
+
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        vm.EditingLine!.Name = "Zmieniona";
+        vm.EditingLine.UnitNetPrice = "999";
+        vm.EditingLine.VatRateLabel = "zw";
+        vm.CloseLineCommand.Execute(null);
+
+        Assert.Null(vm.EditingLine);
+        var after = Assert.Single(vm.BuildRequest().Lines);
+        Assert.Equal((before.Name, before.UnitNetPrice, before.VatRate), (after.Name, after.UnitNetPrice, after.VatRate));
+        Assert.Equal("123,00 PLN", vm.TotalGrossText);
+        Assert.False(vm.HasExemptLine);
+    }
+
+    [Fact]
+    public void LineSheet_NewLineClosed_AddsNothing()
+    {
+        var vm = Draft(Profile());
+
+        vm.AddLineCommand.Execute(null);
+        Assert.Equal("Nowa pozycja", vm.EditingTitle);
+        Assert.False(vm.CanDeleteEditingLine);
+        vm.EditingLine!.UnitNetPrice = "50";
+        vm.CloseLineCommand.Execute(null);
+
+        Assert.Single(vm.Lines);
+        Assert.Equal("123,00 PLN", vm.TotalGrossText);
+    }
+
+    [Fact]
+    public void LineSheet_InvalidSave_KeepsSheetAndDraft()
+    {
+        var vm = Draft(Profile());
+
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        vm.EditingLine!.UnitNetPrice = "";
+        vm.SaveLineCommand.Execute(null);
+
+        Assert.NotNull(vm.EditingLine);
+        Assert.Equal("Podaj cenę netto, np. 1 200,00", vm.EditingLine.Error);
+        Assert.Equal("—", vm.EditingLine.GrossText);
+        Assert.Equal("100,00", vm.Lines[0].UnitNetPrice);
+        Assert.Null(vm.Lines[0].Error);
+    }
+
+    [Fact]
+    public void LineSheet_Delete_RemovesLine()
+    {
+        var vm = Draft(Profile());
+        vm.AddLineCommand.Execute(null);
+        vm.EditingLine!.UnitNetPrice = "50";
+        vm.SaveLineCommand.Execute(null);
+
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        vm.DeleteLineCommand.Execute(null);
+
+        Assert.Null(vm.EditingLine);
+        Assert.Equal("50", Assert.Single(vm.Lines).UnitNetPrice);
+        Assert.Equal("61,50 PLN", vm.TotalGrossText);
+    }
+
+    [Fact]
+    public void LineSheet_VatChipLabel_MapsToFa3Code()
+    {
+        var line = new DraftLineViewModel();
+        Assert.Equal(["23%", "8%", "5%", "0% (kraj)", "zw"], DraftLineViewModel.VatRateLabels);
+
+        var codes = DraftLineViewModel.VatRateLabels.Select(label => { line.VatRateLabel = label; return line.ToRequest().VatRate; });
+
+        Assert.Equal(["23", "8", "5", "0 KR", "zw"], codes);
+    }
+
+    [Fact]
+    public void LineCard_ShowsSummaryAndDescription()
+    {
+        var line = new DraftLineViewModel { Name = "Usługa", Unit = "usł.", Quantity = "1", UnitNetPrice = "200", VatRateLabel = "23%" };
+
+        Assert.Equal("1 usł. × 200,00 netto · VAT 23%", line.Summary);
+        Assert.Equal("Usługa, 246,00 PLN", line.Description);
+        Assert.Equal("Netto 200,00 · VAT 46,00", line.NetVatText);
+        Assert.Equal("Nowa pozycja", new DraftLineViewModel().DisplayName);
+    }
+
+    [Fact]
+    public void BuyerNameLabel_FollowsBuyerKind()
+    {
+        var vm = Draft(Profile());
+        Assert.Equal("Nazwa", vm.BuyerNameLabel);
+
+        vm.BuyerKind = "Person";
+
+        Assert.Equal("Imię i nazwisko", vm.BuyerNameLabel);
     }
 
     [Fact]
@@ -2044,7 +2179,7 @@ public class IssuingViewModelTests : IDisposable
     public async Task Draft_InvalidLineBelowTheFold_SaveShowsAlertNamingTheLine_NoRequest()
     {
         var vm = Draft(Profile());
-        vm.AddLineCommand.Execute(null);
+        AddSavedLine(vm);
         vm.Lines[1].Name = "Druga";
         vm.Lines[1].UnitNetPrice = string.Empty;
 
@@ -2472,8 +2607,8 @@ public class IssuingViewModelTests : IDisposable
     {
         var vm = Draft(Profile());
         await vm.LoadCommand.ExecuteAsync(null);
-        vm.AddLineCommand.Execute(null);
-        vm.AddLineCommand.Execute(null);
+        AddSavedLine(vm);
+        AddSavedLine(vm);
         vm.Lines[0].UnitNetPrice = "";
         vm.Lines[1].Name = "Druga";
         vm.Lines[1].UnitNetPrice = "100,00";

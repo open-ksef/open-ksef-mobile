@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
              xmlns:controls="clr-namespace:OpenKSeF.Mobile.Views.Controls"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="OpenKSeF.Mobile.Views.InvoiceDraftPage"
              x:DataType="vm:InvoiceDraftViewModel"
              Style="{StaticResource UiPage}"
@@ -53,11 +54,15 @@
                             <Grid ColumnDefinitions="*,56" ColumnSpacing="8">
                                 <Entry Text="{Binding BuyerNip}" Style="{StaticResource UiEntry}" Keyboard="Numeric" MaxLength="10"
                                        AutomationId="InvoiceDraftPageEntryBuyerNip" />
-                                <Button Grid.Column="1" Text="🔍" Padding="0"
-                                        Style="{StaticResource UiButtonTonal}"
-                                        SemanticProperties.Description="Pobierz z NIP"
-                                        Command="{Binding LookupBuyerNipCommand}"
-                                        AutomationId="InvoiceDraftPageButtonLookup" />
+                                <ImageButton Grid.Column="1" Source="icon_search.png" Padding="14" HeightRequest="48" CornerRadius="8"
+                                             BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}"
+                                             SemanticProperties.Description="Pobierz z NIP"
+                                             Command="{Binding LookupBuyerNipCommand}"
+                                             AutomationId="InvoiceDraftPageButtonLookup">
+                                    <ImageButton.Behaviors>
+                                        <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                    </ImageButton.Behaviors>
+                                </ImageButton>
                             </Grid>
                             <ActivityIndicator IsRunning="{Binding IsLookingUp}" IsVisible="{Binding IsLookingUp}" HeightRequest="24" />
                             <Label Text="{Binding LookupStatus}" FontSize="13"
@@ -78,8 +83,22 @@
                                    IsVisible="{Binding BuyerNipError, Converter={StaticResource IsNotNullConverter}}" />
                         </VerticalStackLayout>
 
-                        <Label Text="Nazwa" Style="{StaticResource UiFieldLabel}" />
-                        <Entry Text="{Binding BuyerName}" Style="{StaticResource UiEntry}" AutomationId="InvoiceDraftPageEntryBuyerName" />
+                        <Label Text="{Binding BuyerNameLabel}" Style="{StaticResource UiFieldLabel}" AutomationId="InvoiceDraftPageLabelBuyerName" />
+                        <Entry Text="{Binding BuyerName}" Style="{StaticResource UiEntry}" AutomationId="InvoiceDraftPageEntryBuyerName">
+                            <Entry.Triggers>
+                                <DataTrigger TargetType="Entry" Binding="{Binding IsCompany}" Value="False">
+                                    <Setter Property="Keyboard">
+                                        <Setter.Value>
+                                            <Keyboard x:FactoryMethod="Create">
+                                                <x:Arguments>
+                                                    <KeyboardFlags>CapitalizeWord</KeyboardFlags>
+                                                </x:Arguments>
+                                            </Keyboard>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Entry.Triggers>
+                        </Entry>
                         <Label Text="{Binding BuyerNameError}" Style="{StaticResource UiFieldError}"
                                IsVisible="{Binding BuyerNameError, Converter={StaticResource IsNotNullConverter}}" />
                         <Label Text="Adres (ulica i numer)" Style="{StaticResource UiFieldLabel}" />
@@ -90,6 +109,13 @@
                                IsVisible="{Binding BuyerAddressError, Converter={StaticResource IsNotNullConverter}}" />
                         <Label Text="Nabywca dostaje PDF z kodem KOD I." Style="{StaticResource UiMutedText}" FontSize="12"
                                IsVisible="{Binding IsCompany, Converter={StaticResource InvertedBoolConverter}}" />
+                        <Border Style="{StaticResource UiAlert}"
+                                IsVisible="{Binding IsCompany, Converter={StaticResource InvertedBoolConverter}}"
+                                AutomationId="InvoiceDraftPageAlertPerson"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource UiInfoBg}, Dark={StaticResource UiInfoBgDark}}">
+                            <Label Text="Osoba prywatna nie zobaczy faktury w KSeF. Po wystawieniu udostępnij jej PDF."
+                                   TextColor="{AppThemeBinding Light={StaticResource UiInfo}, Dark={StaticResource UiInfoDark}}" />
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
 
@@ -121,40 +147,24 @@
                         <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Lines}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:DraftLineViewModel">
-                                    <Border Padding="12" StrokeThickness="1" StrokeShape="RoundRectangle 8"
+                                    <Border Padding="12" MinimumHeightRequest="56" StrokeThickness="1" StrokeShape="RoundRectangle 8"
                                             Stroke="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}"
+                                            SemanticProperties.Description="{Binding Description}"
+                                            SemanticProperties.Hint="Edytuj pozycję"
                                             AutomationId="InvoiceDraftPageFrameLine">
-                                        <VerticalStackLayout Spacing="6">
-                                            <Grid ColumnDefinitions="*,48">
-                                                <Entry Text="{Binding Name}" Placeholder="Nazwa towaru lub usługi" Style="{StaticResource UiEntry}"
-                                                       AutomationId="InvoiceDraftPageEntryLineName" />
-                                                <Button Grid.Column="1" Text="✕" Padding="0" Style="{StaticResource UiButtonGhost}"
-                                                        SemanticProperties.Description="Usuń pozycję"
-                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:InvoiceDraftViewModel}}, Path=RemoveLineCommand}"
-                                                        CommandParameter="{Binding .}" />
-                                            </Grid>
-                                            <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8">
-                                                <Label Text="Ilość" Style="{StaticResource UiCaption}" />
-                                                <Label Grid.Column="1" Text="J.m." Style="{StaticResource UiCaption}" />
-                                                <Label Grid.Column="2" Text="Cena netto" Style="{StaticResource UiCaption}" />
-                                                <controls:DecimalEntry Grid.Row="1" Text="{Binding Quantity}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
-                                                       HorizontalTextAlignment="End" AutomationId="InvoiceDraftPageEntryLineQuantity" />
-                                                <Entry Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" Style="{StaticResource UiEntry}" />
-                                                <controls:DecimalEntry Grid.Row="1" Grid.Column="2" Text="{Binding UnitNetPrice}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
-                                                       HorizontalTextAlignment="End" AutomationId="InvoiceDraftPageEntryLinePrice" />
-                                            </Grid>
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                <Picker ItemsSource="{x:Static vm:DraftLineViewModel.VatRateLabels}"
-                                                        SelectedItem="{Binding VatRateLabel}"
-                                                        Title="VAT"
-                                                        Style="{StaticResource UiPicker}"
-                                                        AutomationId="InvoiceDraftPagePickerLineVat" />
-                                                <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontFamily="InterBold"
-                                                       VerticalOptions="Center" />
-                                            </Grid>
-                                            <Label Text="{Binding Error}" Style="{StaticResource UiFieldError}"
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:InvoiceDraftViewModel}}, Path=EditLineCommand}"
+                                                                  CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="2">
+                                            <Label Text="{Binding DisplayName}" FontSize="15" FontFamily="InterBold" LineBreakMode="TailTruncation"
+                                                   TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                                            <Label Grid.Row="1" Text="{Binding Summary}" FontSize="13" Style="{StaticResource UiMutedText}" />
+                                            <Label Grid.Column="1" Grid.RowSpan="2" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontFamily="InterBold"
+                                                   VerticalOptions="Center" />
+                                            <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding Error}" Style="{StaticResource UiFieldError}"
                                                    IsVisible="{Binding Error, Converter={StaticResource IsNotNullConverter}}" />
-                                        </VerticalStackLayout>
+                                        </Grid>
                                     </Border>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>

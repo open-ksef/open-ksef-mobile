@@ -12,30 +12,68 @@ public partial class DraftLineViewModel : ObservableObject
 {
     public static string[] VatRateLabels { get; } = [.. IssuedInvoiceTotals.VatRates.Select(IssuingFormat.VatRateLabel)];
 
+    public static string[] UnitLabels { get; } = ["szt.", "usł.", "godz.", "mies."];
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayName), nameof(Description))]
     private string _name = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Summary))]
     private string _unit = "szt.";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Gross))]
+    [NotifyPropertyChangedFor(nameof(Gross), nameof(GrossText), nameof(NetVatText), nameof(Summary), nameof(Description))]
     private string _quantity = "1";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Gross))]
+    [NotifyPropertyChangedFor(nameof(Gross), nameof(GrossText), nameof(NetVatText), nameof(Summary), nameof(Description))]
     private string _unitNetPrice = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Gross))]
+    [NotifyPropertyChangedFor(nameof(Gross), nameof(GrossText), nameof(NetVatText), nameof(Summary), nameof(Description))]
     private string _vatRateLabel = "23%";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GrossText), nameof(NetVatText))]
     private string? _error;
 
     public string VatRate => IssuingFormat.VatRateCode(VatRateLabel);
 
     public string Gross => IssuingFormat.Money(IssuedInvoiceTotals.Compute([ToRequest()]).TotalGross);
+
+    public string GrossText => Error is null ? Gross : "—";
+
+    public string NetVatText
+    {
+        get
+        {
+            if (Error is not null)
+                return "—";
+            var totals = IssuedInvoiceTotals.Compute([ToRequest()]);
+            return $"Netto {IssuingFormat.Amount(totals.TotalNet)} · VAT {IssuingFormat.Amount(totals.TotalVat)}";
+        }
+    }
+
+    public string DisplayName => string.IsNullOrWhiteSpace(Name) ? "Nowa pozycja" : Name;
+
+    public string Summary =>
+        $"{Quantity} {Unit} × {(IssuingFormat.TryParseDecimal(UnitNetPrice, out var price) ? IssuingFormat.Amount(price) : "—")} netto · VAT {VatRateLabel}";
+
+    public string Description => $"{DisplayName}, {Gross}";
+
+    public DraftLineViewModel Clone() => new DraftLineViewModel().CopyFrom(this);
+
+    public DraftLineViewModel CopyFrom(DraftLineViewModel source)
+    {
+        Name = source.Name;
+        Unit = source.Unit;
+        Quantity = source.Quantity;
+        UnitNetPrice = source.UnitNetPrice;
+        VatRateLabel = source.VatRateLabel;
+        Error = source.Error;
+        return this;
+    }
 
     public static DraftLineViewModel From(IssuedInvoiceLineRequest line) => new()
     {
@@ -115,7 +153,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
     private bool _isBusy;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsCompany))]
+    [NotifyPropertyChangedFor(nameof(IsCompany), nameof(BuyerNameLabel))]
     private string _buyerKind = "Company";
 
     [ObservableProperty]
@@ -176,6 +214,12 @@ public partial class InvoiceDraftViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<VatSummaryRow> _vatSummary = [];
 
+    private DraftLineViewModel? _editedLine;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EditingTitle), nameof(CanDeleteEditingLine))]
+    private DraftLineViewModel? _editingLine;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalGrossText), nameof(ShowSplitPaymentWarning))]
     private decimal _totalGross;
@@ -219,12 +263,18 @@ public partial class InvoiceDraftViewModel : ObservableObject
     public InvoiceDraftViewModel(IApiService apiService)
     {
         _apiService = apiService;
-        AddLine();
+        Attach(new DraftLineViewModel());
     }
 
     public string Title => InvoiceId is null ? "Nowa faktura" : "Edycja szkicu";
 
     public bool IsCompany => BuyerKind == "Company";
+
+    public string BuyerNameLabel => IsCompany ? "Nazwa" : "Imię i nazwisko";
+
+    public string EditingTitle => _editedLine is null ? "Nowa pozycja" : $"Pozycja {Lines.IndexOf(_editedLine) + 1}";
+
+    public bool CanDeleteEditingLine => _editedLine is not null;
 
     public bool IsTransfer => PaymentMethod == "Transfer";
 
@@ -352,19 +402,56 @@ public partial class InvoiceDraftViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void AddLine()
+    private void AddLine() => OpenLine(null);
+
+    [RelayCommand]
+    private void EditLine(DraftLineViewModel line) => OpenLine(line);
+
+    private void OpenLine(DraftLineViewModel? line)
     {
-        var line = new DraftLineViewModel();
-        line.PropertyChanged += OnLineChanged;
-        Lines.Add(line);
-        Recalculate();
+        if (IsBusy)
+            return;
+
+        _editedLine = line;
+        EditingLine = line?.Clone() ?? new DraftLineViewModel();
     }
 
     [RelayCommand]
-    private void RemoveLine(DraftLineViewModel line)
+    private void SaveLine()
     {
-        line.PropertyChanged -= OnLineChanged;
-        Lines.Remove(line);
+        if (EditingLine is not { } editing || !editing.Validate())
+            return;
+
+        if (_editedLine is { } line)
+            line.CopyFrom(editing);
+        else
+            Attach(editing);
+        CloseLine();
+    }
+
+    [RelayCommand]
+    private void DeleteLine()
+    {
+        if (_editedLine is { } line)
+        {
+            line.PropertyChanged -= OnLineChanged;
+            Lines.Remove(line);
+            Recalculate();
+        }
+        CloseLine();
+    }
+
+    [RelayCommand]
+    private void CloseLine()
+    {
+        _editedLine = null;
+        EditingLine = null;
+    }
+
+    private void Attach(DraftLineViewModel line)
+    {
+        line.PropertyChanged += OnLineChanged;
+        Lines.Add(line);
         Recalculate();
     }
 
