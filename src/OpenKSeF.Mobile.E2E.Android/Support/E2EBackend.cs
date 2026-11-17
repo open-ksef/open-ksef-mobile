@@ -13,6 +13,8 @@ public static class E2EBackend
 {
     public sealed record User(string Username, string Password);
 
+    private static readonly Dictionary<string, (string Token, DateTime Until)> UserTokens = [];
+
     private static string ServerUrl =>
         (Environment.GetEnvironmentVariable("E2E_BACKEND_URL") ?? "http://localhost:8080").TrimEnd('/');
 
@@ -177,12 +179,20 @@ public static class E2EBackend
             $"{KeycloakAdminUrl}/auth/admin/realms/openksef/users?exact=true&username={Uri.EscapeDataString(user.Username)}");
         foreach (var entry in found!)
             (await admin.DeleteAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{entry.GetProperty("id").GetString()}")).EnsureSuccessStatusCode();
+        File.Delete(AndroidOidcLoginFlow.SecretPath(user.Username));
     }
 
+    // Cached because a user with 2FA needs a fresh TOTP step per token, and the device polls run every second.
     private static async Task<HttpClient> AuthorizedClientAsync(User user)
     {
-        var token = await TokenAsync(ServerUrl, "openksef", "openksef-mobile", user.Username, user.Password);
-        return BearerClient(token);
+        if (!UserTokens.TryGetValue(user.Username, out var cached) || cached.Until <= DateTime.UtcNow)
+        {
+            var secret = AndroidOidcLoginFlow.StoredSecret(user.Username)
+                ?? (user.Username == EnvironmentUser()?.Username ? Environment.GetEnvironmentVariable("E2E_TEST_TOTP_SECRET") : null);
+            UserTokens[user.Username] = cached = await TokenAsync(ServerUrl, "openksef", "openksef-mobile", user.Username, user.Password,
+                string.IsNullOrWhiteSpace(secret) ? null : Totp.NextCode(user.Username, secret));
+        }
+        return BearerClient(cached.Token);
     }
 
     private static async Task<HttpClient> AdminClientAsync()
@@ -193,23 +203,25 @@ public static class E2EBackend
             "admin-cli",
             Environment.GetEnvironmentVariable("KEYCLOAK_ADMIN") ?? "admin",
             Environment.GetEnvironmentVariable("KEYCLOAK_ADMIN_PASSWORD") ?? "admin");
-        return BearerClient(token);
+        return BearerClient(token.Token);
     }
 
-    private static async Task<string> TokenAsync(string baseUrl, string realm, string clientId, string username, string password)
+    private static async Task<(string Token, DateTime Until)> TokenAsync(string baseUrl, string realm, string clientId, string username, string password, string? totp = null)
     {
+        var form = new Dictionary<string, string>
+        {
+            ["grant_type"] = "password",
+            ["client_id"] = clientId,
+            ["username"] = username,
+            ["password"] = password
+        };
+        if (totp is not null)
+            form["totp"] = totp;
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-        var response = await http.PostAsync($"{baseUrl}/auth/realms/{realm}/protocol/openid-connect/token",
-            new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["grant_type"] = "password",
-                ["client_id"] = clientId,
-                ["username"] = username,
-                ["password"] = password
-            }));
+        var response = await http.PostAsync($"{baseUrl}/auth/realms/{realm}/protocol/openid-connect/token", new FormUrlEncodedContent(form));
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.GetProperty("access_token").GetString()!;
+        return (body.GetProperty("access_token").GetString()!, DateTime.UtcNow.AddSeconds(body.GetProperty("expires_in").GetInt32() - 30));
     }
 
     private static HttpClient BearerClient(string token)

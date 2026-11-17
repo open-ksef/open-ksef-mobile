@@ -68,46 +68,25 @@ public sealed class LayoutVerificationTests : AndroidTestBase
         Assert.That(title.Displayed, Is.True, "Title 'OpenKSeF' should be visible");
         Assert.That(title.Text, Is.EqualTo("OpenKSeF"), "Title text should be 'OpenKSeF'");
 
-        var emailEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryEmail"));
-        Assert.That(emailEntry.Displayed, Is.True, "Email entry should be visible");
+        foreach (var id in new[] { "LoginPageButtonLogin", "LoginPageButtonPair", "LoginPageButtonGoogle", "LoginPageButtonChangeServer" })
+            Assert.That(AndroidDriver.FindElement(ByAutoId(id)).Displayed, Is.True, $"{id} should be visible");
 
-        var passwordEntry = AndroidDriver.FindElement(ByAutoId("LoginPageEntryPassword"));
-        Assert.That(passwordEntry.Displayed, Is.True, "Password entry should be visible");
-
-        var loginButton = AndroidDriver.FindElement(ByAutoId("LoginPageButtonLogin"));
-        Assert.That(loginButton.Displayed, Is.True, "Login button should be visible");
-
-        var googleButton = AndroidDriver.FindElement(ByAutoId("LoginPageButtonGoogle"));
-        Assert.That(googleButton.Displayed, Is.True, "Google button should be visible");
+        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageEntryPassword")), Is.Empty, "No password entry in the app");
 
         CaptureLayoutScreenshot("LoginPage_LoginMode");
     }
 
     [Test]
-    public async Task LoginPage_RegisterModeMatchesServerSetting()
+    public async Task LoginPage_RegisterButtonMatchesServerSetting()
     {
         var wait = new WaitHelper(AndroidDriver, TimeSpan.FromSeconds(15));
         wait.UntilVisible(ByAutoId("LoginPageLabelLogo"));
 
-        var switchLink = AndroidDriver.FindElements(ByAutoId("LoginPageButtonSwitchToRegister"));
-        if (!await E2EBackend.RegistrationAllowedAsync())
-        {
-            Assert.That(switchLink, Is.Empty, "Register link must stay hidden when setup-status reports registrationAllowed=false");
-            return;
-        }
-
-        Assert.That(switchLink, Is.Not.Empty, "Register link should show when setup-status reports registrationAllowed=true");
-        switchLink[0].Click();
-
-        Assert.That(wait.UntilVisible(ByAutoId("LoginPageEntryRegFirstName")).Displayed, Is.True, "First name entry should be visible in register mode");
-        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegLastName")), Is.Not.Empty, "Last name entry should be visible in register mode");
-        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageEntryRegEmail")), Is.Not.Empty, "Email entry should be visible in register mode");
-        Assert.That(AndroidDriver.FindElements(ByAutoId("LoginPageButtonRegister")), Is.Not.Empty, "Register button should be visible");
-
-        CaptureLayoutScreenshot("LoginPage_RegisterMode");
-
-        AndroidDriver.FindElement(ByAutoId("LoginPageButtonSwitchToLogin")).Click();
-        wait.UntilVisible(ByAutoId("LoginPageButtonLogin"));
+        var register = AndroidDriver.FindElements(ByAutoId("LoginPageButtonRegister"));
+        if (await E2EBackend.RegistrationAllowedAsync())
+            Assert.That(register, Is.Not.Empty, "Register button should show when setup-status reports registrationAllowed=true");
+        else
+            Assert.That(register, Is.Empty, "Register button must stay hidden when setup-status reports registrationAllowed=false");
     }
 
     [Test]

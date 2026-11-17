@@ -38,20 +38,6 @@ public class LoginViewModelTests
     private LoginViewModel CreateViewModel(IServerSettingsService? serverSettings = null) =>
         new(_auth, serverSettings ?? CreateServerSettings("https://default.com", isConfigured: true), _postLoginNav, _api);
 
-    private LoginViewModel CreateBrowserViewModel(IServerSettingsService? serverSettings = null)
-    {
-        var vm = CreateViewModel(serverSettings);
-        vm.IsBrowserLogin = true;
-        return vm;
-    }
-
-    [Fact]
-    public void BrowserLogin_OffByDefault()
-    {
-        Assert.False(LoginViewModel.BrowserLoginEnabled);
-        Assert.False(CreateViewModel().IsBrowserLogin);
-    }
-
     [Theory]
     [InlineData(true, true)]
     [InlineData(false, false)]
@@ -98,21 +84,6 @@ public class LoginViewModelTests
 
         Assert.False(vm.IsRegistrationAllowed);
         await _api.DidNotReceive().GetSetupStatusAsync();
-    }
-
-    [Fact]
-    public async Task Registration_Disallowed_LeavesRegisterForm()
-    {
-        _api.GetSetupStatusAsync().Returns(new SetupStatusDto { RegistrationAllowed = true });
-        var vm = CreateViewModel();
-        await vm.LoadRegistrationAllowedAsync();
-        vm.ToggleModeCommand.Execute(null);
-        Assert.False(vm.IsLoginMode);
-        _api.GetSetupStatusAsync().Returns(new SetupStatusDto { RegistrationAllowed = false });
-
-        await vm.LoadRegistrationAllowedAsync();
-
-        Assert.True(vm.IsLoginMode);
     }
 
     [Fact]
@@ -175,99 +146,15 @@ public class LoginViewModelTests
         Assert.True(vm.IsServerVisible);
     }
 
-    [Fact]
-    public async Task LoginWithCredentials_Success_NavigatesPostLogin()
-    {
-        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(AuthResult.Success);
-        var vm = CreateViewModel();
-        vm.Email = " user@example.com ";
-        vm.Password = "secret";
-
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
-
-        await _postLoginNav.Received(1).NavigateAsync();
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task LoginWithCredentials_WrongPassword_ShowsErrorWithoutNavigation()
-    {
-        var vm = CreateViewModel();
-        vm.Email = "user@example.com";
-        vm.Password = "wrong";
-
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
-
-        Assert.Equal("Nieprawidłowy email lub hasło.", vm.ErrorMessage);
-        await _postLoginNav.DidNotReceive().NavigateAsync();
-        Assert.False(vm.IsBusy);
-    }
-
-    [Theory]
-    [InlineData(AuthResult.AccountNotSetUp, "Konto wymaga dokończenia konfiguracji. Potwierdź adres e-mail linkiem z wiadomości albo zaloguj się raz w portalu i wykonaj wskazane kroki, potem zaloguj się ponownie.", false)]
-    [InlineData(AuthResult.AccountDisabled, "Konto jest wyłączone. Skontaktuj się z administratorem serwera.", false)]
-    [InlineData(AuthResult.ClientRejected, "Serwer ksef.example.com odrzucił aplikację mobilną. Skontaktuj się z administratorem serwera.", true)]
-    public async Task LoginWithCredentials_AccountOrClientRefused_ShowsSpecificMessage(AuthResult result, string expected, bool serverVisible)
-    {
-        _auth.LoginWithCredentialsAsync("user@example.com", "secret").Returns(result);
-        var vm = CreateViewModel(CreateServerSettings("https://ksef.example.com", isConfigured: true));
-        vm.Email = "user@example.com";
-        vm.Password = "secret";
-
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
-
-        Assert.Equal(expected, vm.ErrorMessage);
-        Assert.Equal(serverVisible, vm.IsServerVisible);
-        await _postLoginNav.DidNotReceive().NavigateAsync();
-    }
-
-    [Fact]
-    public async Task LoginWithGoogle_HttpServer_SaysHttpsRequired()
-    {
-        _auth.LoginWithGoogleAsync().Returns(AuthResult.GoogleRequiresHttps);
-        var vm = CreateViewModel(CreateServerSettings("http://10.0.2.2:8080", isConfigured: true));
-
-        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
-
-        Assert.Equal("Logowanie przez Google wymaga serwera z adresem https://. Zaloguj się emailem i hasłem.", vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task LoginWithCredentials_EmptyFields_DoesNotCallAuth()
-    {
-        var vm = CreateViewModel();
-
-        await vm.LoginWithCredentialsCommand.ExecuteAsync(null);
-
-        Assert.Equal("Podaj email i hasło.", vm.ErrorMessage);
-        await _auth.DidNotReceiveWithAnyArgs().LoginWithCredentialsAsync(default!, default!);
-    }
-
-    [Theory]
-    [InlineData("short", "short", "Hasło musi mieć co najmniej 8 znaków.")]
-    [InlineData("password1", "password2", "Hasła nie są identyczne.")]
-    public async Task Register_InvalidPassword_DoesNotCallAuth(string password, string confirm, string expectedError)
-    {
-        var vm = CreateViewModel();
-        vm.RegEmail = "new@example.com";
-        vm.RegPassword = password;
-        vm.RegConfirmPassword = confirm;
-
-        await vm.RegisterCommand.ExecuteAsync(null);
-
-        Assert.Equal(expectedError, vm.ErrorMessage);
-        await _auth.DidNotReceiveWithAnyArgs().RegisterAsync(default!, default!, default, default);
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task BrowserLogin_Success_NavigatesPostLogin(bool register)
     {
         _auth.LoginInBrowserAsync(register).Returns(AuthResult.Success);
-        var vm = CreateBrowserViewModel();
+        var vm = CreateViewModel();
 
-        await (register ? vm.RegisterInBrowserCommand : vm.LoginInBrowserCommand).ExecuteAsync(null);
+        await (register ? vm.RegisterCommand : vm.LoginCommand).ExecuteAsync(null);
 
         await _auth.Received(1).LoginInBrowserAsync(register);
         await _postLoginNav.Received(1).NavigateAsync();
@@ -284,9 +171,9 @@ public class LoginViewModelTests
     public async Task BrowserLogin_Failure_ShowsMessageWithoutNavigation(bool register, AuthResult result, string? expected, bool serverVisible)
     {
         _auth.LoginInBrowserAsync(register).Returns(result);
-        var vm = CreateBrowserViewModel(CreateServerSettings("https://ksef.example.com", isConfigured: true));
+        var vm = CreateViewModel(CreateServerSettings("https://ksef.example.com", isConfigured: true));
 
-        await (register ? vm.RegisterInBrowserCommand : vm.LoginInBrowserCommand).ExecuteAsync(null);
+        await (register ? vm.RegisterCommand : vm.LoginCommand).ExecuteAsync(null);
 
         Assert.Equal(expected, vm.ErrorMessage);
         Assert.Equal(serverVisible, vm.IsServerVisible);
@@ -294,44 +181,7 @@ public class LoginViewModelTests
     }
 
     [Fact]
-    public async Task BrowserLogin_GoogleOverHttp_PointsToLoginButton()
-    {
-        _auth.LoginWithGoogleAsync().Returns(AuthResult.GoogleRequiresHttps);
-        var vm = CreateBrowserViewModel();
-
-        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
-
-        Assert.Equal("Logowanie przez Google wymaga serwera z adresem https://. Użyj przycisku Zaloguj się.", vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task GoogleLogin_Cancelled_ShowsNothing()
-    {
-        _auth.LoginWithGoogleAsync().Returns(AuthResult.Cancelled);
-        var vm = CreateViewModel();
-
-        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
-
-        Assert.Null(vm.ErrorMessage);
-        await _postLoginNav.DidNotReceive().NavigateAsync();
-    }
-
-    [Fact]
-    public async Task BrowserCommands_FlagOff_DoNothing()
-    {
-        var vm = CreateViewModel();
-
-        await vm.LoginInBrowserCommand.ExecuteAsync(null);
-        await vm.RegisterInBrowserCommand.ExecuteAsync(null);
-        await vm.PairCommand.ExecuteAsync(null);
-
-        Assert.Empty(_auth.ReceivedCalls());
-        Assert.Null(Shell.Current.LastRoute);
-        Assert.Null(vm.ErrorMessage);
-    }
-
-    [Fact]
-    public async Task GoogleLogin_FlagOff_StillCallsAuth()
+    public async Task LoginWithGoogle_Success_NavigatesPostLogin()
     {
         _auth.LoginWithGoogleAsync().Returns(AuthResult.Success);
         var vm = CreateViewModel();
@@ -339,12 +189,24 @@ public class LoginViewModelTests
         await vm.LoginWithGoogleCommand.ExecuteAsync(null);
 
         await _postLoginNav.Received(1).NavigateAsync();
+        Assert.Null(vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task LoginWithGoogle_HttpServer_SaysHttpsRequired()
+    {
+        _auth.LoginWithGoogleAsync().Returns(AuthResult.GoogleRequiresHttps);
+        var vm = CreateViewModel(CreateServerSettings("http://10.0.2.2:8080", isConfigured: true));
+
+        await vm.LoginWithGoogleCommand.ExecuteAsync(null);
+
+        Assert.Equal("Logowanie przez Google wymaga serwera z adresem https://. Użyj przycisku Zaloguj się.", vm.ErrorMessage);
     }
 
     [Fact]
     public async Task Pair_OpensPairingPage_WithoutCallingAuth()
     {
-        var vm = CreateBrowserViewModel();
+        var vm = CreateViewModel();
 
         await vm.PairCommand.ExecuteAsync(null);
 

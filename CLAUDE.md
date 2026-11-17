@@ -135,7 +135,7 @@ dotnet test src/OpenKSeF.Mobile.E2E.Android/OpenKSeF.Mobile.E2E.Android.csproj -
 | Android emulator (browser/Google login) | ngrok HTTPS URL | Keycloak in the browser must be reachable from the emulator; Google requires HTTPS |
 | Physical device (any login) | ngrok HTTPS URL | Device can't reach localhost |
 
-**Login.** In-app form: `LoginWithCredentialsAsync` (ROPC on `openksef-mobile`), `RegisterAsync` (`POST /api/account/register`, then ROPC), Google via `LoginWithGoogleAsync` (`kc_idp_hint=google`, HTTPS only). Register shows only when `setup-status` returns `registrationAllowed`. `LoginViewModel.BrowserLoginEnabled` (off, CEO 2026-11-14: no Keycloak-looking page) gates the T-137/T-138 path: `LoginInBrowserAsync` (code+PKCE, `/registrations` for Załóż konto) and pairing, the RFC 8628 device grant with S256 PKCE: `StartPairingAsync`, then `CompletePairingAsync` polls every `interval` (+5 s on `slow_down`) until `expires_in`; network/5xx keep polling, `unauthorized_client` = server without the device grant. Tests flip `IsBrowserLogin` per instance.
+**Login (T-137/T-138).** No in-app password form. `LoginInBrowserAsync` runs code+PKCE in the system browser (`/registrations` for Załóż konto); `LoginWithGoogleAsync` adds `kc_idp_hint=google` and needs HTTPS. Pairing is the RFC 8628 device grant with S256 PKCE on `openksef-mobile`: `StartPairingAsync`, then `CompletePairingAsync` polls every `interval` (+5 s on `slow_down`) until `expires_in`; network/5xx keep polling, `unauthorized_client` = server without the device grant. Old ROPC E2E helpers need T-411.
 
 ### Test tiers
 
