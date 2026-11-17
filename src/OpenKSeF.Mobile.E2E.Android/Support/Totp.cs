@@ -6,7 +6,22 @@ namespace OpenKSeF.Mobile.E2E.Android.Support;
 /// <summary>RFC 6238 TOTP with Keycloak's default policy: HmacSHA1, 6 digits, 30 s.</summary>
 public static class Totp
 {
+    private static readonly Dictionary<string, long> LastStep = [];
+
     public static long CurrentStep => DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30;
+
+    // Keycloak rejects a code reused within its time step, so a second code for the same user in that step waits for the next one.
+    public static string NextCode(string username, string secret)
+    {
+        var step = CurrentStep;
+        if (LastStep.TryGetValue(username, out var last) && last >= step)
+        {
+            Thread.Sleep(TimeSpan.FromSeconds((last + 1) * 30 - DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 1));
+            step = CurrentStep;
+        }
+        LastStep[username] = step;
+        return Code(secret, step);
+    }
 
     public static string Code(string base32Secret, long step)
     {

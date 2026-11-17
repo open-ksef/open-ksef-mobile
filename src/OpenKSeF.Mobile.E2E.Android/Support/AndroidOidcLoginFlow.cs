@@ -10,7 +10,6 @@ namespace OpenKSeF.Mobile.E2E.Android.Support;
 
 public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 {
-    private static readonly Dictionary<string, long> LastOtpStep = [];
     private static readonly string SecretDirectory = Path.Combine(Path.GetTempPath(), "openksef-e2e-totp");
 
     private readonly AndroidDriver _driver = driver;
@@ -174,27 +173,16 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         }
         else if (_driver.FindElements(ByHtmlId("otp")).Count > 0)
         {
-            var secret = File.Exists(SecretPath(username))
-                ? File.ReadAllText(SecretPath(username))
-                : Environment.GetEnvironmentVariable("E2E_TEST_TOTP_SECRET");
+            var secret = StoredSecret(username) ?? Environment.GetEnvironmentVariable("E2E_TEST_TOTP_SECRET");
             if (string.IsNullOrWhiteSpace(secret))
                 Assert.Fail($"{username} has 2FA but no TOTP secret: set E2E_TEST_TOTP_SECRET or remove the user's OTP credential.");
             SubmitCode("otp", "Potwierdź", username, secret!);
         }
     }
 
-    // Keycloak rejects a code reused within its time step, so a second login in the same step waits for the next one.
     private void SubmitCode(string fieldId, string buttonText, string username, string secret)
     {
-        var step = Totp.CurrentStep;
-        if (LastOtpStep.TryGetValue(username, out var last) && last >= step)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds((last + 1) * 30 - DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 1));
-            step = Totp.CurrentStep;
-        }
-        LastOtpStep[username] = step;
-
-        _driver.FindElement(ByHtmlId(fieldId)).SendKeys(Totp.Code(secret, step));
+        _driver.FindElement(ByHtmlId(fieldId)).SendKeys(Totp.NextCode(username, secret));
         FindButton(buttonText).Click();
     }
 
@@ -221,7 +209,10 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         return _driver.FindElement(by);
     }
 
-    private static string SecretPath(string username) => Path.Combine(SecretDirectory, $"{username}.txt");
+    internal static string SecretPath(string username) => Path.Combine(SecretDirectory, $"{username}.txt");
+
+    internal static string? StoredSecret(string username) =>
+        File.Exists(SecretPath(username)) ? File.ReadAllText(SecretPath(username)) : null;
 
     private static bool IsInvoiceList(IWebDriver d) =>
         d.FindElements(ByAutoId("InvoiceListPageLabelTitle")).Count > 0 ||
