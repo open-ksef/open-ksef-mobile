@@ -117,6 +117,8 @@
                     <Border Style="{StaticResource UiAlert}" AutomationId="OnboardingCardTokenPermissions"
                             BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface2}, Dark={StaticResource UiSurface2Dark}}">
                         <VerticalStackLayout Spacing="12">
+                            <!-- AppThemeBinding on a Behavior never re-evaluates, so the icon tints bind to this element. -->
+                            <BoxView x:Name="PrimaryInk" IsVisible="False" Color="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
                             <Label Text="Uprawnienia tokenu" FontSize="16" FontFamily="InterSemiBold" SemanticProperties.HeadingLevel="Level2"
                                    TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
                             <Grid ColumnDefinitions="32,*" ColumnSpacing="12" AutomationId="OnboardingRowPermissionRead">
@@ -124,7 +126,7 @@
                                         BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}">
                                     <Image Source="tab_invoices.png" WidthRequest="18" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center">
                                         <Image.Behaviors>
-                                            <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                            <toolkit:IconTintColorBehavior x:DataType="BoxView" TintColor="{Binding Color, Source={x:Reference PrimaryInk}}" />
                                         </Image.Behaviors>
                                     </Image>
                                 </Border>
@@ -139,7 +141,7 @@
                                         BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}">
                                     <Image Source="icon_send.png" WidthRequest="18" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center">
                                         <Image.Behaviors>
-                                            <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                            <toolkit:IconTintColorBehavior x:DataType="BoxView" TintColor="{Binding Color, Source={x:Reference PrimaryInk}}" />
                                         </Image.Behaviors>
                                     </Image>
                                 </Border>

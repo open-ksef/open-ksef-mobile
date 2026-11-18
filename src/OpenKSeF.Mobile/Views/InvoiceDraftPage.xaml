@@ -52,6 +52,8 @@
                         <VerticalStackLayout Spacing="8" IsVisible="{Binding IsCompany}">
                             <Label Text="NIP" Style="{StaticResource UiFieldLabel}" />
                             <Grid ColumnDefinitions="*,56" ColumnSpacing="8">
+                                <!-- AppThemeBinding on a Behavior never re-evaluates, so the icon tint binds to this element. -->
+                                <BoxView x:Name="PrimaryInk" IsVisible="False" Color="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
                                 <Entry Text="{Binding BuyerNip}" Style="{StaticResource UiEntry}" Keyboard="Numeric" MaxLength="10"
                                        AutomationId="InvoiceDraftPageEntryBuyerNip" />
                                 <ImageButton Grid.Column="1" Source="icon_search.png" Padding="14" HeightRequest="48" CornerRadius="8"
@@ -60,7 +62,7 @@
                                              Command="{Binding LookupBuyerNipCommand}"
                                              AutomationId="InvoiceDraftPageButtonLookup">
                                     <ImageButton.Behaviors>
-                                        <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                        <toolkit:IconTintColorBehavior x:DataType="BoxView" TintColor="{Binding Color, Source={x:Reference PrimaryInk}}" />
                                     </ImageButton.Behaviors>
                                 </ImageButton>
                             </Grid>
