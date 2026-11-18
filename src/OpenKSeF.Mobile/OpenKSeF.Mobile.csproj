@@ -26,7 +26,14 @@
     <AndroidSigningKeyPass Condition="'$(Configuration)' == 'Release' AND '$(AndroidSigningKeyPass)' == ''">$(ANDROID_SIGNING_PASSWORD)</AndroidSigningKeyPass>
     <AndroidSigningStorePass Condition="'$(Configuration)' == 'Release' AND '$(AndroidSigningStorePass)' == ''">$(ANDROID_SIGNING_PASSWORD)</AndroidSigningStorePass>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">13.0</SupportedOSPlatformVersion>
+
+    <SentryImplicitUsings>false</SentryImplicitUsings>
+    <SentryDsn Condition="'$(SentryDsn)' == ''">$(SENTRY_DSN)</SentryDsn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="SentryDsn" Value="$(SentryDsn)" />
+  </ItemGroup>
 
   <ItemGroup>
     <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#4f46e5" />
@@ -47,6 +54,7 @@
     <PackageReference Include="ZXing.Net.Maui.Controls" Version="0.4.0" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.*" />
     <PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
+    <PackageReference Include="Sentry.Maui" Version="6.12.0" />
   </ItemGroup>
 
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
