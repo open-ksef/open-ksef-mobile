@@ -26,7 +26,7 @@ public class MobileContractTests
     private const string NipLookupInvalid = "GET /api/nip-lookup/{nip} (invalid)";
     private const string Hub = "SignalR ReceiveNotification";
     private const string HubSummary = "SignalR ReceiveNotification (newInvoicesSummary)";
-    private const string GoldenSha256 = "FFBBD803CD866B41174C6E00CAFDD80056EADE87F36B54418FDD4C8E21633098";
+    private const string GoldenSha256 = "D3075C5F6DBE851F816C8AF6AC909D7D2BD4B5D15390B501B34046BC867BA421";
 
     private static readonly JsonObject Golden = Load("responses.json");
     private static readonly JsonObject Payloads = Load("payloads.json");
@@ -546,6 +546,40 @@ public class MobileContractTests
     }
 
     [Fact]
+    public async Task IssuedInvoiceDetail_AcceptedByDownload_MapsDateOnlyAndUpoUnavailable()
+    {
+        var json = Payloads[IssuedDetail]!.DeepClone().AsObject();
+        var ksef = json["ksef"]!.AsObject();
+        ksef["acceptedAt"] = null;
+        ksef["acceptedOn"] = "2026-11-05";
+        ksef["hasUpo"] = false;
+        ksef["upoUnavailable"] = true;
+
+        var invoice = await Api(json).GetIssuedInvoiceAsync(TenantId, InvoiceId);
+        var normal = await Api(IssuedDetail).GetIssuedInvoiceAsync(TenantId, InvoiceId);
+
+        Assert.Null(invoice.Ksef.AcceptedAt);
+        Assert.Equal(new DateOnly(2026, 11, 5), invoice.Ksef.AcceptedOn);
+        Assert.True(invoice.Ksef.UpoUnavailable);
+        Assert.Null(normal.Ksef.AcceptedOn);
+        Assert.False(normal.Ksef.UpoUnavailable);
+    }
+
+    [Fact]
+    public async Task IssuedInvoiceDetail_ServerWithoutT789Fields_DefaultsToCurrentBehavior()
+    {
+        var json = Payloads[IssuedDetail]!.DeepClone().AsObject();
+        json["ksef"]!.AsObject().Remove("acceptedOn");
+        json["ksef"]!.AsObject().Remove("upoUnavailable");
+
+        var invoice = await Api(json).GetIssuedInvoiceAsync(TenantId, InvoiceId);
+
+        Assert.Equal(new DateTime(2026, 11, 5, 9, 5, 0, DateTimeKind.Utc), invoice.Ksef.AcceptedAt);
+        Assert.Null(invoice.Ksef.AcceptedOn);
+        Assert.False(invoice.Ksef.UpoUnavailable);
+    }
+
+    [Fact]
     public async Task IssuedInvoiceCopyAndIssue_MapResponse()
     {
         var copy = await Api("POST /api/tenants/{id}/issued-invoices/{invoiceId}/copy").CopyIssuedInvoiceAsync(TenantId, InvoiceId);
@@ -674,13 +708,15 @@ public class MobileContractTests
         Assert.Equal(new DateTime(2026, 11, 4, 12, 0, 0, DateTimeKind.Utc), invoice.PaidAt);
     }
 
-    private static ApiService Api(string endpoint, HttpStatusCode status = HttpStatusCode.OK)
+    private static ApiService Api(string endpoint, HttpStatusCode status = HttpStatusCode.OK) => Api(Payloads[endpoint]!, status);
+
+    private static ApiService Api(JsonNode payload, HttpStatusCode status = HttpStatusCode.OK)
     {
         var auth = Substitute.For<IAuthService>();
         auth.GetAccessTokenAsync().Returns("token");
         var settings = Substitute.For<IServerSettingsService>();
         settings.ServerUrl.Returns("https://ksef.example.com");
-        return new ApiService(new HttpClient(new FixtureHandler(Payloads[endpoint]!.ToJsonString(), status)), auth, settings, NullLogger<ApiService>.Instance);
+        return new ApiService(new HttpClient(new FixtureHandler(payload.ToJsonString(), status)), auth, settings, NullLogger<ApiService>.Instance);
     }
 
     private static PropertyInfo? Resolve(Type type, string path)

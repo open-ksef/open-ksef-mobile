@@ -61,7 +61,9 @@
         "invoiceType": "VAT",
         "firstSeenAt": "2026-11-03T10:25:00.5Z",
         "isPaid": true,
-        "paidAt": "2026-11-04T12:00:00Z"
+        "paidAt": "2026-11-04T12:00:00Z",
+        "dueDate": null,
+        "isOverdue": false
       }
     ],
     "page": 1,
@@ -149,6 +151,8 @@
     "firstSeenAt": "2026-11-03T10:25:00.5Z",
     "isPaid": true,
     "paidAt": "2026-11-04T12:00:00Z",
+    "dueDate": null,
+    "isOverdue": false,
     "lines": [
       {
         "lineNumber": 1,
@@ -184,6 +188,8 @@
     "firstSeenAt": "2026-11-05T07:00:00Z",
     "isPaid": false,
     "paidAt": null,
+    "dueDate": null,
+    "isOverdue": false,
     "lines": null
   },
   "GET /api/devices": [
@@ -332,7 +338,9 @@
       "lastError": null,
       "verificationUrl": null,
       "hasUpo": false,
-      "duplicateKsefNumber": null
+      "duplicateKsefNumber": null,
+      "acceptedOn": null,
+      "upoUnavailable": false
     },
     "createdAt": "2026-11-05T09:00:00Z",
     "updatedAt": "2026-11-05T09:00:00Z",
@@ -408,7 +416,9 @@
       "lastError": null,
       "verificationUrl": "https://ksef-test.example.com/verify/1",
       "hasUpo": true,
-      "duplicateKsefNumber": null
+      "duplicateKsefNumber": null,
+      "acceptedOn": null,
+      "upoUnavailable": false
     },
     "createdAt": "2026-11-05T09:00:00Z",
     "updatedAt": "2026-11-05T09:05:00Z",
@@ -484,7 +494,9 @@
       "lastError": null,
       "verificationUrl": null,
       "hasUpo": false,
-      "duplicateKsefNumber": null
+      "duplicateKsefNumber": null,
+      "acceptedOn": null,
+      "upoUnavailable": false
     },
     "createdAt": "2026-11-06T08:00:00Z",
     "updatedAt": "2026-11-06T08:00:00Z",
@@ -560,7 +572,9 @@
       "lastError": "Duplikat faktury",
       "verificationUrl": null,
       "hasUpo": false,
-      "duplicateKsefNumber": "1111111111-20261104-0A0B0C000000-44"
+      "duplicateKsefNumber": "1111111111-20261104-0A0B0C000000-44",
+      "acceptedOn": null,
+      "upoUnavailable": false
     },
     "createdAt": "2026-11-05T09:00:00Z",
     "updatedAt": "2026-11-05T09:10:00Z",

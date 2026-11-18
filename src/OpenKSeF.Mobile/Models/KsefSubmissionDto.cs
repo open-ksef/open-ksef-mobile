@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace OpenKSeF.Mobile.Models;
 
 public class KsefSubmissionDto
@@ -12,4 +14,8 @@ public class KsefSubmissionDto
     public string? VerificationUrl { get; set; }
     public bool HasUpo { get; set; }
     public string? DuplicateKsefNumber { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateOnly? AcceptedOn { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool UpoUnavailable { get; set; }
 }

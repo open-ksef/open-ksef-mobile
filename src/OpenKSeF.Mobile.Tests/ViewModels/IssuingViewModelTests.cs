@@ -961,6 +961,66 @@ public class IssuingViewModelTests : IDisposable
         Assert.NotNull(vm.VerificationQr);
     }
 
+    [Fact]
+    public void Details_AcceptedWithTime_ShowsTime_NoUpoNotice()
+    {
+        var at = new DateTime(2026, 11, 3, 9, 15, 0, DateTimeKind.Utc);
+        var invoice = Invoice("Accepted");
+        invoice.Ksef = new KsefSubmissionDto { AcceptedAt = at, AcceptedOn = new DateOnly(2026, 11, 1), HasUpo = true };
+
+        var vm = Details([]);
+        vm.Invoice = invoice;
+
+        Assert.Equal($"Przyjęta {at.ToLocalTime():dd.MM.yyyy, HH:mm}", vm.AcceptedText);
+        Assert.Null(vm.UpoUnavailableText);
+        Assert.True(vm.HasUpo);
+    }
+
+    [Fact]
+    public void Details_AcceptedByDownload_ShowsDateOnly_AndUpoUnavailable()
+    {
+        var invoice = Invoice("Accepted");
+        invoice.Ksef = new KsefSubmissionDto { AcceptedOn = new DateOnly(2026, 11, 3), UpoUnavailable = true };
+        var vm = Details([]);
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.Invoice = invoice;
+
+        Assert.Equal("Przyjęta 03.11.2026", vm.AcceptedText);
+        Assert.Equal("UPO: Niedostępne w OpenKSeF\nKSeF przyjął fakturę wcześniej, a OpenKSeF nie ma dostępu do jej UPO. UPO pobierzesz w Aplikacji Podatnika KSeF.", vm.UpoUnavailableText);
+        Assert.DoesNotContain("Oczekuje", vm.UpoUnavailableText);
+        Assert.False(vm.HasUpo);
+        Assert.Contains(nameof(vm.UpoUnavailableText), changed);
+    }
+
+    [Fact]
+    public void Details_OldApiAcceptedWithoutNewFields_ShowsTimeOrNothing_NoUpoNotice()
+    {
+        var invoice = Invoice("Accepted");
+        invoice.Ksef = new KsefSubmissionDto();
+
+        var vm = Details([]);
+        vm.Invoice = invoice;
+
+        Assert.Equal(string.Empty, vm.AcceptedText);
+        Assert.Null(vm.UpoUnavailableText);
+    }
+
+    [Theory]
+    [InlineData("Sending")]
+    [InlineData("Rejected")]
+    public void Details_NotAccepted_IgnoresUpoUnavailable(string status)
+    {
+        var invoice = Invoice(status);
+        invoice.Ksef = new KsefSubmissionDto { UpoUnavailable = true };
+
+        var vm = Details([]);
+        vm.Invoice = invoice;
+
+        Assert.Null(vm.UpoUnavailableText);
+    }
+
     [Theory]
     [InlineData("Serwer nie przyjął logowania. Spróbuj ponownie później, a jeśli błąd wróci, wyloguj się i zaloguj ponownie.")]
     [InlineData("Sesja wygasła. Zaloguj się ponownie.")]
