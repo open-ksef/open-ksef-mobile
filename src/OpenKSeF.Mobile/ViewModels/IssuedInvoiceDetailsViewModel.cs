@@ -40,7 +40,7 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Status), nameof(Title), nameof(IsDraft), nameof(IsSending), nameof(IsAccepted), nameof(IsRejected),
-        nameof(GrossText), nameof(BuyerText), nameof(Lines), nameof(KsefNumber), nameof(AcceptedText), nameof(RejectionText),
+        nameof(GrossText), nameof(BuyerText), nameof(Lines), nameof(KsefNumber), nameof(AcceptedText), nameof(UpoUnavailableText), nameof(RejectionText),
         nameof(SendingProblemText), nameof(CanCopyAsNew), nameof(IsDuplicateNumberRejection), nameof(CanFixRejection), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink),
         nameof(IsPortalOnly), nameof(IsEditableDraft), nameof(CanCopyRejected), nameof(CanOpenInPortal), nameof(PortalButtonText), nameof(ForeignVatText))]
     private IssuedInvoiceDto? _invoice;
@@ -100,7 +100,16 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         $"{IssuingFormat.Quantity(l.Quantity)} × {IssuingFormat.Money(l.UnitNetPrice, Invoice.Currency)} netto · VAT {IssuingFormat.VatRateLabel(l.VatRate)}",
         IssuingFormat.Money(l.NetAmount + l.VatAmount, Invoice.Currency))).ToList() ?? [];
 
-    public string AcceptedText => Invoice?.Ksef.AcceptedAt is { } at ? $"Przyjęta {IssuingFormat.DateAndTime(at.ToLocalTime())}" : string.Empty;
+    public string AcceptedText => Invoice?.Ksef switch
+    {
+        { AcceptedAt: { } at } => $"Przyjęta {IssuingFormat.DateAndTime(at.ToLocalTime())}",
+        { AcceptedOn: { } on } => $"Przyjęta {IssuingFormat.Date(on)}",
+        _ => string.Empty
+    };
+
+    public string? UpoUnavailableText => IsAccepted && Invoice!.Ksef.UpoUnavailable
+        ? "UPO: Niedostępne w OpenKSeF\nKSeF przyjął fakturę wcześniej, a OpenKSeF nie ma dostępu do jej UPO. UPO pobierzesz w Aplikacji Podatnika KSeF."
+        : null;
 
     public string RejectionText => Invoice is null ? string.Empty
         : $"Kod KSeF {Invoice.Ksef.StatusCode}: {RejectionMessage}{(RejectionDetails is { } details ? $"\n{details}" : string.Empty)}\n{RejectionAdvice}";

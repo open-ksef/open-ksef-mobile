@@ -67,6 +67,9 @@
                                         Command="{Binding CopyKsefNumberCommand}" AutomationId="IssuedInvoiceDetailsPageButtonCopyKsef" />
                             </Grid>
                             <Label Text="{Binding AcceptedText}" Style="{StaticResource UiMutedText}" />
+                            <Label Text="{Binding UpoUnavailableText}" Style="{StaticResource UiMutedText}"
+                                   IsVisible="{Binding UpoUnavailableText, Converter={StaticResource IsNotNullConverter}}"
+                                   AutomationId="IssuedInvoiceDetailsPageLabelUpoUnavailable" />
                             <Button Text="Udostępnij PDF" Style="{StaticResource UiButtonPrimary}"
                                     Command="{Binding SharePdfCommand}" AutomationId="IssuedInvoiceDetailsPageButtonSharePdf" />
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
