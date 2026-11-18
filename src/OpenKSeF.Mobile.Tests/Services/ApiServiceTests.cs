@@ -481,6 +481,17 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task LookupNip_TooManyRequests_ShowsTryAgainShortly()
+    {
+        _handler.Respond(HttpStatusCode.TooManyRequests);
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().LookupNipAsync("1111111111"));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, ex.StatusCode);
+        Assert.Equal("Zbyt wiele zapytań. Spróbuj ponownie za chwilę.", ex.Message);
+    }
+
+    [Fact]
     public async Task CreateIssuedInvoice_PostsDraftContract()
     {
         var tenantId = Guid.NewGuid();

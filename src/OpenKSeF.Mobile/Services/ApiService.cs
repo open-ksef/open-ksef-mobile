@@ -277,6 +277,7 @@ public class ApiService : IApiService
     private static string FixedMessage(HttpStatusCode status) => status switch
     {
         HttpStatusCode.Forbidden => "Brak uprawnień do tej operacji.",
+        HttpStatusCode.TooManyRequests => "Zbyt wiele zapytań. Spróbuj ponownie za chwilę.",
         _ when (int)status >= 500 => $"Błąd serwera ({(int)status}). Spróbuj ponownie później.",
         _ => $"Serwer odrzucił żądanie ({(int)status}).",
     };

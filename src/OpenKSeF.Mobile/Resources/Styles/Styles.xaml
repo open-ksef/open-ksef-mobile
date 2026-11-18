@@ -157,13 +157,6 @@
     </Style>
 
     <!-- ─── Frame card style ─────────────────────────────────── -->
-    <Style x:Key="CardFrame" TargetType="Frame">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}" />
-        <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="HasShadow" Value="True" />
-        <Setter Property="BorderColor" Value="Transparent" />
-    </Style>
-
     <!-- ─── Design tokens ────────────────────────────────────── -->
     <Style x:Key="UiPage" TargetType="ContentPage">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiBg}, Dark={StaticResource UiBgDark}}" />
