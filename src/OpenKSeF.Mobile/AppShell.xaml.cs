@@ -26,7 +26,11 @@ public partial class AppShell : Shell
         ApplyStatusBar();
         Loaded += (_, _) => ApplyStatusBar();
         Navigated += (_, _) => ApplyStatusBar();
-        Application.Current!.RequestedThemeChanged += (_, _) => ApplyStatusBar();
+        Application.Current!.RequestedThemeChanged += (_, _) =>
+        {
+            ApplyStatusBar();
+            Dispatcher.Dispatch(() => ((IShellController)this).AppearanceChanged(this, true));
+        };
 #endif
     }
 

@@ -1,3 +1,6 @@
+#if ANDROID
+using Microsoft.Maui.Platform;
+#endif
 using OpenKSeF.Mobile.ViewModels;
 
 namespace OpenKSeF.Mobile.Views;
@@ -37,14 +40,14 @@ public partial class InvoiceLineSheet : ContentPage
 
     private static void ApplyStatusBarStyle()
     {
-        if (Platform.CurrentActivity is not AndroidX.Fragment.App.FragmentActivity { Window: { } activityWindow } activity
+        if (Platform.CurrentActivity is not AndroidX.Fragment.App.FragmentActivity activity
             || activity.SupportFragmentManager.Fragments.OfType<AndroidX.Fragment.App.DialogFragment>().LastOrDefault()?.Dialog?.Window is not { } window)
             return;
+        var dark = Application.Current!.RequestedTheme == AppTheme.Dark;
 #pragma warning disable CA1422
-        window.SetStatusBarColor(new Android.Graphics.Color(activityWindow.StatusBarColor));
+        window.SetStatusBarColor(((Color)Application.Current.Resources[dark ? "UiSurfaceDark" : "UiSurface"]).ToPlatform());
 #pragma warning restore CA1422
-        AndroidX.Core.View.WindowCompat.GetInsetsController(window, window.DecorView).AppearanceLightStatusBars =
-            Application.Current!.RequestedTheme != AppTheme.Dark;
+        AndroidX.Core.View.WindowCompat.GetInsetsController(window, window.DecorView).AppearanceLightStatusBars = !dark;
     }
 #endif
 }
