@@ -14,7 +14,7 @@ public sealed class InvoiceLineSheetFlowTests : AndroidTestBase
     protected override bool UsesSeededUser => true;
 
     [Test]
-    public async Task LineSheet_EditRejectZeroPriceSave_UpdatesTotal()
+    public async Task LineSheet_EditRejectNegativePriceSave_UpdatesTotal()
     {
         await E2EBackend.CompleteSellerProfilesAsync(SeededUser);
         var authFlow = new AndroidOidcLoginFlow(AndroidDriver);
@@ -35,10 +35,10 @@ public sealed class InvoiceLineSheetFlowTests : AndroidTestBase
         quantity.Clear();
         quantity.SendKeys("2");
         var price = AndroidDriver.FindElement(ByAutoId("InvoiceLineSheetEntryPrice"));
-        price.SendKeys("0");
+        price.SendKeys("-1");
         AndroidDriver.FindElement(ByAutoId("InvoiceLineSheetButtonSave")).Click();
 
-        Assert.That(wait.UntilVisible(ByAutoId("InvoiceLineSheetLabelError")).Text, Is.EqualTo("Podaj cenę netto większą od zera."));
+        Assert.That(wait.UntilVisible(ByAutoId("InvoiceLineSheetLabelError")).Text, Is.EqualTo("Cena netto nie może być ujemna."));
 
         price.Clear();
         price.SendKeys("100");

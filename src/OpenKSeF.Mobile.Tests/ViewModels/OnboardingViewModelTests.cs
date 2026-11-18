@@ -91,7 +91,7 @@ public class OnboardingViewModelTests
     public async Task SubmitStep2_SyncRejectsToken_BackToTokenStepWithFieldError()
     {
         _api.CreateTenantAsync(Arg.Any<CreateTenantRequest>()).Returns(new TenantDto { Id = Guid.NewGuid(), Nip = "1111111111" });
-        _api.ForceCredentialSyncAsync(Arg.Any<Guid>()).ThrowsAsync(new ApiException(HttpStatusCode.BadGateway, ApiException.TokenRejectedMessage));
+        _api.ForceCredentialSyncAsync(Arg.Any<Guid>()).ThrowsAsync(new ApiException(HttpStatusCode.BadGateway, "KSeF odrzucił token (nieprawidłowy lub unieważniony). Wygeneruj nowy token i podmień go w ustawieniach firmy."));
         var vm = new OnboardingViewModel(_api, Substitute.For<IPostLoginNavigationService>()) { Nip = "1111111111" };
         await vm.SubmitStep1Command.ExecuteAsync(null);
         vm.KsefToken = "expired-token";

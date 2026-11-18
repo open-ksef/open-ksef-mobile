@@ -272,10 +272,9 @@ public class IssuingViewModelTests : IDisposable
     }
 
     [Theory]
-    [InlineData("0")]
-    [InlineData("0,00")]
     [InlineData("-5")]
-    public void LineSheet_PriceNotAboveZero_RejectedUnderPriceField(string price)
+    [InlineData("-0,01")]
+    public void LineSheet_NegativePrice_RejectedUnderPriceField(string price)
     {
         var vm = Draft(Profile());
 
@@ -284,11 +283,25 @@ public class IssuingViewModelTests : IDisposable
         vm.SaveLineCommand.Execute(null);
 
         Assert.NotNull(vm.EditingLine);
-        Assert.Equal("Podaj cenę netto większą od zera.", vm.EditingLine.Error);
+        Assert.Equal("Cena netto nie może być ujemna.", vm.EditingLine.Error);
         Assert.True(vm.EditingLine.PriceInvalid);
         Assert.False(vm.EditingLine.QuantityInvalid);
         Assert.Equal("—", vm.EditingLine.GrossText);
         Assert.Equal("100,00", vm.Lines[0].UnitNetPrice);
+    }
+
+    [Fact]
+    public void LineSheet_ZeroPrice_Saves()
+    {
+        var vm = Draft(Profile());
+
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        vm.EditingLine!.UnitNetPrice = "0";
+        vm.SaveLineCommand.Execute(null);
+
+        Assert.Null(vm.EditingLine);
+        Assert.Equal("0", vm.Lines[0].UnitNetPrice);
+        Assert.Equal("0,00 PLN", vm.TotalGrossText);
     }
 
     [Fact]

@@ -242,11 +242,11 @@ public partial class OnboardingViewModel : ObservableObject
             SyncStatusText = $"Synchronizacja zakończona — pobrano {result.FetchedInvoices} faktur" +
                 (result.NewInvoices > 0 ? $", w tym {result.NewInvoices} nowych." : ".");
         }
-        catch (ApiException ex) when (ex.Message == ApiException.TokenRejectedMessage)
+        catch (ApiException ex) when (ex.Message == ApiException.ServerInvalidTokenMessage)
         {
             SyncStatusText = null;
             CurrentStep = 2;
-            TokenError = ex.Message;
+            TokenError = ApiException.TokenRejectedMessage;
         }
         catch
         {

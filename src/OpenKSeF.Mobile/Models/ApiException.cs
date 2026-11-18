@@ -4,6 +4,8 @@ namespace OpenKSeF.Mobile.Models;
 
 public class ApiException : Exception
 {
+    public const string ServerInvalidTokenMessage = "KSeF odrzucił token (nieprawidłowy lub unieważniony). Wygeneruj nowy token i podmień go w ustawieniach firmy.";
+
     public const string TokenRejectedMessage = "KSeF nie przyjął tokenu. Sprawdź, czy skopiowano go w całości i czy nie wygasł.";
 
     public HttpStatusCode StatusCode { get; }

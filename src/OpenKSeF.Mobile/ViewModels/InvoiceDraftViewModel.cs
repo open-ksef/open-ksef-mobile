@@ -112,7 +112,7 @@ public partial class DraftLineViewModel : ObservableObject
         (Error, ErrorField) = InputError is (not null, _) and var input ? input
             : !IssuingFormat.TryParseDecimal(Quantity, out _) ? ("Podaj ilość, np. 1 lub 0,5", "quantity")
             : !IssuingFormat.TryParseDecimal(UnitNetPrice, out var price) ? ("Podaj cenę netto, np. 1 200,00", "unitNetPrice")
-            : price <= 0 ? ("Podaj cenę netto większą od zera.", "unitNetPrice")
+            : price < 0 ? ("Cena netto nie może być ujemna.", "unitNetPrice")
             : (null, null);
         return Error is null;
     }

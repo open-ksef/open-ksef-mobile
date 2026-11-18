@@ -563,7 +563,8 @@ public class ApiServiceTests
     }
 
     [Theory]
-    [InlineData("KSeF nie przyjął tokenu. Sprawdź, czy skopiowano go w całości i czy nie wygasł.", "KSeF nie przyjął tokenu. Sprawdź, czy skopiowano go w całości i czy nie wygasł.")]
+    [InlineData("KSeF odrzucił token (nieprawidłowy lub unieważniony). Wygeneruj nowy token i podmień go w ustawieniach firmy.", "KSeF odrzucił token (nieprawidłowy lub unieważniony). Wygeneruj nowy token i podmień go w ustawieniach firmy.")]
+    [InlineData("KSeF nie przyjął tokenu. Sprawdź, czy skopiowano go w całości i czy nie wygasł.", "Błąd serwera (502). Spróbuj ponownie później.")]
     [InlineData("KSeF API error 450: raw upstream text", "Błąd serwera (502). Spróbuj ponownie później.")]
     public async Task Sync502_OnlyTokenRejectionTextReachesUser(string error, string expected)
     {
