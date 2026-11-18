@@ -136,6 +136,19 @@ public static class E2EBackend
         }
     }
 
+    public static async Task CompleteSellerProfilesAsync(User user)
+    {
+        using var http = await AuthorizedClientAsync(user);
+        foreach (var tenant in (await http.GetFromJsonAsync<List<TenantDto>>($"{ServerUrl}/api/tenants"))!)
+        {
+            var profile = (await http.GetFromJsonAsync<SellerProfileDto>($"{ServerUrl}/api/tenants/{tenant.Id}/seller-profile"))!;
+            profile.LegalName = tenant.DisplayName ?? "E2E Seed";
+            profile.AddressLine1 = "ul. Testowa 1";
+            profile.AddressLine2 = "00-001 Warszawa";
+            (await http.PutAsJsonAsync<SellerProfileRequest>($"{ServerUrl}/api/tenants/{tenant.Id}/seller-profile", profile)).EnsureSuccessStatusCode();
+        }
+    }
+
     public static async Task<bool> RegistrationAllowedAsync()
     {
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };

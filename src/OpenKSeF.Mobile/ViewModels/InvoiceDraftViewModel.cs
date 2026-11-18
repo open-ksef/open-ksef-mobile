@@ -35,8 +35,16 @@ public partial class DraftLineViewModel : ObservableObject
     private string _vatRateLabel = "23%";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GrossText), nameof(NetVatText))]
+    [NotifyPropertyChangedFor(nameof(GrossText), nameof(NetVatText), nameof(QuantityInvalid), nameof(PriceInvalid))]
     private string? _error;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(QuantityInvalid), nameof(PriceInvalid))]
+    private string? _errorField;
+
+    public bool QuantityInvalid => Error is not null && ErrorField == "quantity";
+
+    public bool PriceInvalid => Error is not null && ErrorField == "unitNetPrice";
 
     public string VatRate => IssuingFormat.VatRateCode(VatRateLabel);
 
@@ -72,6 +80,7 @@ public partial class DraftLineViewModel : ObservableObject
         UnitNetPrice = source.UnitNetPrice;
         VatRateLabel = source.VatRateLabel;
         Error = source.Error;
+        ErrorField = source.ErrorField;
         return this;
     }
 
@@ -93,20 +102,24 @@ public partial class DraftLineViewModel : ObservableObject
         VatRate = VatRate
     };
 
-    private string? InputError => IssuingFormat.DecimalInputError(Quantity) ?? IssuingFormat.DecimalInputError(UnitNetPrice);
+    private (string?, string?) InputError =>
+        IssuingFormat.DecimalInputError(Quantity) is { } quantity ? (quantity, "quantity")
+        : IssuingFormat.DecimalInputError(UnitNetPrice) is { } price ? (price, "unitNetPrice")
+        : (null, null);
 
     public bool Validate()
     {
-        Error = InputError
-            ?? (!IssuingFormat.TryParseDecimal(Quantity, out _) ? "Podaj ilość, np. 1 lub 0,5"
-                : !IssuingFormat.TryParseDecimal(UnitNetPrice, out _) ? "Podaj cenę netto, np. 1 200,00"
-                : null);
+        (Error, ErrorField) = InputError is (not null, _) and var input ? input
+            : !IssuingFormat.TryParseDecimal(Quantity, out _) ? ("Podaj ilość, np. 1 lub 0,5", "quantity")
+            : !IssuingFormat.TryParseDecimal(UnitNetPrice, out var price) ? ("Podaj cenę netto, np. 1 200,00", "unitNetPrice")
+            : price < 0 ? ("Cena netto nie może być ujemna.", "unitNetPrice")
+            : (null, null);
         return Error is null;
     }
 
-    partial void OnQuantityChanged(string value) => Error = InputError;
+    partial void OnQuantityChanged(string value) => (Error, ErrorField) = InputError;
 
-    partial void OnUnitNetPriceChanged(string value) => Error = InputError;
+    partial void OnUnitNetPriceChanged(string value) => (Error, ErrorField) = InputError;
 }
 
 public sealed record VatSummaryRow(string Rate, string Net, string Vat, string Gross);
@@ -766,7 +779,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
                 case "lines": LinesError = issue.Message; break;
                 default:
                     if (LineIndex(field) is { } i && i < Lines.Count)
-                        Lines[i].Error = issue.Message;
+                        (Lines[i].Error, Lines[i].ErrorField) = (issue.Message, field.Split('.').Last());
                     else
                         unplaced.Add(issue.Message);
                     break;

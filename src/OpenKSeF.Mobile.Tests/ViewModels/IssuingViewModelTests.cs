@@ -271,6 +271,69 @@ public class IssuingViewModelTests : IDisposable
         Assert.Null(vm.Lines[0].Error);
     }
 
+    [Theory]
+    [InlineData("-5")]
+    [InlineData("-0,01")]
+    public void LineSheet_NegativePrice_RejectedUnderPriceField(string price)
+    {
+        var vm = Draft(Profile());
+
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        vm.EditingLine!.UnitNetPrice = price;
+        vm.SaveLineCommand.Execute(null);
+
+        Assert.NotNull(vm.EditingLine);
+        Assert.Equal("Cena netto nie może być ujemna.", vm.EditingLine.Error);
+        Assert.True(vm.EditingLine.PriceInvalid);
+        Assert.False(vm.EditingLine.QuantityInvalid);
+        Assert.Equal("—", vm.EditingLine.GrossText);
+        Assert.Equal("100,00", vm.Lines[0].UnitNetPrice);
+    }
+
+    [Fact]
+    public void LineSheet_ZeroPrice_Saves()
+    {
+        var vm = Draft(Profile());
+
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        vm.EditingLine!.UnitNetPrice = "0";
+        vm.SaveLineCommand.Execute(null);
+
+        Assert.Null(vm.EditingLine);
+        Assert.Equal("0", vm.Lines[0].UnitNetPrice);
+        Assert.Equal("0,00 PLN", vm.TotalGrossText);
+    }
+
+    [Fact]
+    public void LineSheet_InvalidQuantity_MarksQuantityField_EditClears()
+    {
+        var vm = Draft(Profile());
+
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        vm.EditingLine!.Quantity = "1,5,5";
+        vm.SaveLineCommand.Execute(null);
+
+        Assert.True(vm.EditingLine.QuantityInvalid);
+        Assert.False(vm.EditingLine.PriceInvalid);
+
+        vm.EditingLine.Quantity = "2";
+
+        Assert.False(vm.EditingLine.QuantityInvalid);
+        Assert.Null(vm.EditingLine.Error);
+    }
+
+    [Fact]
+    public void ServerLineError_MarksMatchingField()
+    {
+        var vm = Draft(Profile());
+
+        vm.ApplyValidation(Invalid("INV-VAL-052", "lines[0].unitNetPrice"));
+
+        Assert.True(vm.Lines[0].PriceInvalid);
+        vm.EditLineCommand.Execute(vm.Lines[0]);
+        Assert.True(vm.EditingLine!.PriceInvalid);
+    }
+
     [Fact]
     public void LineSheet_Delete_RemovesLine()
     {
