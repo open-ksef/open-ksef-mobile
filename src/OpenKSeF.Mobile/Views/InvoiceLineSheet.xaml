@@ -70,6 +70,8 @@
                                                    HorizontalTextAlignment="End" AutomationId="InvoiceLineSheetEntryPrice" />
                             <Label Grid.Column="1" Text="zł" Style="{StaticResource UiMutedText}" VerticalOptions="Center" />
                         </Grid>
+                        <Label Text="{Binding Error}" Style="{StaticResource UiFieldError}" AutomationId="InvoiceLineSheetLabelError"
+                               IsVisible="{Binding Error, Converter={StaticResource IsNotNullConverter}}" />
 
                         <Label Text="Stawka VAT" Style="{StaticResource UiFieldLabel}" />
                         <FlexLayout Wrap="Wrap"
@@ -83,9 +85,6 @@
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </FlexLayout>
-
-                        <Label Text="{Binding Error}" Style="{StaticResource UiFieldError}" AutomationId="InvoiceLineSheetLabelError"
-                               IsVisible="{Binding Error, Converter={StaticResource IsNotNullConverter}}" />
 
                         <BoxView HeightRequest="1" Margin="0,4"
                                  Color="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" />

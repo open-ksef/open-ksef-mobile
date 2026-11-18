@@ -388,7 +388,7 @@
             <Border x:Name="Root" HeightRequest="32" VerticalOptions="Center" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="12,0"
                     Stroke="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}"
                     BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}">
-                <Label x:Name="Text" Text="{Binding Content, Source={RelativeSource TemplatedParent}}" FontSize="14"
+                <Label x:Name="Text" Text="{Binding Content, Source={RelativeSource TemplatedParent}}" FontSize="14" MinimumWidthRequest="24" HorizontalTextAlignment="Center"
                        VerticalTextAlignment="Center"
                        TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
             </Border>
