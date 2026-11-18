@@ -383,6 +383,45 @@
         <Setter Property="ControlTemplate" Value="{StaticResource UiChipTemplate}" />
     </Style>
 
+    <ControlTemplate x:Key="UiFilterChipTemplate">
+        <Grid MinimumHeightRequest="48" BackgroundColor="Transparent">
+            <Border x:Name="Root" HeightRequest="32" VerticalOptions="Center" StrokeThickness="1" StrokeShape="RoundRectangle 8" Padding="12,0"
+                    Stroke="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}">
+                <Label x:Name="Text" Text="{Binding Content, Source={RelativeSource TemplatedParent}}" FontSize="14" MinimumWidthRequest="24" HorizontalTextAlignment="Center"
+                       VerticalTextAlignment="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+            </Border>
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroupList>
+                    <VisualStateGroup x:Name="CheckedStates">
+                        <VisualState x:Name="Checked">
+                            <VisualState.Setters>
+                                <Setter TargetName="Root" Property="Border.BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}" />
+                                <Setter TargetName="Root" Property="Border.Stroke" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                <Setter TargetName="Text" Property="Label.TextColor" Value="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                <Setter TargetName="Text" Property="Label.FontFamily" Value="InterSemiBold" />
+                            </VisualState.Setters>
+                        </VisualState>
+                        <VisualState x:Name="Unchecked" />
+                    </VisualStateGroup>
+                </VisualStateGroupList>
+            </VisualStateManager.VisualStateGroups>
+        </Grid>
+    </ControlTemplate>
+
+    <Style x:Key="UiFilterChip" TargetType="RadioButton">
+        <Setter Property="ControlTemplate" Value="{StaticResource UiFilterChipTemplate}" />
+    </Style>
+
+    <Style x:Key="UiIconButton" TargetType="ImageButton">
+        <Setter Property="WidthRequest" Value="48" />
+        <Setter Property="HeightRequest" Value="48" />
+        <Setter Property="Padding" Value="12" />
+        <Setter Property="CornerRadius" Value="24" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+    </Style>
+
     <Style x:Key="UiOptionCard" TargetType="RadioButton">
         <Setter Property="ControlTemplate" Value="{StaticResource UiChipTemplate}" />
         <Setter Property="MinimumHeightRequest" Value="52" />

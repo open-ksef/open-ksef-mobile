@@ -103,7 +103,20 @@ public class AutomationIdCoverageTests
             "InvoiceDraftPageButtonAddLine",
             "InvoiceDraftPageAlertSplitPayment",
             "InvoiceDraftPageButtonIssue",
-            "InvoiceDraftPageLabelError");
+            "InvoiceDraftPageLabelError",
+            "InvoiceDraftPageFrameLine",
+            "InvoiceDraftPageAlertPerson");
+
+        AssertFileContainsAll(
+            "InvoiceLineSheet.xaml",
+            "InvoiceLineSheetButtonClose",
+            "InvoiceLineSheetEntryName",
+            "InvoiceLineSheetEntryQuantity",
+            "InvoiceLineSheetEntryPrice",
+            "InvoiceLineSheetChipVat",
+            "InvoiceLineSheetLabelGross",
+            "InvoiceLineSheetButtonSave",
+            "InvoiceLineSheetButtonDelete");
 
         AssertFileContainsAll(
             "IssuedInvoiceDetailsPage.xaml",

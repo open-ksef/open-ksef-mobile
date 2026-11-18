@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:controls="clr-namespace:OpenKSeF.Mobile.Views.Controls"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+             x:Class="OpenKSeF.Mobile.Views.InvoiceLineSheet"
+             x:DataType="vm:InvoiceDraftViewModel"
+             ios:Page.ModalPresentationStyle="PageSheet"
+             BackgroundColor="Transparent">
+
+    <Grid RowDefinitions="*,Auto">
+        <BoxView Grid.RowSpan="2" IsVisible="{OnPlatform Android=True, Default=False}"
+                 Color="{AppThemeBinding Light=#80111827, Dark=#A6000000}">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding CloseLineCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <Border Grid.Row="{OnPlatform Android=1, Default=0}" Grid.RowSpan="{OnPlatform Android=1, Default=2}"
+                StrokeThickness="0" StrokeShape="RoundRectangle 28,28,0,0" Padding="24,8,24,24"
+                BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}">
+            <ScrollView>
+                <VerticalStackLayout Spacing="12">
+                    <BoxView WidthRequest="32" HeightRequest="4" CornerRadius="2" HorizontalOptions="Center"
+                             Color="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}" />
+
+                    <Grid ColumnDefinitions="*,48">
+                        <Label Text="{Binding EditingTitle}" FontSize="22" FontFamily="InterSemiBold" VerticalOptions="Center"
+                               AutomationId="InvoiceLineSheetLabelTitle"
+                               TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                        <ImageButton Grid.Column="1" Source="icon_close.png" Style="{StaticResource UiIconButton}"
+                                     SemanticProperties.Description="Zamknij bez zapisu"
+                                     Command="{Binding CloseLineCommand}"
+                                     AutomationId="InvoiceLineSheetButtonClose">
+                            <ImageButton.Behaviors>
+                                <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                            </ImageButton.Behaviors>
+                        </ImageButton>
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="8" BindingContext="{Binding EditingLine}" x:DataType="vm:DraftLineViewModel">
+                        <Label Text="Nazwa towaru lub usługi" Style="{StaticResource UiFieldLabel}" />
+                        <Entry Text="{Binding Name}" Style="{StaticResource UiEntry}" AutomationId="InvoiceLineSheetEntryName" />
+
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                            <Label Text="Ilość" Style="{StaticResource UiFieldLabel}" />
+                            <Label Grid.Column="1" Text="J.m." Style="{StaticResource UiFieldLabel}" />
+                            <controls:DecimalEntry Grid.Row="1" Text="{Binding Quantity}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                   HorizontalTextAlignment="End" AutomationId="InvoiceLineSheetEntryQuantity" />
+                            <Entry Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" Style="{StaticResource UiEntry}"
+                                   AutomationId="InvoiceLineSheetEntryUnit" />
+                        </Grid>
+                        <FlexLayout Wrap="Wrap"
+                                    RadioButtonGroup.GroupName="lineUnit"
+                                    RadioButtonGroup.SelectedValue="{Binding Unit}"
+                                    BindableLayout.ItemsSource="{x:Static vm:DraftLineViewModel.UnitLabels}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <RadioButton Style="{StaticResource UiFilterChip}" Content="{Binding .}" Value="{Binding .}" Margin="0,0,8,0"
+                                                 AutomationId="InvoiceLineSheetChipUnit" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+
+                        <Label Text="Cena netto" Style="{StaticResource UiFieldLabel}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <controls:DecimalEntry Text="{Binding UnitNetPrice}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                   HorizontalTextAlignment="End" AutomationId="InvoiceLineSheetEntryPrice" />
+                            <Label Grid.Column="1" Text="zł" Style="{StaticResource UiMutedText}" VerticalOptions="Center" />
+                        </Grid>
+                        <Label Text="{Binding Error}" Style="{StaticResource UiFieldError}" AutomationId="InvoiceLineSheetLabelError"
+                               IsVisible="{Binding Error, Converter={StaticResource IsNotNullConverter}}" />
+
+                        <Label Text="Stawka VAT" Style="{StaticResource UiFieldLabel}" />
+                        <FlexLayout Wrap="Wrap"
+                                    RadioButtonGroup.GroupName="lineVat"
+                                    RadioButtonGroup.SelectedValue="{Binding VatRateLabel}"
+                                    BindableLayout.ItemsSource="{x:Static vm:DraftLineViewModel.VatRateLabels}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <RadioButton Style="{StaticResource UiFilterChip}" Content="{Binding .}" Value="{Binding .}" Margin="0,0,8,0"
+                                                 AutomationId="InvoiceLineSheetChipVat" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </FlexLayout>
+
+                        <BoxView HeightRequest="1" Margin="0,4"
+                                 Color="{AppThemeBinding Light={StaticResource UiBorder}, Dark={StaticResource UiBorderDark}}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="{Binding NetVatText}" Style="{StaticResource UiMutedText}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding GrossText}" FontSize="18" FontFamily="InterBold"
+                                   AutomationId="InvoiceLineSheetLabelGross"
+                                   TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <Button Text="Zapisz pozycję" Style="{StaticResource UiButtonPrimary}" CornerRadius="24"
+                            Command="{Binding SaveLineCommand}" AutomationId="InvoiceLineSheetButtonSave" />
+                    <Button Text="Usuń pozycję" Style="{StaticResource UiButtonGhost}"
+                            TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
+                            IsVisible="{Binding CanDeleteEditingLine}"
+                            Command="{Binding DeleteLineCommand}" AutomationId="InvoiceLineSheetButtonDelete" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </Border>
+    </Grid>
+
+</ContentPage>

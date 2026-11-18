@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using OpenKSeF.Mobile.ViewModels;
 
 namespace OpenKSeF.Mobile.Views;
@@ -5,11 +6,33 @@ namespace OpenKSeF.Mobile.Views;
 public partial class InvoiceDraftPage : ContentPage
 {
     private readonly InvoiceDraftViewModel _viewModel;
+    private InvoiceLineSheet? _sheet;
 
     public InvoiceDraftPage(InvoiceDraftViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+    }
+
+    private async void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(InvoiceDraftViewModel.EditingLine))
+            return;
+
+        if (_viewModel.EditingLine is not null && _sheet is null)
+        {
+            var sheet = _sheet = new InvoiceLineSheet(_viewModel);
+            await Navigation.PushModalAsync(sheet);
+            if (_sheet != sheet)
+                await Navigation.PopModalAsync();
+        }
+        else if (_viewModel.EditingLine is null && _sheet is { } open)
+        {
+            _sheet = null;
+            if (Navigation.ModalStack.LastOrDefault() == open)
+                await Navigation.PopModalAsync();
+        }
     }
 
     // A Shell tab switch raises NavigatedFrom/To but not Disappearing/Appearing on the pushed draft page.
