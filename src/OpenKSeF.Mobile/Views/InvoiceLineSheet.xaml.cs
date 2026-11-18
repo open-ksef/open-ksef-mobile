@@ -11,7 +11,12 @@ public partial class InvoiceLineSheet : ContentPage
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
 #if ANDROID
-        Loaded += (_, _) => ApplyStatusBarStyle();
+        Loaded += (_, _) =>
+        {
+            ApplyStatusBarStyle();
+            Application.Current!.RequestedThemeChanged += OnThemeChanged;
+        };
+        Unloaded += (_, _) => Application.Current!.RequestedThemeChanged -= OnThemeChanged;
 #endif
     }
 
@@ -28,18 +33,18 @@ public partial class InvoiceLineSheet : ContentPage
     }
 
 #if ANDROID
-    private void ApplyStatusBarStyle()
+    private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => ApplyStatusBarStyle();
+
+    private static void ApplyStatusBarStyle()
     {
-        if (Application.Current!.RequestedTheme == AppTheme.Dark || Handler?.PlatformView is not Android.Views.View view)
+        if (Platform.CurrentActivity is not AndroidX.Fragment.App.FragmentActivity { Window: { } activityWindow } activity
+            || activity.SupportFragmentManager.Fragments.OfType<AndroidX.Fragment.App.DialogFragment>().LastOrDefault()?.Dialog?.Window is not { } window)
             return;
-        if (OperatingSystem.IsAndroidVersionAtLeast(30))
-            view.WindowInsetsController?.SetSystemBarsAppearance(
-                (int)Android.Views.WindowInsetsControllerAppearance.LightStatusBars,
-                (int)Android.Views.WindowInsetsControllerAppearance.LightStatusBars);
-        else
 #pragma warning disable CA1422
-            view.RootView!.SystemUiFlags |= Android.Views.SystemUiFlags.LightStatusBar;
+        window.SetStatusBarColor(new Android.Graphics.Color(activityWindow.StatusBarColor));
 #pragma warning restore CA1422
+        AndroidX.Core.View.WindowCompat.GetInsetsController(window, window.DecorView).AppearanceLightStatusBars =
+            Application.Current!.RequestedTheme != AppTheme.Dark;
     }
 #endif
 }

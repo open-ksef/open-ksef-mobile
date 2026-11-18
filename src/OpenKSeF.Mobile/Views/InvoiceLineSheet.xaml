@@ -27,7 +27,7 @@
                              Color="{AppThemeBinding Light={StaticResource UiBorderStrong}, Dark={StaticResource UiBorderStrongDark}}" />
 
                     <Grid ColumnDefinitions="*,48">
-                        <Label Text="{Binding EditingTitle}" FontSize="22" FontFamily="InterSemiBold" VerticalOptions="Center"
+                        <Label x:Name="TitleLabel" Text="{Binding EditingTitle}" FontSize="22" FontFamily="InterSemiBold" VerticalOptions="Center"
                                AutomationId="InvoiceLineSheetLabelTitle"
                                TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
                         <ImageButton Grid.Column="1" Source="icon_close.png" Style="{StaticResource UiIconButton}"
@@ -35,7 +35,7 @@
                                      Command="{Binding CloseLineCommand}"
                                      AutomationId="InvoiceLineSheetButtonClose">
                             <ImageButton.Behaviors>
-                                <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                                <toolkit:IconTintColorBehavior x:DataType="Label" TintColor="{Binding TextColor, Source={x:Reference TitleLabel}}" />
                             </ImageButton.Behaviors>
                         </ImageButton>
                     </Grid>
