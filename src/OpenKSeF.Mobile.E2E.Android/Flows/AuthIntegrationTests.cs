@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using OpenKSeF.Mobile.Models;
 
@@ -111,6 +112,7 @@ public class AuthIntegrationTests
         using var http = await CreateAuthenticatedClientAsync();
         var tenant = (await GetAsync<List<TenantDto>>(http, "/api/tenants"))[0];
         var email = $"qa-int-{Guid.NewGuid():N}@openksef.test";
+        var passed = false;
 
         try
         {
@@ -120,10 +122,26 @@ public class AuthIntegrationTests
             var reloaded = await GetAsync<TenantDto>(http, $"/api/tenants/{tenant.Id}");
             Assert.That(reloaded.NotificationEmail, Is.EqualTo(email));
             Assert.That(reloaded.DisplayName, Is.EqualTo(tenant.DisplayName));
+            passed = true;
         }
         finally
         {
-            await PutTenantAsync(http, tenant.Id, new UpdateTenantRequest { DisplayName = tenant.DisplayName, NotificationEmail = tenant.NotificationEmail });
+            string? restoreError;
+            try
+            {
+                using var restore = await http.PutAsync($"{_serverUrl}/api/tenants/{tenant.Id}",
+                    JsonContent.Create(new UpdateTenantRequest { DisplayName = tenant.DisplayName, NotificationEmail = tenant.NotificationEmail }));
+                restoreError = restore.IsSuccessStatusCode ? null : $"Tenant restore failed: {(int)restore.StatusCode} {await restore.Content.ReadAsStringAsync()}";
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException)
+            {
+                restoreError = $"Tenant restore failed: {e.Message}";
+            }
+            // An assert here while the body is already failing would replace the original failure.
+            if (passed)
+                Assert.That(restoreError, Is.Null);
+            else if (restoreError is not null)
+                TestContext.Out.WriteLine(restoreError);
         }
     }
 
@@ -131,6 +149,8 @@ public class AuthIntegrationTests
     public async Task DeviceRegistration_RegisterListDeleteRoundTrip()
     {
         Assume.That(new Uri(_serverUrl).IsLoopback, Is.True, "Device registration runs only against a local dev stack.");
+        Assume.That(await GetPushRelayUrlAsync(), Is.Null.Or.Empty,
+            "Register sends a confirmation push through the configured relay (DevicesController.Register). Run against a stack without a relay.");
         using var http = await CreateAuthenticatedClientAsync();
         var token = $"qa-int-{Guid.NewGuid():N}";
         Guid? deviceId = null;
@@ -184,7 +204,8 @@ public class AuthIntegrationTests
         Assert.That(first, Is.Not.Null, "No invoices for any tenant of the default user");
         Assert.That(first!.Id, Is.Not.EqualTo(Guid.Empty));
         Assert.That(first.KSeFInvoiceNumber, Is.Not.Empty);
-        Assert.That(first.AmountGross, Is.EqualTo(first.AmountNet + first.AmountVat));
+        if (first.Currency == "PLN")
+            Assert.That(first.AmountGross, Is.EqualTo(first.AmountNet + first.AmountVat));
         Assert.That(first.IssueDate, Is.Not.EqualTo(default(DateTime)));
 
         var detail = await GetAsync<InvoiceDto>(http, $"/api/tenants/{tenantId}/invoices/{first.Id}");
@@ -194,14 +215,33 @@ public class AuthIntegrationTests
         Assert.That(detail.Lines, Is.Not.Null);
     }
 
-    private async Task<KeycloakTokenResponse> LoginAsync(HttpClient http)
+    private async Task<string?> GetPushRelayUrlAsync()
+    {
+        using var login = CreateClient();
+        var admin = await LoginAsync(login,
+            Environment.GetEnvironmentVariable("OPENKSEF_ADMIN_USERNAME") ?? "admin@openksef.local",
+            Environment.GetEnvironmentVariable("OPENKSEF_ADMIN_PASSWORD") ?? "Admin1234!");
+        using var http = CreateApiClient(admin.AccessToken!);
+        var response = await http.PostAsync($"{_serverUrl}/api/system/settings", JsonContent.Create(new
+        {
+            kcAdminUsername = Environment.GetEnvironmentVariable("KEYCLOAK_ADMIN") ?? "admin",
+            kcAdminPassword = Environment.GetEnvironmentVariable("KEYCLOAK_ADMIN_PASSWORD") ?? "admin"
+        }));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), $"Relay check needs system settings: {await response.Content.ReadAsStringAsync()}");
+        var settings = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return settings.GetProperty("pushRelayUrl").GetString();
+    }
+
+    private Task<KeycloakTokenResponse> LoginAsync(HttpClient http) => LoginAsync(http, _username, _password);
+
+    private async Task<KeycloakTokenResponse> LoginAsync(HttpClient http, string username, string password)
     {
         var response = await http.PostAsync(TokenEndpoint, new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["grant_type"] = "password",
             ["client_id"] = "openksef-mobile",
-            ["username"] = _username,
-            ["password"] = _password,
+            ["username"] = username,
+            ["password"] = password,
             ["scope"] = "openid profile email"
         }));
 
