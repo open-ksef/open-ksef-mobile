@@ -1,3 +1,4 @@
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OpenKSeF.Mobile.Models;
@@ -30,6 +31,9 @@ public partial class OnboardingViewModel : ObservableObject
 
     [ObservableProperty]
     private string _ksefToken = string.Empty;
+
+    [ObservableProperty]
+    private string? _tokenError;
 
     [ObservableProperty]
     private bool _tokenSkipped;
@@ -91,6 +95,8 @@ public partial class OnboardingViewModel : ObservableObject
         OnPropertyChanged(nameof(Step3Label));
         OnPropertyChanged(nameof(SuccessMessage));
     }
+
+    partial void OnKsefTokenChanged(string value) => TokenError = null;
 
     partial void OnIsBusyChanged(bool value)
     {
@@ -175,6 +181,10 @@ public partial class OnboardingViewModel : ObservableObject
 
             await RunSyncAsync();
         }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.BadRequest)
+        {
+            TokenError = ApiException.TokenRejectedMessage;
+        }
         catch (Exception ex)
         {
             ErrorMessage = $"Błąd zapisywania tokenu: {ex.Message}";
@@ -231,6 +241,12 @@ public partial class OnboardingViewModel : ObservableObject
 
             SyncStatusText = $"Synchronizacja zakończona — pobrano {result.FetchedInvoices} faktur" +
                 (result.NewInvoices > 0 ? $", w tym {result.NewInvoices} nowych." : ".");
+        }
+        catch (ApiException ex) when (ex.Message == ApiException.TokenRejectedMessage)
+        {
+            SyncStatusText = null;
+            CurrentStep = 2;
+            TokenError = ex.Message;
         }
         catch
         {

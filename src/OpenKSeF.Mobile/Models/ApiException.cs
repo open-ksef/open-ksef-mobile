@@ -4,6 +4,8 @@ namespace OpenKSeF.Mobile.Models;
 
 public class ApiException : Exception
 {
+    public const string TokenRejectedMessage = "KSeF nie przyjął tokenu. Sprawdź, czy skopiowano go w całości i czy nie wygasł.";
+
     public HttpStatusCode StatusCode { get; }
     public ValidationEnvelope? Validation { get; }
 

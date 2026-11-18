@@ -47,8 +47,16 @@
                         <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
                             <Label Text="Ilość" Style="{StaticResource UiFieldLabel}" />
                             <Label Grid.Column="1" Text="J.m." Style="{StaticResource UiFieldLabel}" />
-                            <controls:DecimalEntry Grid.Row="1" Text="{Binding Quantity}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
-                                                   HorizontalTextAlignment="End" AutomationId="InvoiceLineSheetEntryQuantity" />
+                            <Border Grid.Row="1" StrokeThickness="0" StrokeShape="RoundRectangle 4">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding QuantityInvalid}" Value="True">
+                                        <Setter Property="StrokeThickness" Value="2" />
+                                        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <controls:DecimalEntry Text="{Binding Quantity}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                       HorizontalTextAlignment="End" AutomationId="InvoiceLineSheetEntryQuantity" />
+                            </Border>
                             <Entry Grid.Row="1" Grid.Column="1" Text="{Binding Unit}" Style="{StaticResource UiEntry}"
                                    AutomationId="InvoiceLineSheetEntryUnit" />
                         </Grid>
@@ -66,8 +74,16 @@
 
                         <Label Text="Cena netto" Style="{StaticResource UiFieldLabel}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <controls:DecimalEntry Text="{Binding UnitNetPrice}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
-                                                   HorizontalTextAlignment="End" AutomationId="InvoiceLineSheetEntryPrice" />
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 4">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding PriceInvalid}" Value="True">
+                                        <Setter Property="StrokeThickness" Value="2" />
+                                        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <controls:DecimalEntry Text="{Binding UnitNetPrice}" Keyboard="Numeric" Style="{StaticResource UiEntry}"
+                                                       HorizontalTextAlignment="End" AutomationId="InvoiceLineSheetEntryPrice" />
+                            </Border>
                             <Label Grid.Column="1" Text="zł" Style="{StaticResource UiMutedText}" VerticalOptions="Center" />
                         </Grid>
                         <Label Text="{Binding Error}" Style="{StaticResource UiFieldError}" AutomationId="InvoiceLineSheetLabelError"

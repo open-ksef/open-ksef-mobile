@@ -562,6 +562,18 @@ public class ApiServiceTests
         Assert.Null(ex.Validation);
     }
 
+    [Theory]
+    [InlineData("KSeF nie przyjął tokenu. Sprawdź, czy skopiowano go w całości i czy nie wygasł.", "KSeF nie przyjął tokenu. Sprawdź, czy skopiowano go w całości i czy nie wygasł.")]
+    [InlineData("KSeF API error 450: raw upstream text", "Błąd serwera (502). Spróbuj ponownie później.")]
+    public async Task Sync502_OnlyTokenRejectionTextReachesUser(string error, string expected)
+    {
+        _handler.RespondJson(HttpStatusCode.BadGateway, JsonSerializer.Serialize(new { error }));
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().ForceCredentialSyncAsync(Guid.NewGuid()));
+
+        Assert.Equal(expected, ex.Message);
+    }
+
     [Fact]
     public async Task Conflict_WithMessageBody_UsesMessageWithoutValidation()
     {

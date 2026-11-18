@@ -260,7 +260,9 @@ public class ApiService : IApiService
         {
             var responseBody = await response.Content.ReadAsStringAsync();
             var rejected = response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity or HttpStatusCode.Conflict;
-            var ruleMessage = rejected || response.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.Forbidden ? ParseRuleMessage(responseBody) : null;
+            var ruleMessage = rejected || response.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.Forbidden ? ParseRuleMessage(responseBody)
+                : response.StatusCode == HttpStatusCode.BadGateway && ParseRuleMessage(responseBody) == ApiException.TokenRejectedMessage ? ApiException.TokenRejectedMessage
+                : null;
             var validation = rejected ? ParseValidation(responseBody) : null;
 
             if (ruleMessage is null && validation is not { Errors.Count: > 0 })

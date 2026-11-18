@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              x:Class="OpenKSeF.Mobile.Views.OnboardingPage"
              x:DataType="vm:OnboardingViewModel"
              Title="Konfiguracja"
@@ -110,8 +111,46 @@
                 </VerticalStackLayout>
 
                 <VerticalStackLayout Spacing="10" IsVisible="{Binding IsStep2}">
-                    <Label Text="Dodaj token autoryzacyjny KSeF, aby umożliwić synchronizację faktur."
+                    <Label Text="Dodaj token KSeF, aby pobierać i wystawiać faktury."
                            FontSize="14" TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}" HorizontalTextAlignment="Center" />
+
+                    <Border Style="{StaticResource UiAlert}" AutomationId="OnboardingCardTokenPermissions"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface2}, Dark={StaticResource UiSurface2Dark}}">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="Uprawnienia tokenu" FontSize="16" FontFamily="InterSemiBold" SemanticProperties.HeadingLevel="Level2"
+                                   TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                            <Grid ColumnDefinitions="32,*" ColumnSpacing="12" AutomationId="OnboardingRowPermissionRead">
+                                <Border WidthRequest="32" HeightRequest="32" StrokeThickness="0" StrokeShape="RoundRectangle 16" VerticalOptions="Start"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}">
+                                    <Image Source="tab_invoices.png" WidthRequest="18" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center">
+                                        <Image.Behaviors>
+                                            <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                        </Image.Behaviors>
+                                    </Image>
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Przeglądanie faktur" FontSize="14" FontFamily="InterSemiBold"
+                                           TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                                    <Label Text="Pobieramy faktury otrzymane i powiadamiamy o nowych." Style="{StaticResource UiMutedText}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                            <Grid ColumnDefinitions="32,*" ColumnSpacing="12" AutomationId="OnboardingRowPermissionWrite">
+                                <Border WidthRequest="32" HeightRequest="32" StrokeThickness="0" StrokeShape="RoundRectangle 16" VerticalOptions="Start"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}">
+                                    <Image Source="icon_send.png" WidthRequest="18" HeightRequest="18" HorizontalOptions="Center" VerticalOptions="Center">
+                                        <Image.Behaviors>
+                                            <toolkit:IconTintColorBehavior TintColor="{AppThemeBinding Light={StaticResource UiPrimary}, Dark={StaticResource UiPrimaryDark}}" />
+                                        </Image.Behaviors>
+                                    </Image>
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Wystawianie faktur" FontSize="14" FontFamily="InterSemiBold"
+                                           TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+                                    <Label Text="Wysyłamy Twoje faktury do KSeF. Bez tego uprawnienia tylko odbierasz." Style="{StaticResource UiMutedText}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
 
                     <Frame BackgroundColor="{AppThemeBinding Light={StaticResource UiInfoBg}, Dark={StaticResource UiInfoBgDark}}" CornerRadius="8" Padding="12" HasShadow="False"
                            BorderColor="Transparent">
@@ -122,7 +161,7 @@
                                         <Span Text="Jak uzyskać token KSeF:" FontFamily="InterBold" />
                                         <Span FontFamily="Inter" Text="&#10;1. Otwórz Aplikację Podatnika KSeF 2.0" />
                                         <Span FontFamily="Inter" Text="&#10;2. Zaloguj się jako firma lub osoba z uprawnieniami" />
-                                        <Span FontFamily="Inter" Text="&#10;3. Wygeneruj token z uprawnieniami: odczyt i wystawianie faktur" />
+                                        <Span FontFamily="Inter" Text="&#10;3. Wygeneruj token z uprawnieniami: Przeglądanie faktur i Wystawianie faktur." />
                                         <Span FontFamily="Inter" Text="&#10;4. Skopiuj token od razu i wklej poniżej" />
                                     </FormattedString>
                                 </Label.FormattedText>
@@ -144,6 +183,10 @@
                         <Label Text="Token KSeF" Style="{StaticResource LabelFormLabel}" />
                         <Editor Text="{Binding KsefToken}" Placeholder="Wklej token..."
                                 HeightRequest="100" AutomationId="OnboardingEntryKsefToken" />
+                        <Label Text="Token z uprawnieniami Przeglądanie faktur i Wystawianie faktur, z Aplikacji Podatnika KSeF. Bez uprawnienia Wystawianie faktur tylko odbierasz."
+                               Style="{StaticResource LabelCaption}" AutomationId="OnboardingLabelTokenHint" />
+                        <Label Text="{Binding TokenError}" Style="{StaticResource UiFieldError}" AutomationId="OnboardingLabelTokenError"
+                               IsVisible="{Binding TokenError, Converter={StaticResource IsNotNullConverter}}" />
                     </VerticalStackLayout>
 
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,8,0,0">
