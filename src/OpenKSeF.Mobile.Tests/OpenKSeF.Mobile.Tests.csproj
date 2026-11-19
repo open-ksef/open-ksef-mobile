@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Compile Include="..\OpenKSeF.Mobile\Models\*.cs" Link="Linked\Models\%(Filename)%(Extension)" />
+    <Compile Include="..\OpenKSeF.Mobile.E2E.Android\Support\FakeNip.cs" Link="Linked\E2E\FakeNip.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\ApiService.cs" Link="Linked\Services\ApiService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\AuthOptions.cs" Link="Linked\Services\AuthOptions.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\AuthService.cs" Link="Linked\Services\AuthService.cs" />

@@ -29,7 +29,7 @@ public sealed class OnboardingFlowTests : AndroidTestBase
 
         // Step 1: Company data
         onboarding.FillCompanyData(
-            nip: "1111111111",
+            nip: FakeNip.Next(),
             displayName: "Mobile E2E Company",
             email: "mobile@test.open-ksef.pl");
 
@@ -62,7 +62,7 @@ public sealed class OnboardingFlowTests : AndroidTestBase
 
         // Step 1: Company data
         onboarding.FillCompanyData(
-            nip: "1111111111",
+            nip: FakeNip.Next(),
             displayName: "Skip Token Co",
             email: "skip@test.open-ksef.pl");
 
