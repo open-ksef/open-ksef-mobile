@@ -29,6 +29,7 @@ public class DeviceTokenService : IDeviceTokenService
     private readonly HashSet<string> _posting = [];
     private Task _registration = Task.CompletedTask;
     private Task _cleanup = Task.CompletedTask;
+    private Task _removal = Task.CompletedTask;
     private CancellationTokenSource? _session;
     private readonly HashSet<CancellationToken> _abandonedSessions = [];
     private DateTimeOffset _abandonedAt = DateTimeOffset.MinValue;
@@ -218,6 +219,11 @@ public class DeviceTokenService : IDeviceTokenService
         {
             if (Account() != account)
                 return false;
+
+            Task removal;
+            lock (_gate)
+                removal = _removal;
+            try { await removal.WaitAsync(ct); } catch { }
 
             var platformInt = GetCurrentPlatform();
 
@@ -455,9 +461,13 @@ public class DeviceTokenService : IDeviceTokenService
     {
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         limit.CancelAfter(ServerRemovalLimit);
+        // A DELETE already sent keeps running past the limit, so a later enable can wait for it instead of racing it.
+        var removal = DeleteServerDevicesAsync(tokens, limit.Token, inFlight: cancellationToken);
+        lock (_gate)
+            _removal = removal;
         try
         {
-            await DeleteServerDevicesAsync(tokens, limit.Token).WaitAsync(limit.Token);
+            await removal.WaitAsync(limit.Token);
             return true;
         }
         catch
@@ -466,7 +476,7 @@ public class DeviceTokenService : IDeviceTokenService
         }
     }
 
-    private async Task DeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken limit, string? accessToken = null)
+    private async Task DeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken limit, string? accessToken = null, CancellationToken? inFlight = null)
     {
         tokens.Remove(string.Empty);
         if (tokens.Count == 0 && await TryGetNativePushTokenAsync().WaitAsync(limit) is { Length: > 0 } nativeToken)
@@ -479,7 +489,7 @@ public class DeviceTokenService : IDeviceTokenService
         foreach (var device in devices.Where(d => tokens.Contains(d.Token)))
         {
             limit.ThrowIfCancellationRequested();
-            await _apiService.UnregisterDeviceAsync(device.Id, accessToken, limit);
+            await _apiService.UnregisterDeviceAsync(device.Id, accessToken, inFlight ?? limit);
         }
     }
 
