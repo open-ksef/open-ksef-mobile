@@ -60,6 +60,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
     public void SignOut()
     {
+        _driver.TerminateApp(ChromePackage);
         _driver.TerminateApp(AppPackage);
         _driver.ActivateApp(AppPackage);
 
@@ -77,13 +78,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
         if (_driver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0)
         {
-            _driver.TerminateApp(AppPackage);
-            _driver.ExecuteScript("mobile: shell", new Dictionary<string, object>
-            {
-                ["command"] = "run-as",
-                ["args"] = new[] { AppPackage, "rm", "-rf", "shared_prefs" }
-            });
-            _driver.ActivateApp(AppPackage);
+            ClearAppState();
             return;
         }
 
@@ -97,6 +92,45 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         new WaitHelper(_driver, TimeSpan.FromSeconds(60)).UntilVisible(ByAutoId("LoginPageButtonLogin"));
     }
 
+    public void ClearAppState()
+    {
+        _driver.TerminateApp(ChromePackage);
+        _driver.TerminateApp(AppPackage);
+        Shell("run-as", AppPackage, "rm", "-rf", "shared_prefs");
+        _driver.ActivateApp(AppPackage);
+    }
+
+    public void ClearStaleServerUrl()
+    {
+        string prefs;
+        try
+        {
+            prefs = Shell("run-as", AppPackage, "cat", $"shared_prefs/{AppPackage}_preferences.xml")?.ToString() ?? string.Empty;
+        }
+        catch (WebDriverException)
+        {
+            return;
+        }
+
+        if (prefs.Contains("name=\"server_url\"", StringComparison.Ordinal) &&
+            !prefs.Contains($">{AppServerUrl.TrimEnd('/')}", StringComparison.Ordinal))
+            ClearAppState();
+    }
+
+    public void GrantNotifications()
+    {
+        try
+        {
+            Shell("pm", "grant", AppPackage, "android.permission.POST_NOTIFICATIONS");
+        }
+        catch (WebDriverException ex) when (ex.Message.Contains("adb_shell", StringComparison.Ordinal))
+        {
+        }
+    }
+
+    public object? Shell(string command, params string[] args) =>
+        _driver.ExecuteScript("mobile: shell", new Dictionary<string, object> { ["command"] = command, ["args"] = args });
+
     private void EnsureServerConfigured()
     {
         var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(45));
@@ -109,9 +143,13 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
             return;
 
         serverEntry.Clear();
-        serverEntry.SendKeys(Environment.GetEnvironmentVariable("E2E_APP_SERVER_URL") ?? "http://10.0.2.2:8080");
+        serverEntry.SendKeys(AppServerUrl);
         _driver.FindElement(ByAutoId("LoginPageButtonSaveServer")).Click();
     }
+
+    private const string ChromePackage = "com.android.chrome";
+
+    private static string AppServerUrl => Environment.GetEnvironmentVariable("E2E_APP_SERVER_URL") ?? "http://10.0.2.2:8080";
 
     private static string AppPackage => Environment.GetEnvironmentVariable("ANDROID_APP_PACKAGE") ?? "com.openksef.mobile";
 
@@ -123,6 +161,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         wait.Until(IsInApp);
         AnswerPushConsent(accept: false, TimeSpan.FromSeconds(3));
         wait.Until(currentDriver =>
+            AllowNotificationPrompt(currentDriver) ||
             IsInvoiceList(currentDriver) || currentDriver.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0);
     }
 
@@ -130,7 +169,14 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     {
         new WebDriverWait(_driver, timeout).Until(d => IsInvoiceList(d) || d.FindElements(PushConsentMessage).Count > 0);
         AnswerPushConsent(accept: false, TimeSpan.FromSeconds(3));
-        new WebDriverWait(_driver, timeout).Until(IsInvoiceList);
+        new WebDriverWait(_driver, timeout).Until(d => AllowNotificationPrompt(d) || IsInvoiceList(d));
+    }
+
+    // Returns false so a wait keeps polling after the OS prompt is gone.
+    private static bool AllowNotificationPrompt(IWebDriver d)
+    {
+        d.FindElements(By.Id("com.android.permissioncontroller:id/permission_allow_button")).FirstOrDefault()?.Click();
+        return false;
     }
 
     public static By PushConsentMessage =>
@@ -154,9 +200,9 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     private void CompleteTwoFactor(string username)
     {
         var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(45));
-        wait.Until(d => d.FindElements(ByHtmlId("totp")).Count > 0 || d.FindElements(ByHtmlId("otp")).Count > 0 || IsInApp(d));
+        wait.Until(d => InPageSource(d, "totp") || InPageSource(d, "otp") || IsInApp(d));
 
-        if (_driver.FindElements(ByHtmlId("totp")).Count > 0)
+        if (InPageSource(_driver, "totp"))
         {
             var secret = Regex.Match(_driver.PageSource, @"text=""((?:[A-Z2-7]{4} ){3,}[A-Z2-7]{1,4})""").Groups[1].Value;
             Assert.That(secret, Is.Not.Empty, "TOTP secret not found on the 2FA setup page.");
@@ -171,7 +217,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
                 FindButton("Dalej").Click();
             }
         }
-        else if (_driver.FindElements(ByHtmlId("otp")).Count > 0)
+        else if (InPageSource(_driver, "otp"))
         {
             var secret = StoredSecret(username) ?? Environment.GetEnvironmentVariable("E2E_TEST_TOTP_SECRET");
             if (string.IsNullOrWhiteSpace(secret))
@@ -182,15 +228,16 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
     private void SubmitCode(string fieldId, string buttonText, string username, string secret)
     {
-        _driver.FindElement(ByHtmlId(fieldId)).SendKeys(Totp.NextCode(username, secret));
+        ScrollTo(ByHtmlId(fieldId)).SendKeys(Totp.NextCode(username, secret));
         FindButton(buttonText).Click();
     }
 
-    // UiAutomator2 drops a below-the-fold button in Chrome (zero height), so swipe up until it has a size.
-    private IWebElement FindButton(string text)
+    private IWebElement FindButton(string text) => ScrollTo(By.XPath($"//android.widget.Button[@text='{text}']"));
+
+    // UiAutomator2 hides below-the-fold Chrome elements (missing or zero height), so swipe up until one has a size.
+    private IWebElement ScrollTo(By by)
     {
-        var by = By.XPath($"//android.widget.Button[@text='{text}']");
-        for (var attempt = 0; attempt < 4; attempt++)
+        for (var attempt = 0; attempt < 6; attempt++)
         {
             var button = _driver.FindElements(by).FirstOrDefault(e => e.Size.Height > 0);
             if (button is not null)
@@ -222,6 +269,9 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
         IsInvoiceList(d) ||
         d.FindElements(ByAutoId("OnboardingStepIndicator")).Count > 0 ||
         d.FindElements(PushConsentMessage).Count > 0;
+
+    // Off-screen Chrome fields are in the page source with zero bounds but not returned by FindElements.
+    private static bool InPageSource(IWebDriver d, string htmlId) => d.PageSource.Contains($"resource-id=\"{htmlId}\"", StringComparison.Ordinal);
 
     private static By ByHtmlId(string id) => By.XPath($"//*[@resource-id='{id}']");
 }

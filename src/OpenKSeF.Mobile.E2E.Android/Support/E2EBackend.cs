@@ -189,11 +189,28 @@ public static class E2EBackend
         }
 
         using var admin = await AdminClientAsync();
-        var found = await admin.GetFromJsonAsync<List<JsonElement>>(
-            $"{KeycloakAdminUrl}/auth/admin/realms/openksef/users?exact=true&username={Uri.EscapeDataString(user.Username)}");
-        foreach (var entry in found!)
-            (await admin.DeleteAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{entry.GetProperty("id").GetString()}")).EnsureSuccessStatusCode();
+        foreach (var id in await KeycloakUserIdsAsync(admin, user.Username))
+            (await admin.DeleteAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{id}")).EnsureSuccessStatusCode();
         File.Delete(AndroidOidcLoginFlow.SecretPath(user.Username));
+    }
+
+    public static async Task EndKeycloakSessionsAsync(User user)
+    {
+        using var admin = await AdminClientAsync();
+        foreach (var id in await KeycloakUserIdsAsync(admin, user.Username))
+            (await admin.PostAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{id}/logout", null)).EnsureSuccessStatusCode();
+    }
+
+    public static Task DeleteFakeNipTenantsAsync() => PsqlAsync($"""
+        DELETE FROM "IssuedInvoices" WHERE "TenantId" IN (SELECT "Id" FROM "Tenants" WHERE "Nip" LIKE '{FakeNip.Prefix}%');
+        DELETE FROM "Tenants" WHERE "Nip" LIKE '{FakeNip.Prefix}%';
+        """);
+
+    private static async Task<IEnumerable<string>> KeycloakUserIdsAsync(HttpClient admin, string username)
+    {
+        var found = await admin.GetFromJsonAsync<List<JsonElement>>(
+            $"{KeycloakAdminUrl}/auth/admin/realms/openksef/users?exact=true&username={Uri.EscapeDataString(username)}");
+        return found!.Select(e => e.GetProperty("id").GetString()!);
     }
 
     // Cached because a user with 2FA needs a fresh TOTP step per token, and the device polls run every second.

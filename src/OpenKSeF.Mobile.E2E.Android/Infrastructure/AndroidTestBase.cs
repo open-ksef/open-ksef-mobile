@@ -2,6 +2,7 @@ using OpenKSeF.Mobile.E2E.Android.Configuration;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenKSeF.Mobile.E2E.Shared.Configuration;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
 using NUnit.Framework.Interfaces;
@@ -30,6 +31,7 @@ public abstract class AndroidTestBase : BaseMobileTest
     [OneTimeSetUp]
     public async Task CreateSeededUser()
     {
+        new AndroidOidcLoginFlow(AndroidDriver).ClearStaleServerUrl();
         if (UsesSeededUser)
             SeededUser = await E2EBackend.CreateSeededUserAsync();
     }
@@ -38,32 +40,46 @@ public abstract class AndroidTestBase : BaseMobileTest
         new AndroidOidcLoginFlow(AndroidDriver).Login(SeededUser.Username, SeededUser.Password, pushConsent);
 
     [SetUp]
-    public void SignOutBeforeTest() => new AndroidOidcLoginFlow(AndroidDriver).SignOut();
+    public async Task ResetAppBeforeTest()
+    {
+        var flow = new AndroidOidcLoginFlow(AndroidDriver);
+        if (AutoGrantPermissions)
+            flow.GrantNotifications();
+
+        try
+        {
+            flow.SignOut();
+        }
+        catch (WebDriverException ex)
+        {
+            TestContext.Progress.WriteLine($"UI sign-out failed, clearing app state: {ex.Message}");
+            flow.ClearAppState();
+            foreach (var user in new[] { UsesSeededUser ? SeededUser : null, E2EBackend.EnvironmentUser() }.OfType<E2EBackend.User>())
+                await E2EBackend.EndKeycloakSessionsAsync(user);
+        }
+    }
 
     [OneTimeTearDown]
     public async Task SignOutAndAssertNoDeviceRows()
     {
-        new AndroidOidcLoginFlow(AndroidDriver).SignOut();
-
-        if (UsesSeededUser && SeededUser is not null)
+        try
         {
-            try
-            {
+            new AndroidOidcLoginFlow(AndroidDriver).SignOut();
+
+            if (UsesSeededUser && SeededUser is not null)
                 Assert.That(await E2EBackend.WaitForNoDevicesAsync(SeededUser, TimeSpan.FromSeconds(30)), Is.Zero,
                     $"Device token rows left for {SeededUser.Username} after sign-out.");
-            }
-            finally
-            {
-                await E2EBackend.DeleteUserAsync(SeededUser);
-            }
+
+            var user = E2EBackend.EnvironmentUser();
+            if (user is not null)
+                Assert.That(await E2EBackend.WaitForNoDevicesAsync(user, TimeSpan.FromSeconds(30)), Is.Zero,
+                    $"Device token rows left for {user.Username} after sign-out.");
         }
-
-        var user = E2EBackend.EnvironmentUser();
-        if (user is null)
-            return;
-
-        var left = await E2EBackend.WaitForNoDevicesAsync(user, TimeSpan.FromSeconds(30));
-        Assert.That(left, Is.Zero, $"Device token rows left for {user.Username} after sign-out.");
+        finally
+        {
+            if (UsesSeededUser && SeededUser is not null)
+                await E2EBackend.DeleteUserAsync(SeededUser);
+        }
     }
 
     protected void InstallApp(string appPath)
