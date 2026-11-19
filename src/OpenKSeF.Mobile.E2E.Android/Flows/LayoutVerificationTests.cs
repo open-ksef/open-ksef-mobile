@@ -117,7 +117,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     {
         var onboarding = await StartOnboardingAsync();
         onboarding.FillCompanyData(
-            nip: "1111111111",
+            nip: FakeNip.Next(),
             displayName: "Layout Test Co",
             email: "layout@test.open-ksef.pl");
 
@@ -136,7 +136,7 @@ public sealed class LayoutVerificationTests : AndroidTestBase
     {
         var onboarding = await StartOnboardingAsync();
         onboarding.FillCompanyData(
-            nip: "1111111111",
+            nip: FakeNip.Next(),
             displayName: "Layout Test Co",
             email: "layout@test.open-ksef.pl");
         onboarding.SkipKsefToken();

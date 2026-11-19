@@ -120,8 +120,9 @@ public static class E2EBackend
     private static async Task SeedTenantsAsync(User user)
     {
         using var http = await AuthorizedClientAsync(user);
-        foreach (var (nip, name) in new[] { ("1111111111", "E2E Seed A"), ("2222222222", "E2E Seed B") })
+        foreach (var name in new[] { "E2E Seed A", "E2E Seed B" })
         {
+            var nip = FakeNip.Next();
             var response = await http.PostAsJsonAsync($"{ServerUrl}/api/tenants", new { nip, displayName = name });
             response.EnsureSuccessStatusCode();
             var tenant = (await response.Content.ReadFromJsonAsync<TenantDto>())!;
