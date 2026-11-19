@@ -44,7 +44,7 @@ public abstract class AndroidTestBase : BaseMobileTest
     {
         var flow = new AndroidOidcLoginFlow(AndroidDriver);
         if (AutoGrantPermissions)
-            flow.GrantNotifications();
+            flow.Grant("android.permission.POST_NOTIFICATIONS");
 
         try
         {

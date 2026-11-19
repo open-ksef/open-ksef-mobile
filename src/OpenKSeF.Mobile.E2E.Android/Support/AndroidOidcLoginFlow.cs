@@ -30,6 +30,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     public void Login(string username, string password, bool? pushConsent = false)
     {
         EnsureServerConfigured();
+        DisableChromeTranslate();
         new WaitHelper(_driver, TimeSpan.FromSeconds(45)).UntilVisible(ByAutoId("LoginPageButtonLogin")).Click();
 
         // The Custom Tab is Chrome, not an app WebView; Chrome exposes HTML ids as native resource-ids.
@@ -117,11 +118,11 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
             ClearAppState();
     }
 
-    public void GrantNotifications()
+    public void Grant(string permission)
     {
         try
         {
-            Shell("pm", "grant", AppPackage, "android.permission.POST_NOTIFICATIONS");
+            Shell("pm", "grant", AppPackage, permission);
         }
         catch (WebDriverException ex) when (ex.Message.Contains("adb_shell", StringComparison.Ordinal))
         {
@@ -130,6 +131,18 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
     public object? Shell(string command, params string[] args) =>
         _driver.ExecuteScript("mobile: shell", new Dictionary<string, object> { ["command"] = command, ["args"] = args });
+
+    private static bool _translateDisabled;
+
+    // Chrome's translate bar covers the Keycloak submit buttons. Chrome reads this file on a debuggable (emulator) build.
+    private void DisableChromeTranslate()
+    {
+        if (_translateDisabled)
+            return;
+        Shell("echo", "_", "--disable-features=Translate,TranslateUI", ">", "/data/local/tmp/chrome-command-line");
+        _driver.TerminateApp(ChromePackage);
+        _translateDisabled = true;
+    }
 
     private void EnsureServerConfigured()
     {
@@ -229,19 +242,20 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     private void SubmitCode(string fieldId, string buttonText, string username, string secret)
     {
         ScrollTo(ByHtmlId(fieldId)).SendKeys(Totp.NextCode(username, secret));
-        FindButton(buttonText).Click();
+        _driver.ExecuteScript("mobile: pressKey", new Dictionary<string, object> { ["keycode"] = 66 });
     }
 
     private IWebElement FindButton(string text) => ScrollTo(By.XPath($"//android.widget.Button[@text='{text}']"));
 
-    // UiAutomator2 hides below-the-fold Chrome elements (missing or zero height), so swipe up until one has a size.
+    // UiAutomator2 reports below-the-fold Chrome elements with zero or clipped height, so swipe up until one sits fully inside the page area.
     private IWebElement ScrollTo(By by)
     {
         for (var attempt = 0; attempt < 6; attempt++)
         {
-            var button = _driver.FindElements(by).FirstOrDefault(e => e.Size.Height > 0);
-            if (button is not null)
-                return button;
+            var visibleBottom = VisibleContentBottom();
+            var element = _driver.FindElements(by).FirstOrDefault(e => e.Size.Height > 0 && e.Location.Y >= 0 && e.Location.Y + e.Size.Height <= visibleBottom);
+            if (element is not null)
+                return element;
             var size = _driver.Manage().Window.Size;
             _driver.ExecuteScript("mobile: swipeGesture", new Dictionary<string, object>
             {
@@ -253,7 +267,15 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
                 ["percent"] = 0.75
             });
         }
-        return _driver.FindElement(by);
+        throw new WebDriverTimeoutException($"{by} is not fully visible after scrolling.");
+    }
+
+    private int VisibleContentBottom()
+    {
+        var bottom = _driver.FindElements(By.ClassName("android.webkit.WebView")).Select(w => w.Location.Y + w.Size.Height).DefaultIfEmpty(_driver.Manage().Window.Size.Height).Min();
+        var overlays = _driver.FindElements(By.XPath("//*[contains(@resource-id,'infobar') or contains(@resource-id,'translate') or contains(@resource-id,'message_banner')]"))
+            .Where(o => o.Size.Height > 0 && o.Location.Y > bottom / 2).Select(o => o.Location.Y);
+        return overlays.Append(bottom).Min();
     }
 
     internal static string SecretPath(string username) => Path.Combine(SecretDirectory, $"{username}.txt");
