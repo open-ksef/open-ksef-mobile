@@ -32,4 +32,6 @@ public class IssuedInvoiceDto
     public DateOnly? ExchangeRateDate { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public uint? Version { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public uint? SellerVersion { get; set; }
 }

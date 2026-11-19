@@ -52,7 +52,7 @@ public class TenantFormViewModelTests
     }
 
     [Theory]
-    [InlineData("5261040828")]
+    [InlineData("2222222222")]
     [InlineData("1234563218")]
     [InlineData("1111111111")]
     public async Task Save_ValidNip_CreatesTenant(string nip)

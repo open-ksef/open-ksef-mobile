@@ -581,6 +581,13 @@ public partial class InvoiceDraftViewModel : ObservableObject
             ApplyValidation(validation);
             await AlertInvalidFormAsync(ValidationSummary(validation));
         }
+        catch (ApiException ex) when (ex.Code == SellerChangedCode)
+        {
+            await ShowErrorAsync(ex.Message);
+            _loaded = false;
+            IsBusy = false;
+            await LoadAsync();
+        }
         catch (Exception ex) when (ApiException.IsNetworkFailure(ex) || ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices })
         {
             _sent = ex is ApiException { StatusCode: >= HttpStatusCode.OK and < HttpStatusCode.MultipleChoices };
@@ -624,18 +631,20 @@ public partial class InvoiceDraftViewModel : ObservableObject
         }
     }
 
+    internal const string SellerChangedCode = "INV-SELLER-CHANGED";
+
     internal static async Task<IssuedInvoiceDto?> IssueConfirmingPastDateAsync(IApiService api, Guid tenantId, IssuedInvoiceDto invoice)
     {
         try
         {
-            return await api.IssueInvoiceAsync(tenantId, invoice.Id, invoice.Version);
+            return await api.IssueInvoiceAsync(tenantId, invoice.Id, invoice.Version, sellerVersion: invoice.SellerVersion);
         }
         catch (ApiException ex) when (ex.Validation?.Errors is [{ Code: "INV-W-PAST-DATE" } past])
         {
             if (!await Shell.Current.DisplayAlertAsync("Data wystawienia w przeszłości", past.Message, "Potwierdź", "Anuluj"))
                 return null;
 
-            return await api.IssueInvoiceAsync(tenantId, invoice.Id, invoice.Version, confirmPastIssueDate: true);
+            return await api.IssueInvoiceAsync(tenantId, invoice.Id, invoice.Version, confirmPastIssueDate: true, sellerVersion: invoice.SellerVersion);
         }
     }
 

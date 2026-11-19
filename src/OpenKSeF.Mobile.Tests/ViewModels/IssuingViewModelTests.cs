@@ -34,7 +34,7 @@ public class IssuingViewModelTests : IDisposable
     private static IssuedInvoiceDto Invoice(string status = "Draft", decimal gross = 123m) => new()
     {
         Id = InvoiceId, Status = status, Number = status == "Draft" ? null : "FV/12/11/2026",
-        Buyer = new PartyDto { Kind = "Company", Nip = "5261040828", Name = "Nabywca sp. z o.o.", AddressLine1 = "ul. Długa 2" },
+        Buyer = new PartyDto { Kind = "Company", Nip = "2222222222", Name = "Nabywca sp. z o.o.", AddressLine1 = "ul. Długa 2" },
         IssueDate = new DateOnly(2026, 11, 3), SaleDate = new DateOnly(2026, 11, 3), DueDate = new DateOnly(2026, 11, 17),
         Lines = [new() { LineNo = 1, Name = "Usługa", Unit = "szt.", Quantity = 1, UnitNetPrice = 100m, VatRate = "23", NetAmount = 100m, VatAmount = 23m }],
         TotalNet = 100m, TotalVat = 23m, TotalGross = gross,
@@ -58,7 +58,7 @@ public class IssuingViewModelTests : IDisposable
         _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(saved);
         _api.IssueInvoiceAsync(TenantId, InvoiceId).Returns(Invoice("Sending"));
         var vm = new InvoiceDraftViewModel(_api) { TenantId = TenantId.ToString() };
-        vm.BuyerNip = "5261040828";
+        vm.BuyerNip = "2222222222";
         vm.BuyerName = "Nabywca sp. z o.o.";
         vm.BuyerAddressLine1 = "ul. Długa 2";
         vm.Lines[0].Name = "Usługa";
@@ -2049,6 +2049,108 @@ public class IssuingViewModelTests : IDisposable
         await vm.IssueCommand.ExecuteAsync(null);
 
         await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u);
+    }
+
+    private const string SellerChangedText = "Dane sprzedawcy zostały zmienione po otwarciu potwierdzenia. Sprawdź je i potwierdź wystawienie ponownie.";
+
+    private static ApiException SellerChanged() => new(HttpStatusCode.Conflict, SellerChangedText, code: "INV-SELLER-CHANGED");
+
+    private static IssuedInvoiceDto SellerVersioned(uint version, uint? sellerVersion)
+    {
+        var invoice = Versioned(version);
+        invoice.SellerVersion = sellerVersion;
+        return invoice;
+    }
+
+    [Fact]
+    public async Task Draft_Issue_SendsSellerVersionFromTheSaveJustMade()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u).Returns(SellerVersioned(8, 3));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, 3u).Returns(Invoice("Sending"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, 3u);
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Draft_Issue_OldBackendWithoutSellerVersion_OmitsIt()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u).Returns(SellerVersioned(8, null));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, null).Returns(Invoice("Sending"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, null);
+    }
+
+    [Fact]
+    public async Task Draft_IssuePastDate_RetryKeepsSellerVersion()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u).Returns(SellerVersioned(8, 3));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, 3u).ThrowsAsync(PastDate());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u, true, 3u).Returns(Invoice("Sending"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u, true, 3u);
+    }
+
+    [Fact]
+    public async Task Draft_IssueSellerChanged_ShowsMessage_ReloadsProfileAndDraft_ThenIssuesWithNewSellerVersion()
+    {
+        var vm = await LoadedDraft(7);
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 7u).Returns(SellerVersioned(8, 3));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, 3u).ThrowsAsync(SellerChanged());
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(SellerVersioned(8, 4));
+        _api.ClearReceivedCalls();
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(("Błąd", SellerChangedText), Shell.Current.Alerts[^1]);
+        await _api.Received(1).GetSellerProfileAsync(TenantId);
+        await _api.Received(1).GetIssuedInvoiceAsync(TenantId, InvoiceId);
+        Assert.Null(Shell.Current.LastRoute);
+        Assert.False(vm.IsBusy);
+
+        _api.UpdateIssuedInvoiceAsync(TenantId, InvoiceId, Arg.Any<IssuedInvoiceDraftRequest>(), 8u).Returns(SellerVersioned(9, 4));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 9u, false, 4u).Returns(Invoice("Sending"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 9u, false, 4u);
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Details_IssueSellerChanged_ShowsMessage_ReloadsAndNextIssueSendsNewSellerVersion()
+    {
+        var current = SellerVersioned(8, 3);
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(_ => current);
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, 3u).Returns(_ =>
+        {
+            current = SellerVersioned(8, 4);
+            return Task.FromException<IssuedInvoiceDto>(SellerChanged());
+        });
+        var vm = Details([]);
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal(("Błąd", SellerChangedText), Shell.Current.Alerts[^1]);
+        Assert.Equal(4u, vm.Invoice!.SellerVersion);
+        Assert.Equal("Draft", vm.Invoice.Status);
+
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, 4u).Returns(Invoice("Sending"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, 8u, false, 4u);
     }
 
     [Fact]
