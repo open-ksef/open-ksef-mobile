@@ -565,7 +565,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
             if (!await ConfirmIssueAsync(_profile?.NextNumberPreview, saved))
                 return;
 
-            var issued = await _apiService.IssueInvoiceAsync(tenantId, saved.Id, saved.Version);
+            var issued = await IssueConfirmingPastDateAsync(_apiService, tenantId, saved);
+            if (issued is null)
+                return;
+
             _sent = true;
             if (IsShown)
                 try { await Shell.Current.GoToAsync($"../issuedInvoiceDetails?tenantId={tenantId}&invoiceId={issued.Id}"); }
@@ -618,6 +621,21 @@ public partial class InvoiceDraftViewModel : ObservableObject
         catch (Exception)
         {
             await SendToIssuedListAsync();
+        }
+    }
+
+    internal static async Task<IssuedInvoiceDto?> IssueConfirmingPastDateAsync(IApiService api, Guid tenantId, IssuedInvoiceDto invoice)
+    {
+        try
+        {
+            return await api.IssueInvoiceAsync(tenantId, invoice.Id, invoice.Version);
+        }
+        catch (ApiException ex) when (ex.Validation?.Errors is [{ Code: "INV-W-PAST-DATE" } past])
+        {
+            if (!await Shell.Current.DisplayAlertAsync("Data wystawienia w przeszłości", past.Message, "Potwierdź", "Anuluj"))
+                return null;
+
+            return await api.IssueInvoiceAsync(tenantId, invoice.Id, invoice.Version, confirmPastIssueDate: true);
         }
     }
 

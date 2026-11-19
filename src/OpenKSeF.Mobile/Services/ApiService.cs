@@ -186,9 +186,12 @@ public class ApiService : IApiService
         await SendNoContentAsync(HttpMethod.Delete, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}{VersionQuery(version)}");
     }
 
-    public async Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null)
+    public async Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null, bool confirmPastIssueDate = false)
     {
-        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{VersionQuery(version)}");
+        var query = VersionQuery(version);
+        if (confirmPastIssueDate)
+            query += (query.Length == 0 ? "?" : "&") + "confirmPastIssueDate=true";
+        return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{query}");
     }
 
     public async Task<IssuedInvoiceDto> CopyIssuedInvoiceAsync(Guid tenantId, Guid invoiceId)

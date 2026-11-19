@@ -661,6 +661,31 @@ public class ApiServiceTests
         Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{query}", request.Uri);
     }
 
+    public static TheoryData<uint?, string> PastDateQueries => new() { { 8u, "?version=8&confirmPastIssueDate=true" }, { null, "?confirmPastIssueDate=true" } };
+
+    [Theory]
+    [MemberData(nameof(PastDateQueries))]
+    public async Task IssueInvoice_ConfirmPastIssueDate_AddsFlag(uint? version, string query)
+    {
+        var (tenantId, invoiceId) = (Guid.NewGuid(), Guid.NewGuid());
+        _handler.RespondJson(HttpStatusCode.Accepted, IssuedInvoiceContractTests.InvoiceResponseJson);
+
+        await CreateService().IssueInvoiceAsync(tenantId, invoiceId, version, confirmPastIssueDate: true);
+
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{query}", Assert.Single(_handler.Requests).Uri);
+    }
+
+    [Fact]
+    public async Task IssueInvoice_PastDate422_ExposesCode()
+    {
+        _handler.RespondJson(HttpStatusCode.UnprocessableEntity, """{"errors":[{"code":"INV-W-PAST-DATE","field":"issueDate","message":"Data starsza niż 30 dni"}],"warnings":[]}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().IssueInvoiceAsync(Guid.NewGuid(), Guid.NewGuid()));
+
+        var error = Assert.Single(ex.Validation!.Errors);
+        Assert.Equal(("INV-W-PAST-DATE", "issueDate", "Data starsza niż 30 dni"), (error.Code, error.Field, error.Message));
+    }
+
     [Fact]
     public async Task StaleVersion_ConflictShowsServerMessage()
     {
