@@ -935,6 +935,39 @@ public class DeviceTokenServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Enable_SignOutWhileWaitingForInFlightDelete_DoesNotPost()
+    {
+        Preferences.Default.Set(TokenKey, "fcm-abc");
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
+        var stall = new TaskCompletionSource();
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine]);
+        _api.UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>()).Returns(stall.Task);
+
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            Assert.False(await _service.DisableNotificationsAsync());
+
+            var enable = _service.EnableNotificationsAsync();
+            await Task.Delay(100);
+            Assert.False(enable.IsCompleted);
+
+            await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => enable.WaitAsync(TimeSpan.FromSeconds(5)));
+
+            stall.SetResult();
+            await Task.Delay(100);
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!, default);
+    }
+
+    [Fact]
     public async Task EnsureDeviceRegistered_AfterOfflineDisable_RetriesDeleteAndClearsKeys()
     {
         Preferences.Default.Set(TokenKey, "fcm-abc");

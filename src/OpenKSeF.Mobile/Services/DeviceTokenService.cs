@@ -223,7 +223,7 @@ public class DeviceTokenService : IDeviceTokenService
             Task removal;
             lock (_gate)
                 removal = _removal;
-            try { await removal.WaitAsync(ct); } catch { }
+            try { await removal.WaitAsync(ct); } catch when (!ct.IsCancellationRequested) { }
 
             var platformInt = GetCurrentPlatform();
 
@@ -464,7 +464,7 @@ public class DeviceTokenService : IDeviceTokenService
         // A DELETE already sent keeps running past the limit, so a later enable can wait for it instead of racing it.
         var removal = DeleteServerDevicesAsync(tokens, limit.Token, inFlight: cancellationToken);
         lock (_gate)
-            _removal = removal;
+            _removal = Task.WhenAll(_removal, removal);
         try
         {
             await removal.WaitAsync(limit.Token);
