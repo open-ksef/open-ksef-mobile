@@ -257,7 +257,11 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
             if (!await InvoiceDraftViewModel.ConfirmIssueAsync(profile?.NextNumberPreview, shown))
                 return;
 
-            Invoice = await _apiService.IssueInvoiceAsync(tenantId, shown.Id, shown.Version);
+            var issued = await InvoiceDraftViewModel.IssueConfirmingPastDateAsync(_apiService, tenantId, shown);
+            if (issued is null)
+                return;
+
+            Invoice = issued;
             Start();
         }
         catch (ApiException ex) when (ex.Validation is { Errors.Count: > 0 } validation)

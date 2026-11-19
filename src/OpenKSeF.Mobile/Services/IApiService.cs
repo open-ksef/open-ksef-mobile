@@ -27,7 +27,7 @@ public interface IApiService
     Task<IssuedInvoiceDto> CreateIssuedInvoiceAsync(Guid tenantId, IssuedInvoiceDraftRequest request);
     Task<IssuedInvoiceDto> UpdateIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, IssuedInvoiceDraftRequest request, uint? version = null);
     Task DeleteIssuedInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null);
-    Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null);
+    Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null, bool confirmPastIssueDate = false);
     Task<IssuedInvoiceDto> CopyIssuedInvoiceAsync(Guid tenantId, Guid invoiceId);
     Task<byte[]> GetIssuedInvoiceXmlAsync(Guid tenantId, Guid invoiceId);
     Task<byte[]> GetIssuedInvoiceUpoAsync(Guid tenantId, Guid invoiceId);

@@ -2404,6 +2404,128 @@ public class IssuingViewModelTests : IDisposable
         Assert.Equal("INV-VAL-0xx", vm.DueDateError);
     }
 
+    private const string PastDateText = "Data wystawienia jest starsza niż 30 dni (art. 106nda)";
+
+    private static ApiException PastDate() => new(HttpStatusCode.UnprocessableEntity, "422", new ValidationEnvelope
+    {
+        Errors = [new() { Code = "INV-W-PAST-DATE", Field = "issueDate", Message = PastDateText }]
+    });
+
+    [Fact]
+    public async Task Draft_IssuePastDate_ConfirmRetriesWithFlag()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Invoice("Draft"));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), false).ThrowsAsync(PastDate());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true).Returns(Invoice("Sending"));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Data wystawienia w przeszłości", PastDateText)], Shell.Current.Alerts);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true);
+        Assert.Equal($"../issuedInvoiceDetails?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Draft_IssuePastDate_CancelDoesNotIssue()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Invoice("Draft"));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), false).ThrowsAsync(PastDate());
+        Shell.Current.AlertAnswer = false;
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Data wystawienia w przeszłości", PastDateText)], Shell.Current.Alerts);
+        await _api.DidNotReceive().IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true);
+        Assert.Null(vm.IssueDateError);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Details_IssuePastDate_ConfirmRetriesWithFlag()
+    {
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), false).ThrowsAsync(PastDate());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true).Returns(Invoice("Accepted"));
+        var vm = Details([]);
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Data wystawienia w przeszłości", PastDateText)], Shell.Current.Alerts);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true);
+        Assert.Null(Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Draft_IssuePastDate_SecondValidation_ShowsNormallyWithoutSecondConfirm()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Invoice("Draft"));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), false).ThrowsAsync(PastDate());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true).ThrowsAsync(new ApiException(HttpStatusCode.UnprocessableEntity, "422", Invalid("Błędny termin", "dueDate")));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Data wystawienia w przeszłości", PastDateText), ("Popraw fakturę", "Błędny termin")], Shell.Current.Alerts);
+        Assert.Equal("Błędny termin", vm.DueDateError);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Details_IssuePastDate_SecondPastDate_DoesNotLoop()
+    {
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), Arg.Any<bool>()).ThrowsAsync(PastDate());
+        var vm = Details([]);
+        await vm.RunAsync(CancellationToken.None);
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal([("Data wystawienia w przeszłości", PastDateText), ("Popraw fakturę", PastDateText)], Shell.Current.Alerts);
+        await _api.Received(1).IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true);
+        await _api.Received(2).IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), Arg.Any<bool>());
+        Assert.Equal($"../invoiceDraft?tenantId={TenantId}&invoiceId={InvoiceId}", Shell.Current.LastRoute);
+    }
+
+    [Fact]
+    public async Task Draft_IssuePastDateWithOtherErrors_ShowsValidationWithoutConfirm()
+    {
+        var vm = Draft(Profile());
+        _api.CreateIssuedInvoiceAsync(TenantId, Arg.Any<IssuedInvoiceDraftRequest>()).Returns(Invoice("Draft"));
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), false).ThrowsAsync(new ApiException(HttpStatusCode.UnprocessableEntity, "422", new ValidationEnvelope
+        {
+            Errors = [new() { Code = "INV-W-PAST-DATE", Field = "issueDate", Message = PastDateText }, new() { Code = "INV-VAL-0xx", Field = "dueDate", Message = "Błędny termin" }]
+        }));
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        Assert.Equal("Popraw fakturę", Assert.Single(Shell.Current.Alerts).Title);
+        Assert.Equal(PastDateText, vm.IssueDateError);
+        await _api.DidNotReceive().IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true);
+    }
+
+    [Fact]
+    public async Task Details_IssuePastDate_CancelKeepsDraft()
+    {
+        _api.GetIssuedInvoiceAsync(TenantId, InvoiceId).Returns(Invoice());
+        _api.GetSellerProfileAsync(TenantId).Returns(Profile());
+        _api.IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), false).ThrowsAsync(PastDate());
+        var vm = Details([]);
+        await vm.RunAsync(CancellationToken.None);
+        Shell.Current.AlertAnswer = false;
+
+        await vm.IssueCommand.ExecuteAsync(null);
+
+        await _api.DidNotReceive().IssueInvoiceAsync(TenantId, InvoiceId, Arg.Any<uint?>(), true);
+        Assert.Equal("Draft", vm.Invoice!.Status);
+        Assert.Null(Shell.Current.LastRoute);
+    }
+
     [Fact]
     public async Task Draft_IssueWith422OnSave_DoesNotIssue_ShowsOneAlert()
     {
