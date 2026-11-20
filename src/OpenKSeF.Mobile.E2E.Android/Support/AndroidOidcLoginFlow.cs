@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using OpenKSeF.Mobile.E2E.Shared.Infrastructure;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
@@ -142,7 +144,22 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
             return;
         Shell("echo", "_", "--disable-features=Translate,TranslateUI", "--disable-save-password-bubble", ">", "/data/local/tmp/chrome-command-line");
         _driver.TerminateApp(ChromePackage);
+        DisableChromePasswordManager();
         _translateDisabled = true;
+    }
+
+    // Chrome 113 ignores --disable-save-password-bubble; after its message closes, UiAutomator2 no longer sees the 2FA page.
+    private void DisableChromePasswordManager()
+    {
+        const string preferences = "/data/data/" + ChromePackage + "/app_chrome/Default/Preferences";
+        var json = Shell("su", "0", "cat", preferences)?.ToString() ?? string.Empty;
+        if (!json.StartsWith('{'))
+            return;
+        var prefs = JsonNode.Parse(json)!.AsObject();
+        prefs["credentials_enable_service"] = false;
+        (prefs["profile"] ??= new JsonObject())["password_manager_enabled"] = false;
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(prefs.ToJsonString()));
+        Shell("echo", encoded, "|", "su", "0", "sh", "-c", $"'base64 -d > {preferences}'");
     }
 
     private void EnsureServerConfigured()
