@@ -164,7 +164,7 @@ public class IssuingFormatTests
 
     [Fact]
     public void Nrb_GroupsTwentySixDigits() =>
-        Assert.Equal("61 1090 1014 0000 0712 1981 2874", IssuingFormat.Nrb("61109010140000071219812874"));
+        Assert.Equal("93 0000 0000 2026 1117 0000 0815", IssuingFormat.Nrb("93000000002026111700000815"));
 
     [Theory]
     [InlineData("23", "23%")]

@@ -13,7 +13,7 @@ namespace OpenKSeF.Mobile.Tests.ViewModels;
 public class QrCodeViewModelTests
 {
     private const string OldServerMessage = "Kod QR wymaga nowszej wersji serwera. Skopiuj dane przelewu.";
-    private const string TransferText = "Odbiorca: Dostawca Testowy\nRachunek: PL61 1090 1014 0000 0712 1981 2874\nKwota: 1 476,00 PLN\nTytul: FV 1/2026";
+    private const string TransferText = "Odbiorca: Dostawca Testowy\nRachunek: PL93 0000 0000 2026 1117 0000 0815\nKwota: 1 476,00 PLN\nTytul: FV 1/2026";
     private const string Png = "data:image/png;base64,AQID";
     private static readonly byte[] PngBytes = [1, 2, 3];
     private static readonly Guid TenantId = Guid.Parse("304f3ff7-06b6-43e8-bdf4-a0ad77f194e3");
@@ -29,11 +29,11 @@ public class QrCodeViewModelTests
     }
 
     private static string V007(string currency = "PLN", decimal amount = 1476.00m) => $$"""
-        {"recipientName":"Dostawca Testowy","recipientAccount":"PL61 1090 1014 0000 0712 1981 2874","recipientNip":"1234567890","amount":{{amount.ToString(System.Globalization.CultureInfo.InvariantCulture)}},"currency":"{{currency}}","title":"FV 1/2026","transferText":{{JsonSerializer.Serialize(TransferText)}},"qrCodeBase64":"{{Png}}"}
+        {"recipientName":"Dostawca Testowy","recipientAccount":"PL93 0000 0000 2026 1117 0000 0815","recipientNip":"1234567890","amount":{{amount.ToString(System.Globalization.CultureInfo.InvariantCulture)}},"currency":"{{currency}}","title":"FV 1/2026","transferText":{{JsonSerializer.Serialize(TransferText)}},"qrCodeBase64":"{{Png}}"}
         """;
 
     private static string Main(string? qr, string? message, string currency = "PLN") => $$"""
-        {"recipientName":"Dostawca Testowy","recipientAccount":"PL61 1090 1014 0000 0712 1981 2874","recipientNip":"1234567890","amount":1476.00,"currency":"{{currency}}","title":"FV 1/2026","transferText":{{JsonSerializer.Serialize(TransferText)}},"qrCodeBase64":{{JsonSerializer.Serialize(qr)}},"qrMessage":{{JsonSerializer.Serialize(message)}}}
+        {"recipientName":"Dostawca Testowy","recipientAccount":"PL93 0000 0000 2026 1117 0000 0815","recipientNip":"1234567890","amount":1476.00,"currency":"{{currency}}","title":"FV 1/2026","transferText":{{JsonSerializer.Serialize(TransferText)}},"qrCodeBase64":{{JsonSerializer.Serialize(qr)}},"qrMessage":{{JsonSerializer.Serialize(message)}}}
         """;
 
     private static TransferDetailsDto Dto(string json) =>

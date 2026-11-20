@@ -11,20 +11,20 @@ public class IssuedInvoiceContractTests
 
     public const string SellerProfileRequestJson = """
         { "legalName": "OpenKSeF Test A sp. z o.o.", "addressLine1": "ul. Prosta 1", "addressLine2": "00-001 Warszawa",
-          "bankAccount": "61109010140000071219812874", "cashAccounting": false,
+          "bankAccount": "93000000002026111700000815", "cashAccounting": false,
           "numberingPattern": "FV/{nr}/{MM}/{RRRR}", "nextNumber": 57, "nextNumberPeriod": "2026-11" }
         """;
 
     public const string SellerProfileResponseJson = """
         { "legalName": "OpenKSeF Test A sp. z o.o.", "addressLine1": "ul. Prosta 1", "addressLine2": "00-001 Warszawa",
-          "bankAccount": "61109010140000071219812874", "cashAccounting": false,
+          "bankAccount": "93000000002026111700000815", "cashAccounting": false,
           "numberingPattern": "FV/{nr}/{MM}/{RRRR}", "nextNumber": 57, "nextNumberPeriod": "2026-11",
           "nip": "1234567890", "isComplete": true, "nextNumberPreview": "FV/57/11/2026", "ksefEnvironment": "test" }
         """;
 
     public const string NipLookupJson = """
         { "nip": "1234567890", "name": "Firma Testowa", "addressLine1": "ul. Prosta 1", "addressLine2": "00-001 Warszawa",
-          "vatStatus": "Czynny", "bankAccounts": ["61109010140000071219812874"] }
+          "vatStatus": "Czynny", "bankAccounts": ["93000000002026111700000815"] }
         """;
 
     public const string DraftRequestJson = """
@@ -44,7 +44,7 @@ public class IssuedInvoiceContractTests
 
     public const string InvoiceResponseJson = """
         { "id": "0b7c9a62-3f6e-4d1a-9c55-1f2e3d4c5b6a", "status": "Draft", "number": null,
-          "seller": { "nip": "1234567890", "name": "OpenKSeF Test A sp. z o.o.", "addressLine1": "ul. Prosta 1", "addressLine2": "00-001 Warszawa", "bankAccount": "61109010140000071219812874", "cashAccounting": false },
+          "seller": { "nip": "1234567890", "name": "OpenKSeF Test A sp. z o.o.", "addressLine1": "ul. Prosta 1", "addressLine2": "00-001 Warszawa", "bankAccount": "93000000002026111700000815", "cashAccounting": false },
           "buyer": { "kind": "Company", "nip": "1234567890", "name": "Nabywca sp. z o.o.", "addressLine1": "ul. Krzywa 2", "addressLine2": "00-002 Warszawa" },
           "issueDate": "2026-11-03", "saleDate": "2026-11-03", "dueDate": "2026-11-17",
           "paymentMethod": "Transfer", "splitPayment": false, "exemptionBasis": null,

@@ -90,7 +90,7 @@
                             <Entry Text="{Binding OtherBankAccount}" Style="{StaticResource UiEntry}" IsReadOnly="{Binding IsReadOnly}"
                                    IsVisible="{Binding IsOtherAccount}"
                                    Keyboard="Numeric"
-                                   Placeholder="61 1090 1014 0000 0712 1981 2874"
+                                   Placeholder="93 0000 0000 2026 1117 0000 0815"
                                    AutomationId="SellerProfilePageEntryBankAccount" />
                             <Label Text="{Binding BankAccountError}" Style="{StaticResource UiFieldError}"
                                    AutomationId="SellerProfilePageLabelBankAccountError"

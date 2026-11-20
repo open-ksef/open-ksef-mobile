@@ -27,7 +27,7 @@ public class IssuingViewModelTests : IDisposable
 
     private static SellerProfileDto Profile(string environment = "test", bool complete = true) => new()
     {
-        Nip = "1111111111", LegalName = "Firma", AddressLine1 = "ul. Prosta 1", BankAccount = "61109010140000071219812874",
+        Nip = "1111111111", LegalName = "Firma", AddressLine1 = "ul. Prosta 1", BankAccount = "93000000002026111700000815",
         IsComplete = complete, NextNumberPreview = "FV/12/11/2026", KsefEnvironment = environment
     };
 
