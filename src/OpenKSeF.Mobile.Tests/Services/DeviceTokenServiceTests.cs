@@ -890,6 +890,83 @@ public class DeviceTokenServiceTests : IDisposable
         Assert.False(_service.PushRemovalPending);
     }
 
+    [Theory]
+    [InlineData("success")]
+    [InlineData("5xx")]
+    [InlineData("timeout")]
+    [InlineData("network")]
+    public async Task Enable_AfterTimedOutDisable_WaitsForInFlightDelete_RowSurvives(string outcome)
+    {
+        Preferences.Default.Set(TokenKey, "fcm-abc");
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
+        var rows = new HashSet<string> { "fcm-abc" };
+        var stall = new TaskCompletionSource();
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine]);
+        _api.UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>())
+            .Returns(async _ => { await stall.Task; lock (rows) rows.Remove("fcm-abc"); });
+        _api.RegisterDeviceTokenAsync(Arg.Any<RegisterDeviceTokenRequest>(), Arg.Any<CancellationToken>())
+            .Returns(call => { lock (rows) rows.Add(call.Arg<RegisterDeviceTokenRequest>().Token); return Task.CompletedTask; });
+
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            Assert.False(await _service.DisableNotificationsAsync());
+
+            var enable = _service.EnableNotificationsAsync();
+            await Task.Delay(200);
+            switch (outcome)
+            {
+                case "success": stall.SetResult(); break;
+                case "5xx": stall.SetException(new ApiException(System.Net.HttpStatusCode.InternalServerError, "boom")); break;
+                case "timeout": stall.SetException(new TaskCanceledException()); break;
+                default: stall.SetException(new HttpRequestException("offline")); break;
+            }
+
+            Assert.True(await enable.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        Assert.Contains("fcm-abc", rows);
+        Assert.False(_service.PushDisabledByUser);
+    }
+
+    [Fact]
+    public async Task Enable_SignOutWhileWaitingForInFlightDelete_DoesNotPost()
+    {
+        Preferences.Default.Set(TokenKey, "fcm-abc");
+        var mine = new DeviceTokenDto { Id = Guid.NewGuid(), Token = "fcm-abc" };
+        var stall = new TaskCompletionSource();
+        _api.GetDevicesAsync(null, Arg.Any<CancellationToken>()).Returns([mine]);
+        _api.UnregisterDeviceAsync(mine.Id, null, Arg.Any<CancellationToken>()).Returns(stall.Task);
+
+        var limit = DeviceTokenService.ServerRemovalLimit;
+        DeviceTokenService.ServerRemovalLimit = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            Assert.False(await _service.DisableNotificationsAsync());
+
+            var enable = _service.EnableNotificationsAsync();
+            await Task.Delay(100);
+            Assert.False(enable.IsCompleted);
+
+            await _service.UnregisterCurrentDeviceAsync(NewSignOutId(), CancellationToken.None);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => enable.WaitAsync(TimeSpan.FromSeconds(5)));
+
+            stall.SetResult();
+            await Task.Delay(100);
+        }
+        finally
+        {
+            DeviceTokenService.ServerRemovalLimit = limit;
+        }
+
+        await _api.DidNotReceiveWithAnyArgs().RegisterDeviceTokenAsync(default!, default);
+    }
+
     [Fact]
     public async Task EnsureDeviceRegistered_AfterOfflineDisable_RetriesDeleteAndClearsKeys()
     {
