@@ -2,6 +2,7 @@ using OpenKSeF.Mobile.E2E.Android.Infrastructure;
 using OpenKSeF.Mobile.E2E.Android.Support;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
+using SkiaSharp;
 using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 
 namespace OpenKSeF.Mobile.E2E.Android.Flows;
@@ -126,8 +127,6 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
         var matrix = writer.Encode(content);
         var tempPath = Path.Combine(Path.GetTempPath(), $"openksef-qr-{Guid.NewGuid():N}.png");
-
-        // Write a minimal BMP/PNG from the bit matrix
         WriteBitMatrixAsPng(matrix, tempPath);
 
         return tempPath;
@@ -135,45 +134,12 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
     private static void WriteBitMatrixAsPng(ZXing.Common.BitMatrix matrix, string path)
     {
-        var width = matrix.Width;
-        var height = matrix.Height;
-
-        // Write as BMP (simpler than PNG, but Android can read it)
-        using var fs = File.Create(path);
-        using var bw = new BinaryWriter(fs);
-
-        var rowBytes = ((width * 3 + 3) / 4) * 4;
-        var imageSize = rowBytes * height;
-        var fileSize = 54 + imageSize;
-
-        // BMP header
-        bw.Write((byte)'B'); bw.Write((byte)'M');
-        bw.Write(fileSize);
-        bw.Write(0);
-        bw.Write(54);
-
-        // DIB header
-        bw.Write(40);
-        bw.Write(width);
-        bw.Write(height);
-        bw.Write((short)1);
-        bw.Write((short)24);
-        bw.Write(0);
-        bw.Write(imageSize);
-        bw.Write(2835); bw.Write(2835);
-        bw.Write(0); bw.Write(0);
-
-        // Pixel data (bottom-up)
-        for (int y = height - 1; y >= 0; y--)
-        {
-            for (int x = 0; x < width; x++)
-            {
-                byte color = matrix[x, y] ? (byte)0 : (byte)255;
-                bw.Write(color); bw.Write(color); bw.Write(color);
-            }
-            // Padding
-            for (int p = width * 3; p < rowBytes; p++)
-                bw.Write((byte)0);
-        }
+        using var bitmap = new SKBitmap(matrix.Width, matrix.Height);
+        for (var y = 0; y < matrix.Height; y++)
+            for (var x = 0; x < matrix.Width; x++)
+                bitmap.SetPixel(x, y, matrix[x, y] ? SKColors.Black : SKColors.White);
+        using var image = SKImage.FromBitmap(bitmap);
+        using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+        File.WriteAllBytes(path, png.ToArray());
     }
 }

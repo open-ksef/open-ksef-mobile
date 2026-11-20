@@ -178,20 +178,27 @@ public static class E2EBackend
             throw new InvalidOperationException($"psql failed: {await error}");
     }
 
+    // App data goes through psql, not the API: a user whose 2FA setup failed cannot get a token.
     public static async Task DeleteUserAsync(User user)
     {
-        using (var http = await AuthorizedClientAsync(user))
-        {
-            foreach (var device in (await http.GetFromJsonAsync<List<DeviceTokenDto>>($"{ServerUrl}/api/devices"))!)
-                (await http.DeleteAsync($"{ServerUrl}/api/devices/{device.Id}")).EnsureSuccessStatusCode();
-            foreach (var tenant in (await http.GetFromJsonAsync<List<TenantDto>>($"{ServerUrl}/api/tenants"))!)
-                (await http.DeleteAsync($"{ServerUrl}/api/tenants/{tenant.Id}")).EnsureSuccessStatusCode();
-        }
-
         using var admin = await AdminClientAsync();
-        foreach (var id in await KeycloakUserIdsAsync(admin, user.Username))
-            (await admin.DeleteAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{id}")).EnsureSuccessStatusCode();
-        File.Delete(AndroidOidcLoginFlow.SecretPath(user.Username));
+        var ids = (await KeycloakUserIdsAsync(admin, user.Username)).ToList();
+        try
+        {
+            foreach (var id in ids)
+                await PsqlAsync($"""
+                    DELETE FROM "DeviceTokens" WHERE "UserId" = '{id}';
+                    DELETE FROM "IssuedInvoices" WHERE "TenantId" IN (SELECT "Id" FROM "Tenants" WHERE "UserId" = '{id}');
+                    DELETE FROM "Tenants" WHERE "UserId" = '{id}';
+                    """);
+        }
+        finally
+        {
+            foreach (var id in ids)
+                (await admin.DeleteAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{id}")).EnsureSuccessStatusCode();
+            UserTokens.Remove(user.Username);
+            File.Delete(AndroidOidcLoginFlow.SecretPath(user.Username));
+        }
     }
 
     public static async Task EndKeycloakSessionsAsync(User user)

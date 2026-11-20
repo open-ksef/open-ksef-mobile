@@ -134,12 +134,12 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
 
     private static bool _translateDisabled;
 
-    // Chrome's translate bar covers the Keycloak submit buttons. Chrome reads this file on a debuggable (emulator) build.
+    // Chrome's translate bar and "Save password?" message cover the Keycloak page. Chrome reads this file on a debuggable (emulator) build.
     private void DisableChromeTranslate()
     {
         if (_translateDisabled)
             return;
-        Shell("echo", "_", "--disable-features=Translate,TranslateUI", ">", "/data/local/tmp/chrome-command-line");
+        Shell("echo", "_", "--disable-features=Translate,TranslateUI", "--disable-save-password-bubble", ">", "/data/local/tmp/chrome-command-line");
         _driver.TerminateApp(ChromePackage);
         _translateDisabled = true;
     }
@@ -213,7 +213,12 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     private void CompleteTwoFactor(string username)
     {
         var wait = new WebDriverWait(_driver, TimeSpan.FromSeconds(45));
-        wait.Until(d => InPageSource(d, "totp") || InPageSource(d, "otp") || IsInApp(d));
+        wait.IgnoreExceptionTypes(typeof(StaleElementReferenceException));
+        wait.Until(d =>
+        {
+            DismissSavePasswordMessage();
+            return InPageSource(d, "totp") || InPageSource(d, "otp") || IsInApp(d);
+        });
 
         if (InPageSource(_driver, "totp"))
         {
@@ -252,6 +257,7 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     {
         for (var attempt = 0; attempt < 6; attempt++)
         {
+            DismissSavePasswordMessage();
             var visibleBottom = VisibleContentBottom();
             var element = _driver.FindElements(by).FirstOrDefault(e => e.Size.Height > 0 && e.Location.Y >= 0 && e.Location.Y + e.Size.Height <= visibleBottom);
             if (element is not null)
@@ -268,6 +274,24 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
             });
         }
         throw new WebDriverTimeoutException($"{by} is not fully visible after scrolling.");
+    }
+
+    // The flag above may be ignored by the installed Chrome; while the message shows, UiAutomator2 cannot read the page under it.
+    private void DismissSavePasswordMessage()
+    {
+        var message = _driver.FindElements(By.XPath("//*[@text='Save password?' or @text='Zapisać hasło?' or contains(@resource-id,'message_banner')]"))
+            .Where(e => e.Size.Height > 0).MaxBy(e => e.Size.Width * e.Size.Height);
+        if (message is null)
+            return;
+        _driver.ExecuteScript("mobile: swipeGesture", new Dictionary<string, object>
+        {
+            ["left"] = message.Location.X,
+            ["top"] = message.Location.Y,
+            ["width"] = message.Size.Width,
+            ["height"] = message.Size.Height,
+            ["direction"] = "up",
+            ["percent"] = 0.75
+        });
     }
 
     private int VisibleContentBottom()
