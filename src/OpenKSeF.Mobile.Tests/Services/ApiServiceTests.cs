@@ -339,9 +339,9 @@ public class ApiServiceTests
     {
         _handler.Respond(HttpStatusCode.NotFound);
 
-        Assert.Null(await CreateService().LookupNipAsync("5261040828"));
+        Assert.Null(await CreateService().LookupNipAsync("2222222222"));
 
-        Assert.DoesNotContain("5261040828", Assert.Single(_logger.Lines));
+        Assert.DoesNotContain("2222222222", Assert.Single(_logger.Lines));
     }
 
     [Fact]
@@ -673,6 +673,48 @@ public class ApiServiceTests
         await CreateService().IssueInvoiceAsync(tenantId, invoiceId, version, confirmPastIssueDate: true);
 
         Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{query}", Assert.Single(_handler.Requests).Uri);
+    }
+
+    public static TheoryData<uint?, bool, uint?, string> SellerVersionQueries => new()
+    {
+        { 8u, false, 3u, "?version=8&sellerVersion=3" },
+        { 8u, true, 0u, "?version=8&confirmPastIssueDate=true&sellerVersion=0" },
+        { null, false, 3u, "?sellerVersion=3" },
+        { 8u, false, null, "?version=8" },
+        { 4000000000u, false, 3000000000u, "?version=4000000000&sellerVersion=3000000000" },
+    };
+
+    [Fact]
+    public async Task GetIssuedInvoice_SellerVersionAboveInt32_Deserializes()
+    {
+        _handler.RespondJson(HttpStatusCode.OK, "{\"sellerVersion\":3000000000," + IssuedInvoiceContractTests.InvoiceResponseJson.TrimStart()[1..]);
+
+        var invoice = await CreateService().GetIssuedInvoiceAsync(Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(3000000000u, invoice.SellerVersion);
+    }
+
+    [Theory]
+    [MemberData(nameof(SellerVersionQueries))]
+    public async Task IssueInvoice_SendsSellerVersionOnlyWhenKnown(uint? version, bool confirmPast, uint? sellerVersion, string query)
+    {
+        var (tenantId, invoiceId) = (Guid.NewGuid(), Guid.NewGuid());
+        _handler.RespondJson(HttpStatusCode.Accepted, IssuedInvoiceContractTests.InvoiceResponseJson);
+
+        await CreateService().IssueInvoiceAsync(tenantId, invoiceId, version, confirmPast, sellerVersion);
+
+        Assert.Equal($"https://ksef.example.com/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{query}", Assert.Single(_handler.Requests).Uri);
+    }
+
+    [Fact]
+    public async Task IssueInvoice_SellerChanged409_ExposesMessageAndCode()
+    {
+        _handler.RespondJson(HttpStatusCode.Conflict, """{"message":"Dane sprzedawcy zostały zmienione po otwarciu potwierdzenia. Sprawdź je i potwierdź wystawienie ponownie.","code":"INV-SELLER-CHANGED"}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().IssueInvoiceAsync(Guid.NewGuid(), Guid.NewGuid(), 8, sellerVersion: 3));
+
+        Assert.Equal((HttpStatusCode.Conflict, "INV-SELLER-CHANGED"), (ex.StatusCode, ex.Code));
+        Assert.Equal("Dane sprzedawcy zostały zmienione po otwarciu potwierdzenia. Sprawdź je i potwierdź wystawienie ponownie.", ex.Message);
     }
 
     [Fact]

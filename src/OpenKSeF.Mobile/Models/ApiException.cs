@@ -10,12 +10,14 @@ public class ApiException : Exception
 
     public HttpStatusCode StatusCode { get; }
     public ValidationEnvelope? Validation { get; }
+    public string? Code { get; }
 
-    public ApiException(HttpStatusCode statusCode, string message, ValidationEnvelope? validation = null)
+    public ApiException(HttpStatusCode statusCode, string message, ValidationEnvelope? validation = null, string? code = null)
         : base(message)
     {
         StatusCode = statusCode;
         Validation = validation;
+        Code = code;
     }
 
     public static bool IsNetworkFailure(Exception ex) =>

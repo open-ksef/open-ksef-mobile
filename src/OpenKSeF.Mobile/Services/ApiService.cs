@@ -186,11 +186,13 @@ public class ApiService : IApiService
         await SendNoContentAsync(HttpMethod.Delete, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}{VersionQuery(version)}");
     }
 
-    public async Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null, bool confirmPastIssueDate = false)
+    public async Task<IssuedInvoiceDto> IssueInvoiceAsync(Guid tenantId, Guid invoiceId, uint? version = null, bool confirmPastIssueDate = false, uint? sellerVersion = null)
     {
         var query = VersionQuery(version);
         if (confirmPastIssueDate)
             query += (query.Length == 0 ? "?" : "&") + "confirmPastIssueDate=true";
+        if (sellerVersion is not null)
+            query += (query.Length == 0 ? "?" : "&") + $"sellerVersion={sellerVersion}";
         return await SendAsync<IssuedInvoiceDto>(HttpMethod.Post, $"/api/tenants/{tenantId}/issued-invoices/{invoiceId}/issue{query}");
     }
 
@@ -271,7 +273,7 @@ public class ApiService : IApiService
             if (ruleMessage is null && validation is not { Errors.Count: > 0 })
                 _logger.LogWarning("{Method} {Path} returned {Status}: {Body}", method, LogPath(path), (int)response.StatusCode, Redact(responseBody));
 
-            throw new ApiException(response.StatusCode, ruleMessage ?? FixedMessage(response.StatusCode), validation);
+            throw new ApiException(response.StatusCode, ruleMessage ?? FixedMessage(response.StatusCode), validation, rejected ? ParseRuleCode(responseBody) : null);
         }
 
         return response;
@@ -302,7 +304,19 @@ public class ApiService : IApiService
         }
     }
 
-    private sealed record RuleBody(string? Message, string? Error);
+    private static string? ParseRuleCode(string body)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<RuleBody>(body, new JsonSerializerOptions(JsonSerializerDefaults.Web))?.Code;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private sealed record RuleBody(string? Message, string? Error, string? Code);
 
     private static ValidationEnvelope? ParseValidation(string body)
     {
