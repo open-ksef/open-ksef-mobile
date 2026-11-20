@@ -36,6 +36,31 @@ public class ScanSetupQrViewModelTests
 
     private ScanSetupQrViewModel CreateVm() => new(_serverSettings, _postLoginNav);
 
+    [Fact]
+    public void DecodeRgba32_CodeTheDefaultReaderMisses_DecodesWithPureBarcodeFallback()
+    {
+        const string payload = """{"type":"openksef-setup","version":1,"serverUrl":"http://10.0.2.2:8080","setupToken":"stale-token"}""";
+        var matrix = new ZXing.BarcodeWriterGeneric
+        {
+            Format = ZXing.BarcodeFormat.QR_CODE,
+            Options = new ZXing.Common.EncodingOptions { Width = 400, Height = 400, Margin = 2 }
+        }.Encode(payload);
+        var rgba = new byte[matrix.Width * matrix.Height * 4];
+        for (var y = 0; y < matrix.Height; y++)
+            for (var x = 0; x < matrix.Width; x++)
+            {
+                var i = (y * matrix.Width + x) * 4;
+                rgba[i] = rgba[i + 1] = rgba[i + 2] = matrix[x, y] ? (byte)0 : (byte)255;
+                rgba[i + 3] = 255;
+            }
+
+        var defaultResult = new ZXing.BarcodeReaderGeneric()
+            .Decode(new ZXing.RGBLuminanceSource(rgba, matrix.Width, matrix.Height, ZXing.RGBLuminanceSource.BitmapFormat.RGBA32));
+
+        Assert.Null(defaultResult);
+        Assert.Equal(payload, ScanSetupQrViewModel.DecodeRgba32(rgba, matrix.Width, matrix.Height));
+    }
+
     private static string BuildQrPayload(string serverUrl, string? setupToken = null) =>
         JsonSerializer.Serialize(new
         {
