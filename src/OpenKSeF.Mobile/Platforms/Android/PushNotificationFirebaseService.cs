@@ -1,6 +1,7 @@
 #if FIREBASE_ENABLED
 using Android.App;
 using Android.Content;
+using Firebase.Installations;
 using Firebase.Messaging;
 using OpenKSeF.Mobile.Services;
 
@@ -10,14 +11,38 @@ namespace OpenKSeF.Mobile;
 [IntentFilter(new[] { "com.google.firebase.MESSAGING_EVENT" })]
 public class PushNotificationFirebaseService : FirebaseMessagingService
 {
-    public static async Task<string?> TryGetCurrentTokenAsync()
+    public static Task<string?> TryGetCurrentTokenAsync(bool enable)
+    {
+        if (enable)
+            FirebaseMessaging.Instance.AutoInitEnabled = true;
+        else if (!HasRegisteredInstallation())
+            return Task.FromResult<string?>(null);
+
+        return AwaitAsync(() => FirebaseMessaging.Instance.GetToken());
+    }
+
+    public static async Task DisableAsync()
+    {
+        FirebaseMessaging.Instance.AutoInitEnabled = false;
+        if (!HasRegisteredInstallation())
+            return;
+
+        await AwaitAsync(() => FirebaseMessaging.Instance.DeleteToken());
+        await AwaitAsync(() => FirebaseInstallations.Instance.Delete());
+    }
+
+    // Only a registered installation (Status 3 in the SDK's PersistedInstallation.*.json) is known to Google; deleteToken on any other state registers one first.
+    private static bool HasRegisteredInstallation() =>
+        Directory.EnumerateFiles(Android.App.Application.Context.FilesDir!.AbsolutePath, "PersistedInstallation*")
+            .Any(f => File.ReadAllText(f).Contains("\"Status\":3", StringComparison.Ordinal));
+
+    private static async Task<string?> AwaitAsync(Func<Android.Gms.Tasks.Task> start)
     {
         var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         try
         {
-            var tokenTask = FirebaseMessaging.Instance.GetToken();
-            tokenTask.AddOnCompleteListener(new FcmTokenCompleteListener(tcs));
+            start().AddOnCompleteListener(new FcmTaskCompleteListener(tcs));
         }
         catch
         {
@@ -65,11 +90,11 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
         }
     }
 
-    private sealed class FcmTokenCompleteListener : Java.Lang.Object, Android.Gms.Tasks.IOnCompleteListener
+    private sealed class FcmTaskCompleteListener : Java.Lang.Object, Android.Gms.Tasks.IOnCompleteListener
     {
         private readonly TaskCompletionSource<string?> _tcs;
 
-        public FcmTokenCompleteListener(TaskCompletionSource<string?> tcs)
+        public FcmTaskCompleteListener(TaskCompletionSource<string?> tcs)
         {
             _tcs = tcs;
         }

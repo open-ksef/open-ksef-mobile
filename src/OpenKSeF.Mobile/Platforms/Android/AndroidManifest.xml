@@ -6,6 +6,7 @@
                  android:roundIcon="@mipmap/appicon_round"
                  android:supportsRtl="true"
                  android:networkSecurityConfig="@xml/network_security_config">
+        <meta-data android:name="firebase_messaging_auto_init_enabled" android:value="false" />
     </application>
     <queries>
         <intent>

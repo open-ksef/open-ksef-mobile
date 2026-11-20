@@ -10,6 +10,10 @@ public class DeviceTokenService : IDeviceTokenService
 
     internal static TimeSpan LateRegistrationWait { get; set; } = TimeSpan.FromSeconds(90);
 
+    internal static Func<bool, Task<string?>> NativeToken { get; set; } = TryGetNativePushTokenAsync;
+
+    internal static Func<Task> DisableNativePush { get; set; } = DisableNativePushAsync;
+
     private const int MaxPendingSignOuts = 5;
 
     private const string TokenStorageKey = "device_push_token";
@@ -170,7 +174,12 @@ public class DeviceTokenService : IDeviceTokenService
 
         try
         {
-            var nativeToken = await TryGetNativePushTokenAsync();
+            Task removal;
+            lock (_gate)
+                removal = _removal;
+            try { await removal.WaitAsync(ct); } catch when (!ct.IsCancellationRequested) { }
+
+            var nativeToken = await NativeToken(true);
             if (!string.IsNullOrWhiteSpace(nativeToken))
             {
                 var nativePlatform = DeviceInfo.Platform == DevicePlatform.Android ? "Android" : "iOS";
@@ -228,7 +237,7 @@ public class DeviceTokenService : IDeviceTokenService
             var platformInt = GetCurrentPlatform();
 
             var storedToken = Preferences.Default.Get(TokenStorageKey, string.Empty);
-            var nativeToken = await TryGetNativePushTokenAsync();
+            var nativeToken = await NativeToken(true);
             var token = !string.IsNullOrWhiteSpace(nativeToken)
                 ? nativeToken
                 : !string.IsNullOrEmpty(storedToken) ? storedToken : GetOrCreateDeviceId();
@@ -463,8 +472,9 @@ public class DeviceTokenService : IDeviceTokenService
         limit.CancelAfter(ServerRemovalLimit);
         // A DELETE already sent keeps running past the limit, so a later enable can wait for it instead of racing it.
         var removal = DeleteServerDevicesAsync(tokens, limit.Token, inFlight: cancellationToken);
+        var native = DisableNativePushAfterAsync(removal);
         lock (_gate)
-            _removal = Task.WhenAll(_removal, removal);
+            _removal = Task.WhenAll(_removal, native);
         try
         {
             await removal.WaitAsync(limit.Token);
@@ -479,7 +489,7 @@ public class DeviceTokenService : IDeviceTokenService
     private async Task DeleteServerDevicesAsync(HashSet<string> tokens, CancellationToken limit, string? accessToken = null, CancellationToken? inFlight = null)
     {
         tokens.Remove(string.Empty);
-        if (tokens.Count == 0 && await TryGetNativePushTokenAsync().WaitAsync(limit) is { Length: > 0 } nativeToken)
+        if (tokens.Count == 0 && await NativeToken(false).WaitAsync(limit) is { Length: > 0 } nativeToken)
             tokens.Add(nativeToken);
 
         if (tokens.Count == 0)
@@ -519,12 +529,27 @@ public class DeviceTokenService : IDeviceTokenService
         return id;
     }
 
-    private static Task<string?> TryGetNativePushTokenAsync()
+    private static async Task DisableNativePushAfterAsync(Task removal)
+    {
+        try { await removal; } catch { }
+        try { await DisableNativePush(); } catch { }
+    }
+
+    private static Task<string?> TryGetNativePushTokenAsync(bool enable)
     {
 #if ANDROID && FIREBASE_ENABLED
-        return OpenKSeF.Mobile.PushNotificationFirebaseService.TryGetCurrentTokenAsync();
+        return OpenKSeF.Mobile.PushNotificationFirebaseService.TryGetCurrentTokenAsync(enable);
 #else
         return Task.FromResult<string?>(null);
+#endif
+    }
+
+    private static Task DisableNativePushAsync()
+    {
+#if ANDROID && FIREBASE_ENABLED
+        return OpenKSeF.Mobile.PushNotificationFirebaseService.DisableAsync();
+#else
+        return Task.CompletedTask;
 #endif
     }
 

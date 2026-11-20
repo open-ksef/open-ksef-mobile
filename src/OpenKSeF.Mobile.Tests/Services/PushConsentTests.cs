@@ -7,8 +7,10 @@ using Xunit;
 namespace OpenKSeF.Mobile.Tests.Services;
 
 [Collection("Shell")]
-public class PushConsentTests
+public class PushConsentTests : IDisposable
 {
+    private static readonly Func<bool, Task<string?>> RealNativeToken = DeviceTokenService.NativeToken;
+    private static readonly Func<Task> RealDisableNativePush = DeviceTokenService.DisableNativePush;
     private readonly IApiService _api = Substitute.For<IApiService>();
     private readonly IAuthService _auth = Substitute.For<IAuthService>();
     private readonly DeviceTokenService _device;
@@ -16,6 +18,10 @@ public class PushConsentTests
     private readonly List<string> _posts = [];
     private string _user = "a";
     private Func<CancellationToken, Task>? _post;
+    private readonly List<string> _native = [];
+    private readonly TaskCompletionSource _nativeDisabled = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private string? _fcmToken;
+    private bool _fcmActive;
 
     public PushConsentTests()
     {
@@ -41,7 +47,26 @@ public class PushConsentTests
             return Task.CompletedTask;
         });
         _auth.CompleteDeferredLogoutAsync(Arg.Any<string>(), Arg.Any<bool>()).Returns(true);
+        DeviceTokenService.NativeToken = enable =>
+        {
+            _native.Add(enable ? "enable" : "peek");
+            _fcmActive |= enable;
+            return Task.FromResult(_fcmActive ? _fcmToken : null);
+        };
+        DeviceTokenService.DisableNativePush = () =>
+        {
+            _native.Add(_rows.Any(r => r.Token == _fcmToken) ? "disable-before-delete" : "disable");
+            _fcmActive = false;
+            _nativeDisabled.TrySetResult();
+            return Task.CompletedTask;
+        };
         _device = new DeviceTokenService(_api, _auth);
+    }
+
+    public void Dispose()
+    {
+        DeviceTokenService.NativeToken = RealNativeToken;
+        DeviceTokenService.DisableNativePush = RealDisableNativePush;
     }
 
     private PostLoginNavigationService Navigation()
@@ -307,6 +332,106 @@ public class PushConsentTests
         _post = null;
         Assert.Equal(on, Preferences.Default.Get("push_choice_a", false));
         Assert.Equal(!on && outcome != "signout", _device.PushChoicePending);
+    }
+
+    [Fact]
+    public async Task NoConsent_FirebaseNeverEnabled_AcrossLoginsAndRestart()
+    {
+        _fcmToken = "fcm-1";
+        Shell.Current.AlertAnswer = false;
+        var nativeWhilePrompt = -1;
+        Shell.Current.WhileConfirming = () =>
+        {
+            nativeWhilePrompt = _native.Count;
+            return Task.CompletedTask;
+        };
+
+        await Navigation().NavigateAsync();
+        await Navigation().NavigateAsync();
+        await new DeviceTokenService(_api, _auth).EnsureDeviceRegisteredAsync();
+
+        Assert.Equal(0, nativeWhilePrompt);
+        Assert.DoesNotContain("enable", _native);
+        Assert.Empty(_posts);
+    }
+
+    [Fact]
+    public async Task Tak_EnablesFirebaseOnlyAfterAnswer_RegistersFcmToken()
+    {
+        _fcmToken = "fcm-1";
+        var nativeWhilePrompt = -1;
+        Shell.Current.WhileConfirming = () =>
+        {
+            nativeWhilePrompt = _native.Count;
+            return Task.CompletedTask;
+        };
+
+        await Navigation().NavigateAsync();
+
+        Assert.Equal(0, nativeWhilePrompt);
+        Assert.Contains("enable", _native);
+        Assert.Equal(["fcm-1"], _rows.Select(r => r.Token));
+    }
+
+    [Fact]
+    public async Task Upgrade_StoredConsent_EnablesFirebaseAtLoginWithoutPrompt()
+    {
+        _fcmToken = "fcm-1";
+        Preferences.Default.Set("push_choice_migrated", true);
+        Preferences.Default.Set("push_choice_a", true);
+
+        await Navigation().NavigateAsync();
+
+        Assert.Equal(0, Prompts);
+        Assert.Equal(["enable"], _native);
+        Assert.Equal(["fcm-1"], _rows.Select(r => r.Token));
+    }
+
+    [Fact]
+    public async Task PushOff_DeletesServerRowThenDisablesFirebase_NextLoginStaysOff()
+    {
+        _fcmToken = "fcm-1";
+        await Navigation().NavigateAsync();
+        _native.Clear();
+
+        Assert.True(await _device.DisableNotificationsAsync());
+        await _nativeDisabled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Navigation().NavigateAsync();
+
+        Assert.Empty(_rows);
+        Assert.Equal("disable", _native[0]);
+        Assert.DoesNotContain("enable", _native);
+        Assert.False(_fcmActive);
+    }
+
+    [Theory]
+    [InlineData("5xx")]
+    [InlineData("network")]
+    public async Task PushOff_ServerDeleteFails_StillDisablesFirebase(string failure)
+    {
+        _fcmToken = "fcm-1";
+        await Navigation().NavigateAsync();
+        _api.GetDevicesAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns<List<DeviceTokenDto>>(_ =>
+            failure == "5xx" ? throw new ApiException(HttpStatusCode.ServiceUnavailable, "down") : throw new HttpRequestException("reset"));
+
+        Assert.False(await _device.DisableNotificationsAsync());
+        await _nativeDisabled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(_fcmActive);
+        Assert.True(_device.PushRemovalPending);
+    }
+
+    [Fact]
+    public async Task SignOut_DisablesFirebase()
+    {
+        _fcmToken = "fcm-1";
+        await Navigation().NavigateAsync();
+
+        await Navigation().SignOutAsync();
+        await _nativeDisabled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Empty(_rows);
+        Assert.False(_fcmActive);
     }
 }
 
