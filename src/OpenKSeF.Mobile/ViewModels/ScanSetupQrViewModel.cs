@@ -124,7 +124,7 @@ public partial class ScanSetupQrViewModel : ObservableObject
             using var buffer = new MemoryStream();
             await stream.CopyToAsync(buffer);
 
-            var decoded = DecodeQrFromImageBytes(buffer.ToArray());
+            var decoded = await Task.Run(() => DecodeQrFromImageBytes(buffer.ToArray()));
             if (decoded is not null)
             {
                 await ProcessBarcodeAsync(decoded);
@@ -161,6 +161,14 @@ public partial class ScanSetupQrViewModel : ObservableObject
         }
     }
 
+    // The default detector misses some clean generated codes (e.g. the stale-token setup payload); PureBarcode reads them.
+    internal static string? DecodeRgba32(byte[] rgba, int width, int height)
+    {
+        var source = new ZXing.RGBLuminanceSource(rgba, width, height, ZXing.RGBLuminanceSource.BitmapFormat.RGBA32);
+        return new ZXing.BarcodeReaderGeneric().Decode(source)?.Text
+            ?? new ZXing.BarcodeReaderGeneric { Options = { PureBarcode = true } }.Decode(source)?.Text;
+    }
+
     private static string? DecodeQrFromImageBytes(byte[] imageBytes)
     {
         try
@@ -184,10 +192,7 @@ public partial class ScanSetupQrViewModel : ObservableObject
                     bytes[i * 4 + 3] = (byte)((pixels[i] >> 24) & 0xFF);
                 }
 
-                var source = new ZXing.RGBLuminanceSource(bytes, bitmap.Width, bitmap.Height, ZXing.RGBLuminanceSource.BitmapFormat.RGBA32);
-                var reader = new ZXing.BarcodeReaderGeneric();
-                var result = reader.Decode(source);
-                return result?.Text;
+                return DecodeRgba32(bytes, bitmap.Width, bitmap.Height);
             }
             finally
             {

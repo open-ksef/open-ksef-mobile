@@ -168,6 +168,8 @@ public static class E2EBackend
     {
         var container = Environment.GetEnvironmentVariable("E2E_POSTGRES_CONTAINER") ?? "openksef-postgres";
         var psi = new ProcessStartInfo("docker") { RedirectStandardError = true, RedirectStandardOutput = true };
+        psi.Environment.Remove("DOCKER_HOST");
+        psi.Environment["DOCKER_CONTEXT"] = "default";
         foreach (var arg in new[] { "exec", container, "psql", "-U", "openksef", "-d", "openksef", "-v", "ON_ERROR_STOP=1", "-c", sql })
             psi.ArgumentList.Add(arg);
         using var process = Process.Start(psi)!;
@@ -178,22 +180,48 @@ public static class E2EBackend
             throw new InvalidOperationException($"psql failed: {await error}");
     }
 
+    // App data goes through psql, not the API: a user whose 2FA setup failed cannot get a token.
     public static async Task DeleteUserAsync(User user)
     {
-        using (var http = await AuthorizedClientAsync(user))
-        {
-            foreach (var device in (await http.GetFromJsonAsync<List<DeviceTokenDto>>($"{ServerUrl}/api/devices"))!)
-                (await http.DeleteAsync($"{ServerUrl}/api/devices/{device.Id}")).EnsureSuccessStatusCode();
-            foreach (var tenant in (await http.GetFromJsonAsync<List<TenantDto>>($"{ServerUrl}/api/tenants"))!)
-                (await http.DeleteAsync($"{ServerUrl}/api/tenants/{tenant.Id}")).EnsureSuccessStatusCode();
-        }
-
+        if (!user.Username.StartsWith("e2e-mobile-", StringComparison.Ordinal))
+            throw new InvalidOperationException($"Refusing to delete non-E2E user {user.Username}.");
         using var admin = await AdminClientAsync();
+        var ids = (await KeycloakUserIdsAsync(admin, user.Username)).ToList();
+        try
+        {
+            foreach (var id in ids)
+                await PsqlAsync($"""
+                    DELETE FROM "DeviceTokens" WHERE "UserId" = '{id}';
+                    DELETE FROM "IssuedInvoices" WHERE "TenantId" IN (SELECT "Id" FROM "Tenants" WHERE "UserId" = '{id}');
+                    DELETE FROM "Tenants" WHERE "UserId" = '{id}';
+                    """);
+        }
+        finally
+        {
+            foreach (var id in ids)
+                (await admin.DeleteAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{id}")).EnsureSuccessStatusCode();
+            UserTokens.Remove(user.Username);
+            File.Delete(AndroidOidcLoginFlow.SecretPath(user.Username));
+        }
+    }
+
+    public static async Task EndKeycloakSessionsAsync(User user)
+    {
+        using var admin = await AdminClientAsync();
+        foreach (var id in await KeycloakUserIdsAsync(admin, user.Username))
+            (await admin.PostAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{id}/logout", null)).EnsureSuccessStatusCode();
+    }
+
+    public static Task DeleteFakeNipTenantsAsync() => PsqlAsync($"""
+        DELETE FROM "IssuedInvoices" WHERE "TenantId" IN (SELECT "Id" FROM "Tenants" WHERE "Nip" LIKE '{FakeNip.Prefix}%');
+        DELETE FROM "Tenants" WHERE "Nip" LIKE '{FakeNip.Prefix}%';
+        """);
+
+    private static async Task<IEnumerable<string>> KeycloakUserIdsAsync(HttpClient admin, string username)
+    {
         var found = await admin.GetFromJsonAsync<List<JsonElement>>(
-            $"{KeycloakAdminUrl}/auth/admin/realms/openksef/users?exact=true&username={Uri.EscapeDataString(user.Username)}");
-        foreach (var entry in found!)
-            (await admin.DeleteAsync($"{KeycloakAdminUrl}/auth/admin/realms/openksef/users/{entry.GetProperty("id").GetString()}")).EnsureSuccessStatusCode();
-        File.Delete(AndroidOidcLoginFlow.SecretPath(user.Username));
+            $"{KeycloakAdminUrl}/auth/admin/realms/openksef/users?exact=true&username={Uri.EscapeDataString(username)}");
+        return found!.Select(e => e.GetProperty("id").GetString()!);
     }
 
     // Cached because a user with 2FA needs a fresh TOTP step per token, and the device polls run every second.

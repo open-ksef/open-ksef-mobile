@@ -89,13 +89,17 @@ public sealed class PushConsentFlowTests : AndroidTestBase
         return on;
     }
 
+    // adb joins the args with spaces and the device shell re-parses them, so the script keeps its own quotes. A fresh install has no prefs file.
+    internal static string ForgetConsentScript(string package) =>
+        $"'f=shared_prefs/{package}_preferences.xml; [ ! -f $f ] || sed -i -e /push_choice_/d -e /push_disabled_by_user/d $f'";
+
     private void ForgetConsent()
     {
         AndroidDriver.TerminateApp(AndroidOptions.AppPackage);
         AndroidDriver.ExecuteScript("mobile: shell", new Dictionary<string, object>
         {
             ["command"] = "run-as",
-            ["args"] = new[] { AndroidOptions.AppPackage, "sed", "-i", "-e", "/push_choice_/d", "-e", "/push_disabled_by_user/d", $"shared_prefs/{AndroidOptions.AppPackage}_preferences.xml" }
+            ["args"] = new[] { AndroidOptions.AppPackage, "sh", "-c", ForgetConsentScript(AndroidOptions.AppPackage) }
         });
         AndroidDriver.ActivateApp(AndroidOptions.AppPackage);
     }
@@ -126,7 +130,7 @@ public sealed class PushConsentPermissionFlowTests : AndroidTestBase
         }
 
         AndroidDriver.TerminateApp(AndroidOptions.AppPackage);
-        Shell("run-as", AndroidOptions.AppPackage, "sed", "-i", "-e", "/push_choice_/d", "-e", "/push_disabled_by_user/d", $"shared_prefs/{AndroidOptions.AppPackage}_preferences.xml");
+        Shell("run-as", AndroidOptions.AppPackage, "sh", "-c", PushConsentFlowTests.ForgetConsentScript(AndroidOptions.AppPackage));
         AndroidDriver.ActivateApp(AndroidOptions.AppPackage);
 
         var flow = new AndroidOidcLoginFlow(AndroidDriver);
