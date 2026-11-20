@@ -4,6 +4,7 @@ using static OpenKSeF.Mobile.E2E.Shared.Infrastructure.AndroidSelectors;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Appium;
 using OpenQA.Selenium.Appium.Android;
+using OpenQA.Selenium.Interactions;
 using OpenQA.Selenium.Support.UI;
 
 namespace OpenKSeF.Mobile.E2E.Android.Support;
@@ -281,19 +282,19 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     {
         try
         {
-            var message = _driver.FindElements(By.XPath("//*[@text='Save password?' or @text='Zapisać hasło?' or contains(@resource-id,'message_banner')]"))
+            var message = _driver.FindElements(By.XPath("//*[@text='Save password?' or @text='Zapisać hasło?']"))
                 .Where(e => e.Size.Height > 0).MaxBy(e => e.Size.Width * e.Size.Height);
             if (message is null)
                 return;
-            _driver.ExecuteScript("mobile: swipeGesture", new Dictionary<string, object>
-            {
-                ["left"] = message.Location.X,
-                ["top"] = message.Location.Y,
-                ["width"] = message.Size.Width,
-                ["height"] = message.Size.Height,
-                ["direction"] = "up",
-                ["percent"] = 0.75
-            });
+            var x = message.Location.X + message.Size.Width / 2;
+            var y = message.Location.Y + message.Size.Height / 2;
+            var finger = new PointerInputDevice(PointerKind.Touch, "finger");
+            var drag = new ActionSequence(finger);
+            drag.AddAction(finger.CreatePointerMove(CoordinateOrigin.Viewport, x, y, TimeSpan.Zero));
+            drag.AddAction(finger.CreatePointerDown(MouseButton.Touch));
+            drag.AddAction(finger.CreatePointerMove(CoordinateOrigin.Viewport, x, 0, TimeSpan.FromMilliseconds(150)));
+            drag.AddAction(finger.CreatePointerUp(MouseButton.Touch));
+            _driver.PerformActions([drag]);
         }
         catch (StaleElementReferenceException)
         {
