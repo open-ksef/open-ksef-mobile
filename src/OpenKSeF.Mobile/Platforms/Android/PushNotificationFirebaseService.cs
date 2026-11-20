@@ -1,6 +1,7 @@
 #if FIREBASE_ENABLED
 using Android.App;
 using Android.Content;
+using Firebase.Installations;
 using Firebase.Messaging;
 using OpenKSeF.Mobile.Services;
 
@@ -10,14 +11,52 @@ namespace OpenKSeF.Mobile;
 [IntentFilter(new[] { "com.google.firebase.MESSAGING_EVENT" })]
 public class PushNotificationFirebaseService : FirebaseMessagingService
 {
-    public static async Task<string?> TryGetCurrentTokenAsync()
+    public static async Task<string?> TryGetCurrentTokenAsync(bool enable)
     {
-        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!enable && !HasRegisteredInstallation())
+            return null;
+
+        var task = await AwaitAsync(() =>
+        {
+            if (enable)
+                FirebaseMessaging.Instance.AutoInitEnabled = true;
+            return FirebaseMessaging.Instance.GetToken();
+        });
+        return task is { IsSuccessful: true } ? task.Result?.ToString() : null;
+    }
+
+    public static void DisableAutoInit() => FirebaseMessaging.Instance.AutoInitEnabled = false;
+
+    public static async Task DeleteAsync()
+    {
+        if (await AwaitAsync(() => FirebaseMessaging.Instance.DeleteToken()) is { IsSuccessful: true })
+            await AwaitAsync(() => FirebaseInstallations.Instance.Delete());
+    }
+
+    // GetToken registers an installation when none is registered; the SDK keeps its state in PersistedInstallation.*.json.
+    private static bool HasRegisteredInstallation()
+    {
+        try
+        {
+            var context = Android.App.Application.Context;
+            return new[] { context.FilesDir, context.NoBackupFilesDir }
+                .Where(dir => dir is not null)
+                .SelectMany(dir => Directory.EnumerateFiles(dir!.AbsolutePath, "PersistedInstallation*.json"))
+                .Any(f => File.ReadAllText(f).Contains("\"Status\":3", StringComparison.Ordinal));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<Android.Gms.Tasks.Task?> AwaitAsync(Func<Android.Gms.Tasks.Task> start)
+    {
+        var tcs = new TaskCompletionSource<Android.Gms.Tasks.Task?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         try
         {
-            var tokenTask = FirebaseMessaging.Instance.GetToken();
-            tokenTask.AddOnCompleteListener(new FcmTokenCompleteListener(tcs));
+            start().AddOnCompleteListener(new FcmTaskCompleteListener(tcs));
         }
         catch
         {
@@ -65,25 +104,16 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
         }
     }
 
-    private sealed class FcmTokenCompleteListener : Java.Lang.Object, Android.Gms.Tasks.IOnCompleteListener
+    private sealed class FcmTaskCompleteListener : Java.Lang.Object, Android.Gms.Tasks.IOnCompleteListener
     {
-        private readonly TaskCompletionSource<string?> _tcs;
+        private readonly TaskCompletionSource<Android.Gms.Tasks.Task?> _tcs;
 
-        public FcmTokenCompleteListener(TaskCompletionSource<string?> tcs)
+        public FcmTaskCompleteListener(TaskCompletionSource<Android.Gms.Tasks.Task?> tcs)
         {
             _tcs = tcs;
         }
 
-        public void OnComplete(Android.Gms.Tasks.Task task)
-        {
-            if (task.IsSuccessful)
-            {
-                _tcs.TrySetResult(task.Result?.ToString());
-                return;
-            }
-
-            _tcs.TrySetResult(null);
-        }
+        public void OnComplete(Android.Gms.Tasks.Task task) => _tcs.TrySetResult(task);
     }
 }
 #endif
