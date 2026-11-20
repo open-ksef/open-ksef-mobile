@@ -395,9 +395,10 @@ public partial class InvoiceDraftViewModel : ObservableObject
         BuyerAddressLine2 = invoice.Buyer.AddressLine2;
         IssueDate = invoice.IssueDate.ToDateTime(TimeOnly.MinValue);
         SaleDate = invoice.SaleDate.ToDateTime(TimeOnly.MinValue);
-        var days = invoice.DueDate.DayNumber - invoice.IssueDate.DayNumber;
+        var due = invoice.DueDate ?? invoice.IssueDate;
+        var days = due.DayNumber - invoice.IssueDate.DayNumber;
         DueDays = days is 7 or 14 or 30 ? days.ToString() : string.Empty;
-        DueDate = invoice.DueDate.ToDateTime(TimeOnly.MinValue);
+        DueDate = due.ToDateTime(TimeOnly.MinValue);
         PaymentMethod = invoice.PaymentMethod;
         SplitPayment = invoice.SplitPayment;
         if (invoice.ExemptionBasis is { } basis)
@@ -512,7 +513,7 @@ public partial class InvoiceDraftViewModel : ObservableObject
 
             (LookupStatus, LookupTone) = (IssuingFormat.LookupStatus(result, DateTime.Now), result.VatStatus == "Czynny" ? "Success" : "Warning");
         }
-        catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) && ex is not ApiException { Validation.Errors.Count: > 0 })
         {
             (LookupStatus, LookupTone) = (IssuingFormat.LookupDown, "Error");
         }
