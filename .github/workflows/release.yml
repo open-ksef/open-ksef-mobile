@@ -34,6 +34,7 @@ jobs:
   # ─────────────────────────────────────────────
   create-release:
     name: Create Draft Release
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -109,52 +110,34 @@ jobs:
           echo "display=$VERSION" >> $GITHUB_OUTPUT
           echo "build=$BUILD" >> $GITHUB_OUTPUT
 
-      - name: Resolve Android signing credentials
-        id: android-signing
+      - name: Build Android AAB + APK
         env:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASS_RAW: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          STORE_PASS_RAW: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          STORE_PASS: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          APP_DISPLAY_VERSION: ${{ steps.appver.outputs.display }}
+          APP_BUILD: ${{ steps.appver.outputs.build }}
         run: |
-          KEY_PASS="$KEY_PASS_RAW"
-          STORE_PASS="$STORE_PASS_RAW"
+          export KEY_PASS="${KEY_PASS:-$STORE_PASS}"
+          export STORE_PASS="${STORE_PASS:-$KEY_PASS}"
+          KEY_ALIAS="${KEY_ALIAS:-openksef}"
 
           if [ -z "$KEY_PASS" ]; then
-            KEY_PASS="$STORE_PASS"
-          fi
-
-          if [ -z "$STORE_PASS" ]; then
-            STORE_PASS="$KEY_PASS"
-          fi
-
-          if [ -z "$KEY_ALIAS" ]; then
-            KEY_ALIAS="openksef"
-          fi
-
-          if [ -z "$KEY_PASS" ] || [ -z "$STORE_PASS" ]; then
             echo "ANDROID_KEY_PASSWORD and ANDROID_STORE_PASSWORD are both empty or missing."
             exit 1
           fi
 
-          echo "::add-mask::$KEY_PASS"
-          echo "::add-mask::$STORE_PASS"
-          echo "key_alias=$KEY_ALIAS" >> $GITHUB_OUTPUT
-          echo "key_pass=$KEY_PASS" >> $GITHUB_OUTPUT
-          echo "store_pass=$STORE_PASS" >> $GITHUB_OUTPUT
-
-      - name: Build Android AAB + APK
-        run: |
           dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
             -f net10.0-android \
             -c Release \
             -p:TargetFrameworks=net10.0-android \
             -p:AndroidKeyStore=true \
-            -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
-            -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
+            -p:ApplicationDisplayVersion="$APP_DISPLAY_VERSION" \
+            -p:ApplicationVersion="$APP_BUILD" \
             -p:AndroidSigningKeyStore=openksef.keystore \
-            -p:AndroidSigningKeyAlias=${{ steps.android-signing.outputs.key_alias }} \
-            -p:AndroidSigningKeyPass=${{ steps.android-signing.outputs.key_pass }} \
-            -p:AndroidSigningStorePass=${{ steps.android-signing.outputs.store_pass }}
+            -p:AndroidSigningKeyAlias="$KEY_ALIAS" \
+            -p:AndroidSigningKeyPass=env:KEY_PASS \
+            -p:AndroidSigningStorePass=env:STORE_PASS
 
       - name: Collect artifacts
         id: artifacts
@@ -194,6 +177,7 @@ jobs:
     name: Google Play internal track
     needs: android
     runs-on: ubuntu-latest
+    environment: google-play
     permissions: {}
     steps:
       - name: Download AAB
@@ -283,6 +267,8 @@ jobs:
 
       - name: Build iOS IPA (signed)
         if: steps.signing.outputs.enabled == 'true'
+        env:
+          CODESIGN_KEY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           dotnet publish src/OpenKSeF.Mobile/OpenKSeF.Mobile.csproj \
             -f net10.0-ios \
@@ -291,7 +277,7 @@ jobs:
             -p:BuildIpa=true \
             -p:ApplicationDisplayVersion=${{ steps.appver.outputs.display }} \
             -p:ApplicationVersion=${{ steps.appver.outputs.build }} \
-            -p:CodesignKey="${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+            -p:CodesignKey="$CODESIGN_KEY" \
             -p:CodesignProvision="openksef_distribution"
 
       - name: Build iOS archive (unsigned – no Apple secrets yet)
