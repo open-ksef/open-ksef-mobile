@@ -42,7 +42,8 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(Status), nameof(Title), nameof(IsDraft), nameof(IsSending), nameof(IsAccepted), nameof(IsRejected),
         nameof(GrossText), nameof(BuyerText), nameof(Lines), nameof(KsefNumber), nameof(AcceptedText), nameof(UpoUnavailableText), nameof(RejectionText),
         nameof(SendingProblemText), nameof(CanCopyAsNew), nameof(IsDuplicateNumberRejection), nameof(CanFixRejection), nameof(Environment), nameof(DatesText), nameof(HasUpo), nameof(HasVerificationLink),
-        nameof(IsPortalOnly), nameof(IsEditableDraft), nameof(CanCopyRejected), nameof(CanOpenInPortal), nameof(PortalButtonText), nameof(ForeignVatText))]
+        nameof(IsPortalOnly), nameof(IsEditableDraft), nameof(CanCopyRejected), nameof(CanOpenInPortal), nameof(PortalButtonText), nameof(ForeignVatText),
+        nameof(IsCorrection), nameof(CanCorrectInPortal), nameof(KindText), nameof(TotalCaption), nameof(ReferenceText), nameof(CorrectionLines), nameof(HasLines), nameof(LinesCaption), nameof(RelatedCaption), nameof(RelatedRows))]
     private IssuedInvoiceDto? _invoice;
 
     [ObservableProperty]
@@ -74,8 +75,14 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     public bool IsEditableDraft => IsDraft && !IsPortalOnly;
     public bool CanCopyAsNew => Invoice is not null && !IsSending && !IsPortalOnly;
     public bool CanCopyRejected => IsDuplicateNumberRejection && !IsPortalOnly;
-    public bool CanOpenInPortal => IsPortalOnly && (IsDraft || IsRejected);
-    public string PortalButtonText => IsDuplicateNumberRejection ? "Otwórz w portalu" : "Edytuj w portalu";
+    public bool IsCorrection => IssuingFormat.IsCorrection(Invoice?.InvoiceType);
+    public bool CanCorrectInPortal => IsAccepted && Invoice!.InvoiceType is not null && IssuingFormat.IsKnownKind(Invoice.InvoiceType);
+    public bool CanOpenInPortal => IsPortalOnly && (IsDraft || IsRejected) || CanCorrectInPortal;
+    public string PortalButtonText => IsDuplicateNumberRejection ? "Otwórz w portalu" : IsAccepted || IsCorrection ? "Koryguj w portalu" : "Edytuj w portalu";
+    public string? KindText => IssuingFormat.KindLabel(Invoice?.InvoiceType);
+    public string TotalCaption => IsCorrection ? "Kwota korekty" : Invoice?.InvoiceType == "ZAL" ? "Kwota zaliczki" : "Do zapłaty";
+    public bool HasLines => !IsCorrection && Lines.Count > 0;
+    public string LinesCaption => Invoice?.InvoiceType == "ZAL" ? "Zamówienie" : "Pozycje";
     public bool IsDuplicateNumberRejection => IsRejected && Invoice!.Ksef.StatusCode == 440;
     public bool CanFixRejection => IsRejected && !IsDuplicateNumberRejection && !IsPortalOnly;
     public bool HasUpo => IsAccepted && Invoice!.Ksef.HasUpo;
@@ -93,7 +100,48 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
         : null;
 
     public string DatesText => Invoice is null ? string.Empty
-        : $"Wystawiona {IssuingFormat.Date(Invoice.IssueDate)} · termin {IssuingFormat.Date(Invoice.DueDate)}";
+        : Invoice.InvoiceType == "ZAL" ? $"Wystawiona {IssuingFormat.Date(Invoice.IssueDate)} · zapłata {IssuingFormat.Date(Invoice.SaleDate)}"
+        : Invoice.DueDate is { } due ? $"Wystawiona {IssuingFormat.Date(Invoice.IssueDate)} · termin {IssuingFormat.Date(due)}"
+        : $"Wystawiona {IssuingFormat.Date(Invoice.IssueDate)}";
+
+    public string? ReferenceText => Invoice is null ? null : string.Join("\n", new[]
+        {
+            Invoice.CorrectedInvoice is { } original
+                ? $"Faktura korygowana: {original.Number ?? "bez numeru"} z {IssuingFormat.Date(original.IssueDate)}{(original.KsefNumber is { Length: > 0 } ksef ? $"\nKSeF {ksef}" : string.Empty)}"
+                : null,
+            Invoice.CorrectionReason is { Length: > 0 } reason ? $"Przyczyna: {reason}" : null,
+            Invoice.AmountBefore is { } before
+                ? Invoice.AdvanceAmount is { } after
+                    ? $"Zaliczka przed korektą {IssuingFormat.Money(before, Invoice.Currency)} · po korekcie {IssuingFormat.Money(after, Invoice.Currency)}"
+                    : $"Do zapłaty przed korektą {IssuingFormat.Money(before, Invoice.Currency)}"
+                : null,
+            Invoice.AdvanceInvoices is { Count: > 0 } advances ? $"Rozlicza zaliczki: {string.Join(", ", advances.Select(a => a.Number ?? a.KsefNumber))}" : null
+        }.Where(s => s is not null)) is { Length: > 0 } text ? text : null;
+
+    public IReadOnlyList<IssuedLineRow> CorrectionLines => Invoice?.CorrectionRows?
+        .OrderBy(r => r.BaseLineNo ?? int.MaxValue).ThenByDescending(r => r.IsBefore).ThenBy(r => r.RowNo)
+        .Select(r => new IssuedLineRow(
+            $"{(r.IsBefore ? "Przed" : "Po")}: {r.Name}",
+            $"{IssuingFormat.Quantity(r.Quantity)} × {IssuingFormat.Money(r.UnitNetPrice, Invoice.Currency)} netto · VAT {IssuingFormat.VatRateLabel(r.VatRate)}",
+            IssuingFormat.Money(r.NetAmount, Invoice.Currency)))
+        .ToList() ?? [];
+
+    public string? RelatedCaption => Invoice switch
+    {
+        { Chain: { } chain } => $"Zamówienie {IssuingFormat.Money(chain.OrderValue, Invoice.Currency)} · pozostało {IssuingFormat.Money(chain.Remaining, Invoice.Currency)}",
+        { Corrections.Count: > 0, CurrentState: { } state } => $"Korekty · po korektach {IssuingFormat.Money(state.TotalGross, Invoice.Currency)}",
+        { Corrections.Count: > 0 } => "Korekty",
+        _ => null
+    };
+
+    public IReadOnlyList<IssuedLineRow> RelatedRows => (Invoice?.Chain is { } chain
+            ? chain.Advances.Concat(chain.Final is { } final ? [final] : []).Concat(chain.Corrections)
+            : Invoice?.Corrections ?? [])
+        .Select(d => new IssuedLineRow(
+            $"{IssuingFormat.KindLabel(d.InvoiceType) ?? "Faktura"} {d.Number ?? "bez numeru"}",
+            $"{IssuingFormat.StatusLabel(d.Status, shortForm: true)} · {IssuingFormat.Date(d.IssueDate)}",
+            IssuingFormat.Money(d.TotalGross, Invoice!.Currency)))
+        .ToList();
 
     public IReadOnlyList<IssuedLineRow> Lines => Invoice?.Lines.Select(l => new IssuedLineRow(
         l.Name,
@@ -375,9 +423,14 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     {
         if (CanOpenInPortal)
             await Browser.Default.OpenAsync(
-                $"{_serverSettings.ServerUrl}/issued/{Invoice!.Id}{(IsDuplicateNumberRejection ? string.Empty : "/edit")}?tenantId={TenantId}",
+                $"{_serverSettings.ServerUrl}/issued/{Invoice!.Id}{PortalPath}?tenantId={TenantId}",
                 BrowserLaunchMode.SystemPreferred);
     }
+
+    private string PortalPath => IsAccepted || IsDuplicateNumberRejection ? string.Empty
+        : IsCorrection ? "/correct"
+        : IssuingFormat.IsVat(Invoice!.InvoiceType) ? "/edit"
+        : string.Empty;
 
     private async Task<byte[]?> TryRenderPdfAsync(byte[] xml)
     {

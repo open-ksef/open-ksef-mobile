@@ -10,7 +10,7 @@ public class IssuedInvoiceListItemDto
     public string? BuyerName { get; set; }
     public string? BuyerNip { get; set; }
     public DateOnly IssueDate { get; set; }
-    public DateOnly DueDate { get; set; }
+    public DateOnly? DueDate { get; set; }
     public decimal TotalNet { get; set; }
     public decimal TotalGross { get; set; }
     public string Currency { get; set; } = "PLN";
@@ -21,4 +21,6 @@ public class IssuedInvoiceListItemDto
     public string? BuyerIdType { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? BuyerForeignId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InvoiceType { get; set; }
 }

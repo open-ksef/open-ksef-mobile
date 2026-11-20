@@ -30,6 +30,9 @@
                             <controls:KsefBadge Status="{Binding Status}" />
                             <controls:KsefBadge Environment="{Binding Environment}" />
                         </HorizontalStackLayout>
+                        <Label Text="{Binding KindText}" Style="{StaticResource UiBody}" FontFamily="InterBold"
+                               AutomationId="IssuedInvoiceDetailsPageLabelKind"
+                               IsVisible="{Binding KindText, Converter={StaticResource IsNotNullConverter}}" />
 
                         <VerticalStackLayout Spacing="8" IsVisible="{Binding IsEditableDraft}">
                             <Label Text="Bez numeru. Możesz edytować i usunąć." Style="{StaticResource UiMutedText}" />
@@ -106,6 +109,7 @@
 
                         <VerticalStackLayout Spacing="8" IsVisible="{Binding CanOpenInPortal}">
                             <Label Text="W aplikacji ta faktura jest tylko do podglądu." Style="{StaticResource UiMutedText}"
+                                   IsVisible="{Binding IsPortalOnly}"
                                    AutomationId="IssuedInvoiceDetailsPageLabelViewOnly" />
                             <Button Text="{Binding PortalButtonText}" Style="{StaticResource UiButtonPrimary}"
                                     Command="{Binding OpenInPortalCommand}" AutomationId="IssuedInvoiceDetailsPageButtonOpenPortal" />
@@ -115,12 +119,15 @@
 
                 <Border Style="{StaticResource UiCard}">
                     <VerticalStackLayout Spacing="4">
-                        <Label Text="Do zapłaty" Style="{StaticResource UiCaption}" />
+                        <Label Text="{Binding TotalCaption}" Style="{StaticResource UiCaption}" />
                         <Label Text="{Binding GrossText}" Style="{StaticResource UiDisplay}" AutomationId="IssuedInvoiceDetailsPageLabelTotal" />
                         <Label Text="{Binding ForeignVatText}" Style="{StaticResource UiBody}"
                                AutomationId="IssuedInvoiceDetailsPageLabelForeignVat"
                                IsVisible="{Binding ForeignVatText, Converter={StaticResource IsNotNullConverter}}" />
                         <Label Text="{Binding DatesText}" Style="{StaticResource UiMutedText}" />
+                        <Label Text="{Binding ReferenceText}" Style="{StaticResource UiBody}"
+                               AutomationId="IssuedInvoiceDetailsPageLabelReference"
+                               IsVisible="{Binding ReferenceText, Converter={StaticResource IsNotNullConverter}}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -131,10 +138,46 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <Border Style="{StaticResource UiCard}">
+                <Border Style="{StaticResource UiCard}" IsVisible="{Binding HasLines}">
                     <VerticalStackLayout Spacing="10">
-                        <Label Text="Pozycje" Style="{StaticResource UiCaption}" />
+                        <Label Text="{Binding LinesCaption}" Style="{StaticResource UiCaption}" />
                         <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Lines}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:IssuedLineRow">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+                                        <Label Text="{Binding Name}" Style="{StaticResource UiBody}" FontFamily="InterBold" />
+                                        <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontFamily="InterBold" />
+                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource UiMutedText}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}" AutomationId="IssuedInvoiceDetailsPageCorrectionRows"
+                        IsVisible="{Binding IsCorrection}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Pozycje przed i po korekcie" Style="{StaticResource UiCaption}" />
+                        <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding CorrectionLines}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:IssuedLineRow">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">
+                                        <Label Text="{Binding Name}" Style="{StaticResource UiBody}" FontFamily="InterBold" />
+                                        <Label Grid.Column="1" Text="{Binding Gross}" Style="{StaticResource UiBody}" FontFamily="InterBold" />
+                                        <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Detail}" Style="{StaticResource UiMutedText}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource UiCard}" AutomationId="IssuedInvoiceDetailsPageRelated"
+                        IsVisible="{Binding RelatedCaption, Converter={StaticResource IsNotNullConverter}}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="{Binding RelatedCaption}" Style="{StaticResource UiCaption}" />
+                        <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding RelatedRows}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:IssuedLineRow">
                                     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="8">

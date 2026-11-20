@@ -481,6 +481,18 @@ public class ApiServiceTests
     }
 
     [Fact]
+    public async Task LookupNip_DailyQuota_ShowsServerMessage()
+    {
+        _handler.RespondJson(HttpStatusCode.ServiceUnavailable, """{"errors":[{"code":"NIP-LOOKUP-QUOTA","field":"nip","message":"Dzienny limit wyszukiwań w wykazie MF wyczerpany. Wpisz dane ręcznie."}],"warnings":[]}""");
+
+        var ex = await Assert.ThrowsAsync<ApiException>(() => CreateService().LookupNipAsync("1111111111"));
+
+        Assert.Equal("Dzienny limit wyszukiwań w wykazie MF wyczerpany. Wpisz dane ręcznie.", ex.Message);
+        Assert.Equal("NIP-LOOKUP-QUOTA", Assert.Single(ex.Validation!.Errors).Code);
+        Assert.Empty(_logger.Lines);
+    }
+
+    [Fact]
     public async Task LookupNip_TooManyRequests_ShowsTryAgainShortly()
     {
         _handler.Respond(HttpStatusCode.TooManyRequests);

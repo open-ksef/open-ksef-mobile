@@ -10,7 +10,7 @@ public sealed record IssuedInvoiceRow(IssuedInvoiceListItemDto Invoice)
 {
     public string Buyer => Invoice.BuyerName ?? "—";
     public string Gross => IssuingFormat.Money(Invoice.TotalGross, Invoice.Currency);
-    public string Subtitle => $"{Invoice.Number ?? "— (szkic)"} · {IssuingFormat.Date(Invoice.IssueDate)}";
+    public string Subtitle => string.Join(" · ", new[] { IssuingFormat.KindLabel(Invoice.InvoiceType), Invoice.Number ?? "— (szkic)", IssuingFormat.Date(Invoice.IssueDate) }.OfType<string>());
     public string Status => Invoice.Status;
 
     public string? ForeignText => Invoice.BuyerCountryCode is not { Length: > 0 } country ? null
