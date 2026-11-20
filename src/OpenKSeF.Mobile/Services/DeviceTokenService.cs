@@ -12,7 +12,9 @@ public class DeviceTokenService : IDeviceTokenService
 
     internal static Func<bool, Task<string?>> NativeToken { get; set; } = TryGetNativePushTokenAsync;
 
-    internal static Func<Task> DisableNativePush { get; set; } = DisableNativePushAsync;
+    internal static Action DisableNativeAutoInit { get; set; } = DisableNativeAutoInitCore;
+
+    internal static Func<Task> DeleteNativePush { get; set; } = DeleteNativePushAsync;
 
     private const int MaxPendingSignOuts = 5;
 
@@ -471,8 +473,9 @@ public class DeviceTokenService : IDeviceTokenService
         using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         limit.CancelAfter(ServerRemovalLimit);
         // A DELETE already sent keeps running past the limit, so a later enable can wait for it instead of racing it.
+        try { DisableNativeAutoInit(); } catch { }
         var removal = DeleteServerDevicesAsync(tokens, limit.Token, inFlight: cancellationToken);
-        var native = DisableNativePushAfterAsync(removal);
+        var native = DeleteNativePushAfterAsync(removal);
         lock (_gate)
             _removal = Task.WhenAll(_removal, native);
         try
@@ -529,10 +532,10 @@ public class DeviceTokenService : IDeviceTokenService
         return id;
     }
 
-    private static async Task DisableNativePushAfterAsync(Task removal)
+    private static async Task DeleteNativePushAfterAsync(Task removal)
     {
         try { await removal; } catch { }
-        try { await DisableNativePush(); } catch { }
+        try { await DeleteNativePush(); } catch { }
     }
 
     private static Task<string?> TryGetNativePushTokenAsync(bool enable)
@@ -544,10 +547,17 @@ public class DeviceTokenService : IDeviceTokenService
 #endif
     }
 
-    private static Task DisableNativePushAsync()
+    private static void DisableNativeAutoInitCore()
     {
 #if ANDROID && FIREBASE_ENABLED
-        return OpenKSeF.Mobile.PushNotificationFirebaseService.DisableAsync();
+        OpenKSeF.Mobile.PushNotificationFirebaseService.DisableAutoInit();
+#endif
+    }
+
+    private static Task DeleteNativePushAsync()
+    {
+#if ANDROID && FIREBASE_ENABLED
+        return OpenKSeF.Mobile.PushNotificationFirebaseService.DeleteAsync();
 #else
         return Task.CompletedTask;
 #endif

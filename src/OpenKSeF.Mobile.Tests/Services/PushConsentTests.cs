@@ -10,7 +10,8 @@ namespace OpenKSeF.Mobile.Tests.Services;
 public class PushConsentTests : IDisposable
 {
     private static readonly Func<bool, Task<string?>> RealNativeToken = DeviceTokenService.NativeToken;
-    private static readonly Func<Task> RealDisableNativePush = DeviceTokenService.DisableNativePush;
+    private static readonly Action RealDisableNativeAutoInit = DeviceTokenService.DisableNativeAutoInit;
+    private static readonly Func<Task> RealDeleteNativePush = DeviceTokenService.DeleteNativePush;
     private readonly IApiService _api = Substitute.For<IApiService>();
     private readonly IAuthService _auth = Substitute.For<IAuthService>();
     private readonly DeviceTokenService _device;
@@ -53,9 +54,10 @@ public class PushConsentTests : IDisposable
             _fcmActive |= enable;
             return Task.FromResult(_fcmActive ? _fcmToken : null);
         };
-        DeviceTokenService.DisableNativePush = () =>
+        DeviceTokenService.DisableNativeAutoInit = () => _native.Add(_rows.Any(r => r.Token == _fcmToken) ? "autoinit-off" : "autoinit-off-late");
+        DeviceTokenService.DeleteNativePush = () =>
         {
-            _native.Add(_rows.Any(r => r.Token == _fcmToken) ? "disable-before-delete" : "disable");
+            _native.Add(_rows.Any(r => r.Token == _fcmToken) ? "delete-before-server" : "delete");
             _fcmActive = false;
             _nativeDisabled.TrySetResult();
             return Task.CompletedTask;
@@ -66,7 +68,8 @@ public class PushConsentTests : IDisposable
     public void Dispose()
     {
         DeviceTokenService.NativeToken = RealNativeToken;
-        DeviceTokenService.DisableNativePush = RealDisableNativePush;
+        DeviceTokenService.DisableNativeAutoInit = RealDisableNativeAutoInit;
+        DeviceTokenService.DeleteNativePush = RealDeleteNativePush;
     }
 
     private PostLoginNavigationService Navigation()
@@ -399,7 +402,7 @@ public class PushConsentTests : IDisposable
         await Navigation().NavigateAsync();
 
         Assert.Empty(_rows);
-        Assert.Equal("disable", _native[0]);
+        Assert.Equal(["autoinit-off", "delete"], _native.Take(2));
         Assert.DoesNotContain("enable", _native);
         Assert.False(_fcmActive);
     }
@@ -427,11 +430,40 @@ public class PushConsentTests : IDisposable
         _fcmToken = "fcm-1";
         await Navigation().NavigateAsync();
 
+        _native.Clear();
+
         await Navigation().SignOutAsync();
         await _nativeDisabled.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Empty(_rows);
+        Assert.Equal(["autoinit-off", "delete"], _native);
         Assert.False(_fcmActive);
+    }
+
+    [Fact]
+    public async Task PushOff_AutoInitOffAtOnce_TokenDeletedOnlyAfterSlowServerDelete()
+    {
+        _fcmToken = "fcm-1";
+        await Navigation().NavigateAsync();
+        _native.Clear();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _api.UnregisterDeviceAsync(Arg.Any<Guid>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(async call =>
+        {
+            started.TrySetResult();
+            await release.Task;
+            _rows.RemoveAll(r => r.Id == call.Arg<Guid>());
+        });
+
+        var disable = _device.DisableNotificationsAsync();
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var whileDeleting = _native.ToList();
+        release.SetResult();
+        await disable;
+        await _nativeDisabled.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(["autoinit-off"], whileDeleting);
+        Assert.Equal(["autoinit-off", "delete"], _native);
     }
 }
 

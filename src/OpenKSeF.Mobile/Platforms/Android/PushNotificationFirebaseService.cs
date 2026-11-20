@@ -11,34 +11,48 @@ namespace OpenKSeF.Mobile;
 [IntentFilter(new[] { "com.google.firebase.MESSAGING_EVENT" })]
 public class PushNotificationFirebaseService : FirebaseMessagingService
 {
-    public static Task<string?> TryGetCurrentTokenAsync(bool enable)
+    public static async Task<string?> TryGetCurrentTokenAsync(bool enable)
     {
-        if (enable)
-            FirebaseMessaging.Instance.AutoInitEnabled = true;
-        else if (!HasRegisteredInstallation())
-            return Task.FromResult<string?>(null);
+        if (!enable && !HasRegisteredInstallation())
+            return null;
 
-        return AwaitAsync(() => FirebaseMessaging.Instance.GetToken());
+        var task = await AwaitAsync(() =>
+        {
+            if (enable)
+                FirebaseMessaging.Instance.AutoInitEnabled = true;
+            return FirebaseMessaging.Instance.GetToken();
+        });
+        return task is { IsSuccessful: true } ? task.Result?.ToString() : null;
     }
 
-    public static async Task DisableAsync()
-    {
-        FirebaseMessaging.Instance.AutoInitEnabled = false;
-        if (!HasRegisteredInstallation())
-            return;
+    public static void DisableAutoInit() => FirebaseMessaging.Instance.AutoInitEnabled = false;
 
-        await AwaitAsync(() => FirebaseMessaging.Instance.DeleteToken());
-        await AwaitAsync(() => FirebaseInstallations.Instance.Delete());
+    public static async Task DeleteAsync()
+    {
+        if (await AwaitAsync(() => FirebaseMessaging.Instance.DeleteToken()) is { IsSuccessful: true })
+            await AwaitAsync(() => FirebaseInstallations.Instance.Delete());
     }
 
-    // Only a registered installation (Status 3 in the SDK's PersistedInstallation.*.json) is known to Google; deleteToken on any other state registers one first.
-    private static bool HasRegisteredInstallation() =>
-        Directory.EnumerateFiles(Android.App.Application.Context.FilesDir!.AbsolutePath, "PersistedInstallation*")
-            .Any(f => File.ReadAllText(f).Contains("\"Status\":3", StringComparison.Ordinal));
-
-    private static async Task<string?> AwaitAsync(Func<Android.Gms.Tasks.Task> start)
+    // GetToken registers an installation when none is registered; the SDK keeps its state in PersistedInstallation.*.json.
+    private static bool HasRegisteredInstallation()
     {
-        var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            var context = Android.App.Application.Context;
+            return new[] { context.FilesDir, context.NoBackupFilesDir }
+                .Where(dir => dir is not null)
+                .SelectMany(dir => Directory.EnumerateFiles(dir!.AbsolutePath, "PersistedInstallation*.json"))
+                .Any(f => File.ReadAllText(f).Contains("\"Status\":3", StringComparison.Ordinal));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static async Task<Android.Gms.Tasks.Task?> AwaitAsync(Func<Android.Gms.Tasks.Task> start)
+    {
+        var tcs = new TaskCompletionSource<Android.Gms.Tasks.Task?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         try
         {
@@ -92,23 +106,14 @@ public class PushNotificationFirebaseService : FirebaseMessagingService
 
     private sealed class FcmTaskCompleteListener : Java.Lang.Object, Android.Gms.Tasks.IOnCompleteListener
     {
-        private readonly TaskCompletionSource<string?> _tcs;
+        private readonly TaskCompletionSource<Android.Gms.Tasks.Task?> _tcs;
 
-        public FcmTaskCompleteListener(TaskCompletionSource<string?> tcs)
+        public FcmTaskCompleteListener(TaskCompletionSource<Android.Gms.Tasks.Task?> tcs)
         {
             _tcs = tcs;
         }
 
-        public void OnComplete(Android.Gms.Tasks.Task task)
-        {
-            if (task.IsSuccessful)
-            {
-                _tcs.TrySetResult(task.Result?.ToString());
-                return;
-            }
-
-            _tcs.TrySetResult(null);
-        }
+        public void OnComplete(Android.Gms.Tasks.Task task) => _tcs.TrySetResult(task);
     }
 }
 #endif
