@@ -108,6 +108,8 @@ public sealed class SettingsNotificationDeniedFlowTests : AndroidTestBase
 
         var denyButton = new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(10)).Until(d =>
             d.FindElements(By.Id("com.android.permissioncontroller:id/permission_deny_button")).FirstOrDefault());
+        Assert.That(AndroidDriver.FindElement(By.Id("com.android.permissioncontroller:id/permission_message")).Text,
+            Does.Match("OpenKSeF.*(notifications|powiadomie)"), "OS notification permission dialog");
         denyButton.Click();
 
         new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(20)).Until(d =>

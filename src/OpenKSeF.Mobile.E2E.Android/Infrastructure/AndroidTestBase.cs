@@ -10,7 +10,7 @@ using NUnit.Framework.Interfaces;
 namespace OpenKSeF.Mobile.E2E.Android.Infrastructure;
 
 [NonParallelizable]
-[Timeout(300_000)]
+[CancelAfter(300_000)]
 public abstract class AndroidTestBase : BaseMobileTest
 {
     protected AndroidE2ETestOptions AndroidOptions { get; private set; } = null!;
