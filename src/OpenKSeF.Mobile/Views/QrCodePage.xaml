@@ -55,7 +55,7 @@
                            Aspect="AspectFit" />
                 </Border>
 
-                <Label Text="Zeskanuj kod w aplikacji banku, aby wypełnić przelew. Na tym telefonie: udostępnij i zapisz obraz, a w banku wczytaj kod z galerii."
+                <Label Text="Zeskanuj kod w aplikacji banku, aby wypełnić przelew. Na tym telefonie: udostępnij i zapisz obraz, a w banku wczytaj kod z galerii. Obraz ma numer faktury i kwotę. Po zapłacie usuń go z galerii."
                        Style="{StaticResource LabelMuted}"
                        HorizontalTextAlignment="Center" />
 

@@ -313,3 +313,22 @@ namespace Microsoft.Maui.Graphics
         public static Color FromArgb(string colorAsHex) => new();
     }
 }
+
+namespace OpenKSeF.Mobile.Services
+{
+    public static partial class PaymentQrImage
+    {
+        public static List<(byte[] Qr, IReadOnlyList<string> Lines)> Composed { get; } = [];
+
+        public static Exception? Failure { get; set; }
+
+        public static partial byte[] Compose(byte[] qrPng, IReadOnlyList<string> lines)
+        {
+            if (Failure is not null)
+                throw Failure;
+
+            Composed.Add((qrPng, lines));
+            return [.. qrPng, .. "caption"u8];
+        }
+    }
+}

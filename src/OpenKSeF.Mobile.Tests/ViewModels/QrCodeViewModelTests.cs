@@ -26,6 +26,8 @@ public class QrCodeViewModelTests
     {
         Shell.Current.Reset();
         Share.Default.Requests.Clear();
+        PaymentQrImage.Composed.Clear();
+        PaymentQrImage.Failure = null;
     }
 
     private static string V007(string currency = "PLN", decimal amount = 1476.00m) => $$"""
@@ -271,15 +273,56 @@ public class QrCodeViewModelTests
     }
 
     [Fact]
-    public async Task Share_WritesTheDecodedServerBytes()
+    public async Task Share_OldestServerWithQrMessage_ComposesServerBytesWithCaptionAndNamesFile()
     {
         Server(InvoiceA, Main(Png, null));
         var vm = Open(InvoiceA);
 
         await vm.ShareQrCommand.ExecuteAsync(null);
 
+        var composed = Assert.Single(PaymentQrImage.Composed);
+        Assert.Equal(PngBytes, composed.Qr);
+        Assert.Equal(["FV 1/2026", "1 476,00 PLN", "Dostawca Testowy"], composed.Lines);
         var request = Assert.Single(Share.Default.Requests);
-        Assert.Equal(PngBytes, await File.ReadAllBytesAsync(request.File!.FullPath));
+        Assert.Equal("QR FV 1_2026.png", Path.GetFileName(request.File!.FullPath));
+        var written = await File.ReadAllBytesAsync(request.File.FullPath);
+        Assert.Equal([.. PngBytes, .. "caption"u8.ToArray()], written);
+    }
+
+    [Fact]
+    public async Task Share_TwoInvoices_WriteDifferentFiles()
+    {
+        Server(InvoiceA, Main(Png, null));
+        Server(InvoiceB, Main(Png, null).Replace("FV 1/2026", "FV 2/2026"));
+        var vm = Open(InvoiceA);
+
+        await vm.ShareQrCommand.ExecuteAsync(null);
+        vm.InvoiceId = InvoiceB.ToString();
+        await vm.ShareQrCommand.ExecuteAsync(null);
+
+        Assert.Equal(["QR FV 1_2026.png", "QR FV 2_2026.png"], Share.Default.Requests.Select(r => Path.GetFileName(r.File!.FullPath)));
+    }
+
+    [Fact]
+    public async Task Share_ComposeFails_ShowsFixedAlertAndSharesNothing()
+    {
+        Server(InvoiceA, Main(Png, null));
+        var vm = Open(InvoiceA);
+        PaymentQrImage.Failure = new InvalidOperationException("raw");
+
+        await vm.ShareQrCommand.ExecuteAsync(null);
+
+        Assert.Empty(Share.Default.Requests);
+        Assert.Equal("Nie udało się udostępnić kodu QR.", Shell.Current.LastAlertMessage);
+    }
+
+    [Fact]
+    public void Hint_ReadsAsInReq0055()
+    {
+        var page = System.Xml.Linq.XDocument.Load(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../OpenKSeF.Mobile/Views/QrCodePage.xaml")));
+
+        Assert.Contains(page.Descendants().Select(e => e.Attribute("Text")?.Value),
+            text => text == "Zeskanuj kod w aplikacji banku, aby wypełnić przelew. Na tym telefonie: udostępnij i zapisz obraz, a w banku wczytaj kod z galerii. Obraz ma numer faktury i kwotę. Po zapłacie usuń go z galerii.");
     }
 
     [Fact]
