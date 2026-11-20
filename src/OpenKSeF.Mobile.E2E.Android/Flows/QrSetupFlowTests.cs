@@ -53,8 +53,18 @@ public sealed class QrSetupFlowTests : AndroidTestBase
 
         try
         {
+            // A picker with no history opens on Recent; Downloads is then only in the roots drawer.
+            var rootsOpened = false;
             new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(15)) { Message = "Android file picker did not show Download." }
-                .Until(d => d.FindElements(By.XPath("//*[contains(@text, 'Download')]")).Count > 0);
+                .Until(d =>
+                {
+                    if (d.FindElements(By.XPath("//*[contains(@text, 'Download')]")).Count > 0)
+                        return true;
+                    var roots = rootsOpened ? null : d.FindElements(By.XPath("//*[@content-desc='Show roots']")).FirstOrDefault();
+                    roots?.Click();
+                    rootsOpened |= roots is not null;
+                    return false;
+                });
             AndroidDriver.FindElements(By.XPath("//*[contains(@text, 'Download')]")).First().Click();
 
             new WebDriverWait(AndroidDriver, TimeSpan.FromSeconds(10)) { Message = "QR image not found in the Android file picker." }
