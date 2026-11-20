@@ -35,6 +35,7 @@
     <Compile Include="..\OpenKSeF.Mobile\Services\IPostLoginNavigationService.cs" Link="Linked\Services\IPostLoginNavigationService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IServerSettingsService.cs" Link="Linked\Services\IServerSettingsService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\IssuedInvoiceTotals.cs" Link="Linked\Services\IssuedInvoiceTotals.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\Services\PaymentQrImage.cs" Link="Linked\Services\PaymentQrImage.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\LocalDbService.cs" Link="Linked\Services\LocalDbService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\NotificationHubService.cs" Link="Linked\Services\NotificationHubService.cs" />
     <Compile Include="..\OpenKSeF.Mobile\Services\PostLoginNavigationService.cs" Link="Linked\Services\PostLoginNavigationService.cs" />

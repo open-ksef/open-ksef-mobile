@@ -42,6 +42,7 @@ public partial class QrCodeViewModel : ObservableObject
     private string? _errorMessage;
 
     private byte[]? _qrBytes;
+    private TransferDetailsDto? _transfer;
     private int _loadVersion;
 
     public QrCodeViewModel(IApiService apiService)
@@ -78,6 +79,7 @@ public partial class QrCodeViewModel : ObservableObject
             TransferText = null;
             QrImage = null;
             _qrBytes = null;
+            _transfer = null;
 
             var transfer = await _apiService.GetTransferDetailsAsync(
                 Guid.Parse(TenantId),
@@ -98,6 +100,7 @@ public partial class QrCodeViewModel : ObservableObject
                     throw new FormatException();
 
                 _qrBytes = bytes;
+                _transfer = transfer;
                 QrImage = ImageSource.FromStream(() => new MemoryStream(bytes));
             }
         }
@@ -138,13 +141,14 @@ public partial class QrCodeViewModel : ObservableObject
     [RelayCommand]
     private async Task ShareQrAsync()
     {
-        if (_qrBytes is null)
+        if (_qrBytes is not { } qr || _transfer is not { } transfer)
             return;
 
         try
         {
-            var filePath = Path.Combine(FileSystem.CacheDirectory, "transfer-qr.png");
-            await File.WriteAllBytesAsync(filePath, _qrBytes);
+            var image = await Task.Run(() => PaymentQrImage.Compose(qr, PaymentQrImage.Caption(transfer)));
+            var filePath = Path.Combine(FileSystem.CacheDirectory, PaymentQrImage.FileName(transfer.Title));
+            await File.WriteAllBytesAsync(filePath, image);
 
             await Share.Default.RequestAsync(new ShareFileRequest
             {
