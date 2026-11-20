@@ -22,7 +22,7 @@ public static partial class PaymentQrImage
             var font = i == 0 ? Microsoft.Maui.Graphics.Font.DefaultBold : Microsoft.Maui.Graphics.Font.Default;
             var (x, y, width, height) = layout.Line(i);
             canvas.Font = font;
-            var text = Fit(lines[i], width, s => canvas.GetStringSize(s, font, layout.FontSize).Width);
+            var text = Fit(lines[i], MathF.Floor(width), s => canvas.GetStringSize(s, font, layout.FontSize).Width);
             canvas.DrawString(text, x, y, width, height, HorizontalAlignment.Center, VerticalAlignment.Center);
         }
 

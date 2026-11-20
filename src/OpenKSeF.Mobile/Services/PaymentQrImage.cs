@@ -8,6 +8,7 @@ namespace OpenKSeF.Mobile.Services;
 public static partial class PaymentQrImage
 {
     private const string Ellipsis = "…";
+    private const int MaxFileNameChars = 100;
     private static readonly char[] InvalidFileNameChars = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
 
     public readonly record struct Layout(float FontSize, float Margin, float LineHeight, int Width, int QrHeight, int Height)
@@ -24,7 +25,10 @@ public static partial class PaymentQrImage
 
     public static string FileName(string? invoiceNumber)
     {
-        var name = string.Concat((invoiceNumber ?? string.Empty).Trim().Select(c => char.IsControl(c) || InvalidFileNameChars.Contains(c) ? '_' : c));
+        var name = string.Concat((invoiceNumber ?? string.Empty).Trim()
+            .Select(c => char.IsControl(c) || char.GetUnicodeCategory(c) == UnicodeCategory.Format || InvalidFileNameChars.Contains(c) ? '_' : c));
+        if (name.Length > MaxFileNameChars)
+            name = name[..(char.IsHighSurrogate(name[MaxFileNameChars - 1]) ? MaxFileNameChars - 1 : MaxFileNameChars)];
         return name.Length == 0 ? "QR.png" : $"QR {name}.png";
     }
 

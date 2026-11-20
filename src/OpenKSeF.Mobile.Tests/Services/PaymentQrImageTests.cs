@@ -18,6 +18,23 @@ public class PaymentQrImageTests
     public void FileName_ReplacesForbiddenCharsAndKeepsPolish(string? number, string expected) =>
         Assert.Equal(expected, PaymentQrImage.FileName(number));
 
+    [Theory]
+    [InlineData("FV‮1/2026gnp.exe", "QR FV_1_2026gnp.exe.png")]
+    [InlineData("FV​1﻿", "QR FV_1_.png")]
+    public void FileName_ReplacesFormatChars(string number, string expected) =>
+        Assert.Equal(expected, PaymentQrImage.FileName(number));
+
+    [Fact]
+    public void FileName_LongPolishNumber_CutTo100Chars()
+    {
+        var number = string.Concat(Enumerable.Repeat("ŻÓŁĆ", 64));
+
+        var name = PaymentQrImage.FileName(number);
+
+        Assert.Equal($"QR {number[..100]}.png", name);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(name) < 255);
+    }
+
     [Fact]
     public void FileName_TwoInvoices_DifferAndContainTheirNumbers()
     {
