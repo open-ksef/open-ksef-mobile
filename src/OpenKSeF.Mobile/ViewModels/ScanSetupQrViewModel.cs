@@ -124,7 +124,7 @@ public partial class ScanSetupQrViewModel : ObservableObject
             using var buffer = new MemoryStream();
             await stream.CopyToAsync(buffer);
 
-            var decoded = DecodeQrFromImageBytes(buffer.ToArray());
+            var decoded = await Task.Run(() => DecodeQrFromImageBytes(buffer.ToArray()));
             if (decoded is not null)
             {
                 await ProcessBarcodeAsync(decoded);

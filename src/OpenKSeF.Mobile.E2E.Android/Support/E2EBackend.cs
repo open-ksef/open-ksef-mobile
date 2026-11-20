@@ -168,6 +168,8 @@ public static class E2EBackend
     {
         var container = Environment.GetEnvironmentVariable("E2E_POSTGRES_CONTAINER") ?? "openksef-postgres";
         var psi = new ProcessStartInfo("docker") { RedirectStandardError = true, RedirectStandardOutput = true };
+        psi.Environment.Remove("DOCKER_HOST");
+        psi.Environment["DOCKER_CONTEXT"] = "default";
         foreach (var arg in new[] { "exec", container, "psql", "-U", "openksef", "-d", "openksef", "-v", "ON_ERROR_STOP=1", "-c", sql })
             psi.ArgumentList.Add(arg);
         using var process = Process.Start(psi)!;
@@ -181,6 +183,8 @@ public static class E2EBackend
     // App data goes through psql, not the API: a user whose 2FA setup failed cannot get a token.
     public static async Task DeleteUserAsync(User user)
     {
+        if (!user.Username.StartsWith("e2e-mobile-", StringComparison.Ordinal))
+            throw new InvalidOperationException($"Refusing to delete non-E2E user {user.Username}.");
         using var admin = await AdminClientAsync();
         var ids = (await KeycloakUserIdsAsync(admin, user.Username)).ToList();
         try

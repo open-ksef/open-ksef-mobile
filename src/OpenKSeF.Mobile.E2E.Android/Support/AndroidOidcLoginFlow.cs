@@ -279,19 +279,25 @@ public sealed class AndroidOidcLoginFlow(AndroidDriver driver)
     // The flag above may be ignored by the installed Chrome; while the message shows, UiAutomator2 cannot read the page under it.
     private void DismissSavePasswordMessage()
     {
-        var message = _driver.FindElements(By.XPath("//*[@text='Save password?' or @text='Zapisać hasło?' or contains(@resource-id,'message_banner')]"))
-            .Where(e => e.Size.Height > 0).MaxBy(e => e.Size.Width * e.Size.Height);
-        if (message is null)
-            return;
-        _driver.ExecuteScript("mobile: swipeGesture", new Dictionary<string, object>
+        try
         {
-            ["left"] = message.Location.X,
-            ["top"] = message.Location.Y,
-            ["width"] = message.Size.Width,
-            ["height"] = message.Size.Height,
-            ["direction"] = "up",
-            ["percent"] = 0.75
-        });
+            var message = _driver.FindElements(By.XPath("//*[@text='Save password?' or @text='Zapisać hasło?' or contains(@resource-id,'message_banner')]"))
+                .Where(e => e.Size.Height > 0).MaxBy(e => e.Size.Width * e.Size.Height);
+            if (message is null)
+                return;
+            _driver.ExecuteScript("mobile: swipeGesture", new Dictionary<string, object>
+            {
+                ["left"] = message.Location.X,
+                ["top"] = message.Location.Y,
+                ["width"] = message.Size.Width,
+                ["height"] = message.Size.Height,
+                ["direction"] = "up",
+                ["percent"] = 0.75
+            });
+        }
+        catch (StaleElementReferenceException)
+        {
+        }
     }
 
     private int VisibleContentBottom()
