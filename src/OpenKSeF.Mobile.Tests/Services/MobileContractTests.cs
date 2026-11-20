@@ -434,7 +434,7 @@ public class MobileContractTests
         Assert.Null(transfer.QrMessage);
         Assert.Equal("iVBORw0KGgo=", transfer.QrCodeBase64);
         Assert.Equal("Dostawca Testowy", transfer.RecipientName);
-        Assert.Equal("61109010140000071219812874", transfer.RecipientAccount);
+        Assert.Equal("93000000002026111700000815", transfer.RecipientAccount);
         Assert.Equal("1111111111", transfer.RecipientNip);
         Assert.Equal(1230.62m, transfer.Amount);
         Assert.Equal("PLN", transfer.Currency);
@@ -464,7 +464,7 @@ public class MobileContractTests
         Assert.Equal("Firma Testowa Sp. z o.o.", saved.LegalName);
         Assert.Equal("ul. Testowa 1", saved.AddressLine1);
         Assert.Equal("00-001 Warszawa", saved.AddressLine2);
-        Assert.Equal("61109010140000071219812874", saved.BankAccount);
+        Assert.Equal("93000000002026111700000815", saved.BankAccount);
         Assert.True(saved.CashAccounting);
         Assert.Equal(13, saved.NextNumber);
         Assert.Equal("2026-11", saved.NextNumberPeriod);
@@ -521,7 +521,7 @@ public class MobileContractTests
 
         Assert.Equal("Accepted", invoice.Status);
         Assert.Equal("FV/13/11/2026", invoice.Number);
-        Assert.Equal("PL61109010140000071219812874", invoice.Seller.Iban);
+        Assert.Equal("PL93000000002026111700000815", invoice.Seller.Iban);
         Assert.Equal("TESTPLPW", invoice.Seller.Swift);
         Assert.Equal("Bank Testowy", invoice.Seller.BankName);
         Assert.True(invoice.Seller.CashAccounting);
@@ -640,7 +640,7 @@ public class MobileContractTests
         Assert.Equal("ul. Testowa 1", company.AddressLine1);
         Assert.Null(company.AddressLine2);
         Assert.Equal("Czynny", company.VatStatus);
-        Assert.Equal(["61109010140000071219812874", "27114020040000300201355387"], company.BankAccounts);
+        Assert.Equal(["93000000002026111700000815", "66000000002026111700000816"], company.BankAccounts);
     }
 
     [Fact]
@@ -692,7 +692,7 @@ public class MobileContractTests
         Assert.Equal("FV/12/11/2026", invoice.InvoiceNumber);
         Assert.Equal("Dostawca Testowy", invoice.VendorName);
         Assert.Equal("1111111112", invoice.VendorNip);
-        Assert.Equal("61109010140000071219812874", invoice.VendorBankAccount);
+        Assert.Equal("93000000002026111700000815", invoice.VendorBankAccount);
         Assert.Equal("Firma Testowa", invoice.BuyerName);
         Assert.Equal("1234567890", invoice.BuyerNip);
         Assert.Equal(1000.50m, invoice.AmountNet);

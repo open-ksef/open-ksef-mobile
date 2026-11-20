@@ -49,7 +49,7 @@
         "invoiceNumber": "FV/12/11/2026",
         "vendorName": "Dostawca Testowy",
         "vendorNip": "1111111112",
-        "vendorBankAccount": "61109010140000071219812874",
+        "vendorBankAccount": "93000000002026111700000815",
         "buyerName": "Firma Testowa",
         "buyerNip": "1234567890",
         "amountNet": 1000.50,
@@ -138,7 +138,7 @@
     "invoiceNumber": "FV/12/11/2026",
     "vendorName": "Dostawca Testowy",
     "vendorNip": "1111111112",
-    "vendorBankAccount": "61109010140000071219812874",
+    "vendorBankAccount": "93000000002026111700000815",
     "buyerName": "Firma Testowa",
     "buyerNip": "1234567890",
     "amountNet": 1000.50,
@@ -223,12 +223,12 @@
   },
   "GET /api/tenants/{id}/invoices/{invoiceId}/transfer": {
     "recipientName": "Dostawca Testowy",
-    "recipientAccount": "61109010140000071219812874",
+    "recipientAccount": "93000000002026111700000815",
     "recipientNip": "1111111111",
     "amount": 1230.62,
     "currency": "PLN",
     "title": "FV/12/11/2026",
-    "transferText": "Dostawca Testowy\n61109010140000071219812874\n1230,62 PLN\nFV/12/11/2026",
+    "transferText": "Dostawca Testowy\n93000000002026111700000815\n1230,62 PLN\nFV/12/11/2026",
     "qrCodeBase64": "iVBORw0KGgo=",
     "qrMessage": null
   },
@@ -247,7 +247,7 @@
     "legalName": "Firma Testowa Sp. z o.o.",
     "addressLine1": "ul. Testowa 1",
     "addressLine2": "00-001 Warszawa",
-    "bankAccount": "61109010140000071219812874",
+    "bankAccount": "93000000002026111700000815",
     "cashAccounting": true,
     "numberingPattern": "FV/{n}/{MM}/{yyyy}",
     "nextNumber": 13,
@@ -280,7 +280,7 @@
       "name": "Firma Testowa Sp. z o.o.",
       "addressLine1": "ul. Testowa 1",
       "addressLine2": "00-001 Warszawa",
-      "bankAccount": "61109010140000071219812874",
+      "bankAccount": "93000000002026111700000815",
       "cashAccounting": false,
       "iban": null,
       "swift": null,
@@ -360,7 +360,7 @@
       "addressLine2": "00-001 Warszawa",
       "bankAccount": null,
       "cashAccounting": true,
-      "iban": "PL61109010140000071219812874",
+      "iban": "PL93000000002026111700000815",
       "swift": "TESTPLPW",
       "bankName": "Bank Testowy"
     },
@@ -514,7 +514,7 @@
       "name": "Firma Testowa Sp. z o.o.",
       "addressLine1": "ul. Testowa 1",
       "addressLine2": "00-001 Warszawa",
-      "bankAccount": "61109010140000071219812874",
+      "bankAccount": "93000000002026111700000815",
       "cashAccounting": false,
       "iban": null,
       "swift": null,
@@ -629,8 +629,8 @@
     "addressLine2": null,
     "vatStatus": "Czynny",
     "bankAccounts": [
-      "61109010140000071219812874",
-      "27114020040000300201355387"
+      "93000000002026111700000815",
+      "66000000002026111700000816"
     ]
   },
   "GET /api/nip-lookup/{nip} (invalid)": {

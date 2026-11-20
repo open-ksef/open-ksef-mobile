@@ -13,8 +13,8 @@ namespace OpenKSeF.Mobile.Tests.ViewModels;
 public class SellerProfileViewModelTests
 {
     private static readonly Guid TenantId = Guid.Parse("304f3ff7-06b6-43e8-bdf4-a0ad77f194e3");
-    private const string Account = "61109010140000071219812874";
-    private const string AccountGrouped = "61 1090 1014 0000 0712 1981 2874";
+    private const string Account = "93000000002026111700000815";
+    private const string AccountGrouped = "93 0000 0000 2026 1117 0000 0815";
 
     private readonly IApiService _api = Substitute.For<IApiService>();
 
