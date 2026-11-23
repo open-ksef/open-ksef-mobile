@@ -268,7 +268,9 @@ public class ApiService : IApiService
             var ruleMessage = rejected || response.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.Forbidden ? ParseRuleMessage(responseBody)
                 : response.StatusCode == HttpStatusCode.BadGateway && ParseRuleMessage(responseBody) == ApiException.ServerInvalidTokenMessage ? ApiException.ServerInvalidTokenMessage
                 : null;
-            var validation = rejected ? ParseValidation(responseBody) : null;
+            var validation = rejected || response.StatusCode == HttpStatusCode.ServiceUnavailable ? ParseValidation(responseBody) : null;
+            if (response.StatusCode == HttpStatusCode.ServiceUnavailable)
+                ruleMessage ??= validation?.Errors?.FirstOrDefault()?.Message;
 
             if (ruleMessage is null && validation is not { Errors.Count: > 0 })
                 _logger.LogWarning("{Method} {Path} returned {Status}: {Body}", method, LogPath(path), (int)response.StatusCode, Redact(responseBody));

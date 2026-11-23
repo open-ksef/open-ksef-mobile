@@ -40,7 +40,24 @@ public static class IssuingFormat
 
     public static string VatRateCode(string label) => IssuedInvoiceTotals.VatRates.FirstOrDefault(r => VatRateLabel(r) == label) ?? label;
 
-    public static bool IsPortalOnly(IssuedInvoiceDto invoice) => invoice.Buyer.Kind is not ("Company" or "Person") || invoice.Currency != "PLN";
+    public static bool IsPortalOnly(IssuedInvoiceDto invoice) => invoice.Buyer.Kind is not ("Company" or "Person") || invoice.Currency != "PLN" || !IsVat(invoice.InvoiceType);
+
+    public static bool IsVat(string? invoiceType) => invoiceType is null or "VAT";
+
+    public static bool IsCorrection(string? invoiceType) => invoiceType is "KOR" or "KOR_ZAL" or "KOR_ROZ";
+
+    public static bool IsKnownKind(string? invoiceType) => IsVat(invoiceType) || IsCorrection(invoiceType) || invoiceType is "ZAL" or "ROZ";
+
+    public static string? KindLabel(string? invoiceType) => invoiceType switch
+    {
+        null or "VAT" => null,
+        "KOR" => "Korekta",
+        "ZAL" => "Zaliczka",
+        "ROZ" => "Rozliczenie",
+        "KOR_ZAL" => "Korekta zaliczki",
+        "KOR_ROZ" => "Korekta rozliczenia",
+        _ => invoiceType
+    };
 
     public static string StatusLabel(string? status, bool shortForm = false) => status switch
     {

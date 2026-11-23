@@ -135,6 +135,21 @@ public class SellerProfileViewModelTests
     }
 
     [Fact]
+    public async Task LookupNip_DailyQuota_ShowsServerMessage()
+    {
+        var vm = await LoadedAsync(Profile(name: "Ręcznie"));
+        const string quota = "Dzienny limit wyszukiwań w wykazie MF wyczerpany. Wpisz dane ręcznie.";
+        _api.LookupNipAsync("1111111111").ThrowsAsync(new ApiException(HttpStatusCode.ServiceUnavailable, quota,
+            new ValidationEnvelope { Errors = [new ValidationIssue { Code = "NIP-LOOKUP-QUOTA", Field = "nip", Message = quota }] }));
+
+        await vm.LookupNipCommand.ExecuteAsync(null);
+
+        Assert.Equal("Ręcznie", vm.LegalName);
+        Assert.Equal(quota, vm.LookupStatus);
+        Assert.Equal("Error", vm.LookupTone);
+    }
+
+    [Fact]
     public async Task Save_ApiRejectsBankAccount_ShowsMessageUnderField()
     {
         var vm = await LoadedAsync(Profile());

@@ -197,7 +197,7 @@ public partial class SellerProfileViewModel : ObservableObject
                 : OtherAccount;
             (LookupStatus, LookupTone) = (IssuingFormat.LookupStatus(result, DateTime.Now), result.VatStatus == "Czynny" ? "Success" : "Warning");
         }
-        catch (Exception ex) when (ApiException.IsNetworkFailure(ex))
+        catch (Exception ex) when (ApiException.IsNetworkFailure(ex) && ex is not ApiException { Validation.Errors.Count: > 0 })
         {
             (LookupStatus, LookupTone) = (IssuingFormat.LookupDown, "Error");
         }
