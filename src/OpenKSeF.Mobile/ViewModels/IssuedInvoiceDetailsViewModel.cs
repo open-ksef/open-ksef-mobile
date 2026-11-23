@@ -423,12 +423,15 @@ public partial class IssuedInvoiceDetailsViewModel : ObservableObject
     {
         if (CanOpenInPortal)
             await Browser.Default.OpenAsync(
-                $"{_serverSettings.ServerUrl}/issued/{Invoice!.Id}{PortalPath}?tenantId={TenantId}",
+                $"{_serverSettings.ServerUrl}/issued/{PortalId}{PortalPath}?tenantId={TenantId}",
                 BrowserLaunchMode.SystemPreferred);
     }
 
+    private Guid PortalId => IsAccepted && Invoice!.CorrectedInvoice is { } original ? original.Id : Invoice!.Id;
+
     private string PortalPath => IsAccepted || IsDuplicateNumberRejection ? string.Empty
         : IsCorrection ? "/correct"
+        : Invoice!.InvoiceType is "ZAL" or "ROZ" ? "/chain"
         : IssuingFormat.IsVat(Invoice!.InvoiceType) ? "/edit"
         : string.Empty;
 

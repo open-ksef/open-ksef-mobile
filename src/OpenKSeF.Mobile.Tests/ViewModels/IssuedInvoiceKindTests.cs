@@ -147,7 +147,8 @@ public class IssuedInvoiceKindTests : IDisposable
     [Fact]
     public async Task KorAccepted_OnlyActionIsCorrectInPortal()
     {
-        var vm = await DetailsOf(Invoice("correction-accepted"));
+        var invoice = Invoice("correction-accepted");
+        var vm = await DetailsOf(invoice);
 
         Assert.True(vm.IsPortalOnly);
         Assert.False(vm.IsEditableDraft);
@@ -157,7 +158,7 @@ public class IssuedInvoiceKindTests : IDisposable
 
         await vm.OpenInPortalCommand.ExecuteAsync(null);
 
-        Assert.Equal($"https://portal.example.test/issued/{InvoiceId}?tenantId={TenantId}", Browser.Default.LastUri);
+        Assert.Equal($"https://portal.example.test/issued/{invoice.CorrectedInvoice!.Id}?tenantId={TenantId}", Browser.Default.LastUri);
     }
 
     [Fact]
@@ -201,7 +202,7 @@ public class IssuedInvoiceKindTests : IDisposable
     }
 
     [Fact]
-    public async Task ZalDraft_ShowsOrderAndChain_EditInPortalOpensDetails()
+    public async Task ZalDraft_ShowsOrderAndChain_EditInPortalOpensChainDraft()
     {
         var vm = await DetailsOf(Invoice("zal"));
 
@@ -218,7 +219,7 @@ public class IssuedInvoiceKindTests : IDisposable
 
         await vm.OpenInPortalCommand.ExecuteAsync(null);
 
-        Assert.Equal($"https://portal.example.test/issued/{InvoiceId}?tenantId={TenantId}", Browser.Default.LastUri);
+        Assert.Equal($"https://portal.example.test/issued/{InvoiceId}/chain?tenantId={TenantId}", Browser.Default.LastUri);
     }
 
     [Fact]
