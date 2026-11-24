@@ -309,6 +309,17 @@ public class IssuedInvoiceKindTests : IDisposable
     }
 
     [Fact]
+    public void CurrentStateAdvanceAmount_ParsesWhenSent_NullOnOlderServer()
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(Fixture("original-with-corrections"))!;
+        Assert.Null(node.Deserialize<IssuedInvoiceDto>(Web)!.CurrentState!.AdvanceAmount);
+
+        node["currentState"]!["advanceAmount"] = 300.50m;
+
+        Assert.Equal(300.50m, node.Deserialize<IssuedInvoiceDto>(Web)!.CurrentState!.AdvanceAmount);
+    }
+
+    [Fact]
     public async Task NullDueDate_Parses_AndDatesOmitTerm()
     {
         var node = System.Text.Json.Nodes.JsonNode.Parse(Fixture("correction-accepted"))!;

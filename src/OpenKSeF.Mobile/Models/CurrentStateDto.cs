@@ -9,4 +9,5 @@ public class CurrentStateDto
     public decimal TotalGross { get; set; }
     public PartyDto Buyer { get; set; } = new();
     public bool IsZero { get; set; }
+    public decimal? AdvanceAmount { get; set; }
 }
