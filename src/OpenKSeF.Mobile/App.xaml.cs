@@ -53,6 +53,7 @@ public partial class App : Application
         var window = new Window(new AppShell());
         window.Created += async (_, _) =>
         {
+            ApplyCover();
             if (await _appLock.StartAsync())
                 await _appLock.UnlockAsync();
         };
@@ -119,6 +120,9 @@ public partial class App : Application
             _back.Enabled = show;
         if (content is not null)
             content.ImportantForAccessibility = show ? Android.Views.ImportantForAccessibility.NoHideDescendants : Android.Views.ImportantForAccessibility.Auto;
+        foreach (var modal in Windows[0].Navigation.ModalStack)
+            if (modal.Handler?.PlatformView is Android.Views.View modalView)
+                modalView.Visibility = show ? Android.Views.ViewStates.Invisible : Android.Views.ViewStates.Visible;
 #elif IOS
         var uiWindow = (UIKit.UIWindow)handler.PlatformView!;
         var cover = _cover.ToPlatform(context);

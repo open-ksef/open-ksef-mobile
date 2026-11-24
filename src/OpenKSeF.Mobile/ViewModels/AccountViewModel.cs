@@ -63,7 +63,6 @@ public partial class AccountViewModel : ObservableObject
         _api = api;
         _appLock = appLock;
         AppLockEnabled = appLock.Enabled;
-        appLock.TurnedOffNoScreenLock += () => AppLockEnabled = false;
         AppLockTimeout = appLock.TimeoutSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
         ServerHost = ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
         AppVersion = $"v{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
@@ -74,6 +73,10 @@ public partial class AccountViewModel : ObservableObject
         ThemeSettings.Save(value);
         ThemeSettings.Apply(value);
     }
+
+    public void Unload() => _appLock.TurnedOffNoScreenLock -= OnAppLockTurnedOff;
+
+    private void OnAppLockTurnedOff() => AppLockEnabled = false;
 
     partial void OnAppLockTimeoutChanged(string value)
     {
@@ -100,6 +103,8 @@ public partial class AccountViewModel : ObservableObject
     [RelayCommand]
     public async Task LoadSettingsAsync()
     {
+        _appLock.TurnedOffNoScreenLock -= OnAppLockTurnedOff;
+        _appLock.TurnedOffNoScreenLock += OnAppLockTurnedOff;
         AppLockEnabled = _appLock.Enabled;
         try
         {

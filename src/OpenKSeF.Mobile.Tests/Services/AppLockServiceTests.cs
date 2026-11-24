@@ -291,13 +291,34 @@ public class AppLockServiceTests
     {
         await EnableAsync(0);
         var vm = NewAccountViewModel();
+        await vm.LoadSettingsAsync();
+        await vm.LoadSettingsAsync();
         Assert.True(vm.AppLockEnabled);
+        var changes = 0;
+        vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(vm.AppLockEnabled)) changes++; };
         _lock.OnBackground();
         _deviceSecure = false;
 
         _lock.OnForeground();
 
         Assert.False(vm.AppLockEnabled);
+        Assert.Equal(1, changes);
+    }
+
+    [Fact]
+    public async Task Account_Unloaded_NoLongerListensToTheSingleton()
+    {
+        await EnableAsync(0);
+        var vm = NewAccountViewModel();
+        await vm.LoadSettingsAsync();
+        vm.Unload();
+        _lock.OnBackground();
+        _deviceSecure = false;
+
+        _lock.OnForeground();
+
+        Assert.False(_lock.Enabled);
+        Assert.True(vm.AppLockEnabled);
     }
 
     [Fact]

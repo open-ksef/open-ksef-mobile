@@ -15,7 +15,7 @@ public class AppLockService : IAppLockService
 
     internal Func<bool> DeviceSecure { get; set; } = IsDeviceSecurePlatform;
     internal Func<Task<bool>> Prompt { get; set; } = AuthenticatePlatformAsync;
-    internal Func<DateTimeOffset> Now { get; set; } = () => DateTimeOffset.UtcNow;
+    internal Func<DateTimeOffset> Now { get; set; } = PlatformNow;
 
     public AppLockService(IAuthService auth)
     {
@@ -144,6 +144,16 @@ public class AppLockService : IAppLockService
             return;
         IsLocked = locked;
         LockChanged?.Invoke();
+    }
+
+    /// <summary>Android counts from boot including deep sleep, so changing the wall clock cannot shorten the time away.</summary>
+    private static DateTimeOffset PlatformNow()
+    {
+#if ANDROID
+        return DateTimeOffset.UnixEpoch.AddMilliseconds(Android.OS.SystemClock.ElapsedRealtime());
+#else
+        return DateTimeOffset.UtcNow;
+#endif
     }
 
     private static void HideRecents(bool hide)

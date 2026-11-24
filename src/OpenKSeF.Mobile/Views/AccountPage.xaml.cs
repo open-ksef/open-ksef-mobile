@@ -28,6 +28,12 @@ public partial class AccountPage : ContentPage
         }
     }
 
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _viewModel.Unload();
+    }
+
     private void OnNotificationToggled(object? sender, ToggledEventArgs e)
     {
         if (_isLoadingSettings)
