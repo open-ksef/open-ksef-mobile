@@ -37,6 +37,7 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<IDeviceTokenService, DeviceTokenService>();
         builder.Services.AddSingleton<INotificationHubService, NotificationHubService>();
+        builder.Services.AddSingleton<IAppLockService, AppLockService>();
 
         builder.Services.AddTransient<IPostLoginNavigationService, PostLoginNavigationService>();
 
@@ -50,6 +51,7 @@ public static class MauiProgram
         builder.Services.AddTransient<ScanSetupQrViewModel>();
         builder.Services.AddTransient<PairingViewModel>();
         builder.Services.AddTransient<AccountViewModel>();
+        builder.Services.AddTransient<LockViewModel>();
         builder.Services.AddTransient<SellerProfileViewModel>();
         builder.Services.AddTransient<IssuedInvoiceListViewModel>();
         builder.Services.AddTransient<InvoiceDraftViewModel>();

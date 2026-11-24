@@ -9,9 +9,9 @@ public partial class AccountPage : ContentPage
 
     public AccountPage(AccountViewModel vm)
     {
+        _viewModel = vm;
         InitializeComponent();
         BindingContext = vm;
-        _viewModel = vm;
     }
 
     protected override async void OnAppearing()
@@ -35,4 +35,7 @@ public partial class AccountPage : ContentPage
 
         _viewModel.ToggleNotificationsCommand.Execute(e.Value);
     }
+
+    private void OnAppLockToggled(object? sender, ToggledEventArgs e) =>
+        _viewModel.ToggleAppLockCommand.Execute(e.Value);
 }

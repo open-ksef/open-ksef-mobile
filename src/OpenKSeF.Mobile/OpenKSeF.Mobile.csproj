@@ -56,6 +56,8 @@
     <!-- Firebase pulls 1.17, where AccessibilityNodeInfoCompat.Checked is int; one pinned version keeps builds with and without Firebase on the same API. -->
     <PackageReference Include="Xamarin.AndroidX.Core" Version="1.17.0" />
     <PackageReference Include="Xamarin.AndroidX.Core.Core.Ktx" Version="1.17.0" />
+    <!-- 1.1.0.30 needs only AndroidX versions MAUI already resolves; newer builds pull AndroidX.Core 1.19 over the pin above. -->
+    <PackageReference Include="Xamarin.AndroidX.Biometric" Version="1.1.0.30" />
   </ItemGroup>
 
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' AND Exists('Platforms\Android\google-services.json')">

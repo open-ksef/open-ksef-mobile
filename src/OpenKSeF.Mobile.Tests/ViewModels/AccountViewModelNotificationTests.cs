@@ -22,7 +22,7 @@ public class AccountViewModelNotificationTests
         Application.Current!.Windows[0].Page = null;
         var serverSettings = Substitute.For<IServerSettingsService>();
         serverSettings.ServerUrl.Returns("https://ksef.example.com");
-        _vm = new AccountViewModel(serverSettings, _deviceTokenService, _notificationHub, _session, _api);
+        _vm = new AccountViewModel(serverSettings, _deviceTokenService, _notificationHub, _session, _api, Substitute.For<IAppLockService>());
     }
 
     [Fact]

@@ -363,6 +363,12 @@ public class AuthService : IAuthService
         }
     }
 
+    public async Task<bool> HasStoredSessionAsync()
+    {
+        EnsureConfiguration();
+        return _refreshToken is not null || await SecureStorage.Default.GetAsync(GetRefreshTokenKey()) is not null;
+    }
+
     private void ClearTokens()
     {
         Interlocked.Increment(ref _sessionGeneration);

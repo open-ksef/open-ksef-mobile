@@ -32,6 +32,8 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera is used to scan QR codes for server configuration</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID odblokowuje aplikację, gdy włączysz blokadę aplikacji w zakładce Konto.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

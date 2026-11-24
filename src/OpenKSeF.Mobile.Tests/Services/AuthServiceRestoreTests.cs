@@ -1584,7 +1584,7 @@ public class AuthServiceRestoreTests
         RespondToRefresh(HttpStatusCode.BadRequest, """{"error":"invalid_grant"}""");
         var settings = Substitute.For<IServerSettingsService>();
         settings.ServerUrl.Returns("https://ksef.example.com");
-        var vm = new AccountViewModel(settings, Substitute.For<IDeviceTokenService>(), Substitute.For<INotificationHubService>(), nav, Substitute.For<IApiService>());
+        var vm = new AccountViewModel(settings, Substitute.For<IDeviceTokenService>(), Substitute.For<INotificationHubService>(), nav, Substitute.For<IApiService>(), Substitute.For<IAppLockService>());
         var window = Application.Current!.Windows[0];
         window.Page = null;
 

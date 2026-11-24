@@ -43,6 +43,9 @@ public interface IAuthService
     Task<string?> GetAccessTokenAsync();
     Task<string?> RefreshAccessTokenAsync();
     Task<SessionRestoreResult> RestoreSessionAsync();
+
+    /// <summary>A refresh token is in memory or in SecureStorage; no network call.</summary>
+    Task<bool> HasStoredSessionAsync();
     bool IsAuthenticated { get; }
     bool HasSession { get; }
     int SessionGeneration { get; }
