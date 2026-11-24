@@ -12,12 +12,14 @@ public partial class AccountViewModel : ObservableObject
         "Powiadomienia wyłączone, ale serwer jeszcze o tym nie wie. Powiadomienie może dotrzeć, dopóki nie uruchomisz aplikacji ponownie z dostępem do sieci.";
     private const string EnableNoConnectionText =
         "Nie udało się włączyć powiadomień: brak połączenia z serwerem. Spróbuj ponownie po powrocie sieci.";
+    internal const string NoScreenLockText = "Ustaw blokadę ekranu w telefonie, aby włączyć blokadę aplikacji.";
 
     private readonly IServerSettingsService _serverSettings;
     private readonly IDeviceTokenService _deviceTokenService;
     private readonly INotificationHubService _notificationHub;
     private readonly IPostLoginNavigationService _session;
     private readonly IApiService _api;
+    private readonly IAppLockService _appLock;
 
     [ObservableProperty]
     private string _serverHost = "";
@@ -37,18 +39,31 @@ public partial class AccountViewModel : ObservableObject
     [ObservableProperty]
     private string _themeChoice = ThemeSettings.Load();
 
+    [ObservableProperty]
+    private bool _appLockEnabled;
+
+    [ObservableProperty]
+    private string _appLockTimeout = "";
+
+    [ObservableProperty]
+    private string? _appLockHint;
+
     public AccountViewModel(
         IServerSettingsService serverSettings,
         IDeviceTokenService deviceTokenService,
         INotificationHubService notificationHub,
         IPostLoginNavigationService session,
-        IApiService api)
+        IApiService api,
+        IAppLockService appLock)
     {
         _serverSettings = serverSettings;
         _deviceTokenService = deviceTokenService;
         _notificationHub = notificationHub;
         _session = session;
         _api = api;
+        _appLock = appLock;
+        AppLockEnabled = appLock.Enabled;
+        AppLockTimeout = appLock.TimeoutSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
         ServerHost = ServerUrlRules.DisplayHost(_serverSettings.ServerUrl);
         AppVersion = $"v{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})";
     }
@@ -59,9 +74,38 @@ public partial class AccountViewModel : ObservableObject
         ThemeSettings.Apply(value);
     }
 
+    public void Unload() => _appLock.TurnedOffNoScreenLock -= OnAppLockTurnedOff;
+
+    private void OnAppLockTurnedOff() => AppLockEnabled = false;
+
+    partial void OnAppLockTimeoutChanged(string value)
+    {
+        if (int.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+            _appLock.TimeoutSeconds = seconds;
+    }
+
+    [RelayCommand]
+    public async Task ToggleAppLockAsync(bool turnOn)
+    {
+        if (turnOn == _appLock.Enabled)
+            return;
+        if (turnOn && !_appLock.IsDeviceSecure)
+        {
+            AppLockHint = NoScreenLockText;
+            AppLockEnabled = false;
+            return;
+        }
+        AppLockHint = null;
+        await _appLock.SetEnabledAsync(turnOn);
+        AppLockEnabled = _appLock.Enabled;
+    }
+
     [RelayCommand]
     public async Task LoadSettingsAsync()
     {
+        _appLock.TurnedOffNoScreenLock -= OnAppLockTurnedOff;
+        _appLock.TurnedOffNoScreenLock += OnAppLockTurnedOff;
+        AppLockEnabled = _appLock.Enabled;
         try
         {
             NotificationsEnabled = await _deviceTokenService.AreNotificationsEnabledAsync();

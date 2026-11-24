@@ -53,6 +53,7 @@ Each service has a single, clear responsibility:
 | `ServerSettingsService` | Base URL and server configuration |
 | `NotificationHubService` | SignalR connection for live events |
 | `DeviceTokenService` | FCM/APNs token registration |
+| `AppLockService` | App lock (REQ-0033): setting, background timeout, device owner prompt |
 
 Do not merge responsibilities across services. New features should fit into an existing service or justify a new one with a clear single purpose.
 
@@ -193,6 +194,10 @@ Firebase is optional. If `src/OpenKSeF.Mobile/Platforms/Android/google-services.
 - Consent (CEO 2026-11-16, T-763): no device registration until the account says `Tak`. `PostLoginNavigationService.ActivatePushAsync` (after login or onboarding) asks once per account; the OS permission is requested only after `Tak`. Choice is `push_choice_<userId>` (`/api/account/me`), current account `push_account`, cleared on sign-out. One-time upgrade (`push_choice_migrated`): `push_disabled_by_user` or stored registration of a 1.0.8 install map to the first account signed in after it.
 - Hub `ReceiveNotification` carries `nativePush` (server has Relay or FCM configured). The local notification is skipped only when a native token is stored and `nativePush == true`; an absent field (API before T-618) shows it.
 - All device registration POSTs run in one chain in `DeviceTokenService` with a session token that sign-out cancels. Each sign-out has an id. If removal is not confirmed (delete failed, budget hit, or a POST of that session ended without a server answer: cancel, timeout, network error, 5xx), its device tokens stay in `pending_signout_sessions` (max 5, oldest evicted and logged out) and `AuthService.DeferLogoutAsync(id)` keeps its refresh token. `CompleteSignOutCleanupAsync` (after each sign-out, on start, on resume) waits for the chain and `LateRegistrationWait` (90 s) after an abandoned POST, then per entry refreshes, deletes the rows with that bearer, logs out of Keycloak and drops the entry only after a logout 2xx or `invalid_grant` (offline keeps it for the next run); each step, HTTP included, is cancelled at `ServerRemovalLimit`. It skips while `LogoutUnderway`.
+
+## App lock (REQ-0033)
+
+Opt-in in Konto, per device (`app_lock_enabled`, `app_lock_timeout` in `Preferences`, default 300 s). Prompt: AndroidX `BiometricPrompt` with `BIOMETRIC_WEAK | DEVICE_CREDENTIAL` (STRONG with credential is not supported below API 30), iOS `LAContext` device owner. `App.xaml.cs` adds `LockView` as a native view over the whole window (Android `DecorView`, iOS `UIWindow`), outside Shell, so `GoToAsync` (push tap, restore) runs under it and cannot dismiss it. Cold start covers before the session check; `Window.Stopped` covers while away and `Window.Resumed` lifts it when the time away is below the timeout. Our own prompt leaving the app (credential screen) never starts a new lock. Android 13+ hides the recents preview while the setting is on. Time away on Android is `SystemClock.ElapsedRealtime` (counts deep sleep, ignores wall clock changes). Modal pages live in a DialogFragment window above the cover: while locked their view is hidden and the dialog window is made not touchable and not focusable, so touches and Back reach the cover. `MainActivity.ConfigurationChanges` covers font scale, locale, keyboard and layout direction so the activity is not recreated; a recreated activity still gets the cover from `Window.Created`.
 
 ## Debugging playbook
 

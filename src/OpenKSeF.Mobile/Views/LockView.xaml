@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels"
+             x:Class="OpenKSeF.Mobile.Views.LockView"
+             x:DataType="vm:LockViewModel"
+             AutomationId="LockViewCover">
+
+    <ContentView.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{StaticResource GradientStart}" Offset="0.0" />
+            <GradientStop Color="{StaticResource GradientMid}" Offset="0.4" />
+            <GradientStop Color="{StaticResource GradientEnd}" Offset="1.0" />
+        </LinearGradientBrush>
+    </ContentView.Background>
+
+    <Border BackgroundColor="{AppThemeBinding Light={StaticResource UiSurface}, Dark={StaticResource UiSurfaceDark}}"
+            StrokeShape="RoundRectangle 12"
+            StrokeThickness="0"
+            Padding="28,36"
+            Margin="20"
+            VerticalOptions="Center"
+            HorizontalOptions="Fill"
+            MaximumWidthRequest="400">
+        <VerticalStackLayout Spacing="12">
+            <Label Text="⚡" FontSize="40" HorizontalOptions="Center" />
+            <Label Text="OpenKSeF"
+                   FontSize="28"
+                   FontFamily="InterBold"
+                   HorizontalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource UiText}, Dark={StaticResource UiTextDark}}" />
+            <Label Text="Aplikacja zablokowana"
+                   FontSize="14"
+                   HorizontalOptions="Center"
+                   TextColor="{AppThemeBinding Light={StaticResource UiMuted}, Dark={StaticResource UiMutedDark}}"
+                   Margin="0,0,0,8" />
+            <Button Text="Odblokuj"
+                    Style="{StaticResource UiButtonPrimary}"
+                    Command="{Binding UnlockCommand}"
+                    AutomationId="LockViewButtonUnlock" />
+            <Button Text="Wyloguj się"
+                    Style="{StaticResource ButtonGhost}"
+                    Command="{Binding SignOutCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InvertedBoolConverter}}"
+                    AutomationId="LockViewButtonSignOut" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Center" />
+        </VerticalStackLayout>
+    </Border>
+
+</ContentView>

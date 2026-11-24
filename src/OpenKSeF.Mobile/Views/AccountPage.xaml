@@ -63,6 +63,39 @@
                 </VerticalStackLayout>
             </Border>
 
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12"
+                    AutomationId="AccountPageSectionAppLock">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Bezpieczeństwo" Style="{StaticResource LabelCaption}" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto">
+                        <Label Text="Blokada aplikacji" FontSize="15" VerticalOptions="Center" />
+                        <Switch Grid.Column="1"
+                                IsToggled="{Binding AppLockEnabled}"
+                                Toggled="OnAppLockToggled"
+                                AutomationId="AccountPageToggleAppLock" />
+                    </Grid>
+                    <Label Text="Odcisk palca, twarz lub PIN telefonu przy otwieraniu aplikacji."
+                           Style="{StaticResource LabelCaption}" />
+                    <Label Text="{Binding AppLockHint}"
+                           IsVisible="{Binding AppLockHint, Converter={StaticResource IsNotNullConverter}}"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}"
+                           AutomationId="AccountPageLabelAppLockHint" />
+                    <Border Style="{StaticResource UiSegmentTrack}" IsVisible="{Binding AppLockEnabled}">
+                        <Grid ColumnDefinitions="*,*,*"
+                              RadioButtonGroup.GroupName="appLockTimeout"
+                              RadioButtonGroup.SelectedValue="{Binding AppLockTimeout}">
+                            <RadioButton Style="{StaticResource UiSegment}" Content="Od razu" Value="0"
+                                         AutomationId="AccountPageSegmentLockNow" />
+                            <RadioButton Grid.Column="1" Style="{StaticResource UiSegment}" Content="Po 1 minucie" Value="60"
+                                         AutomationId="AccountPageSegmentLock1Min" />
+                            <RadioButton Grid.Column="2" Style="{StaticResource UiSegment}" Content="Po 5 minutach" Value="300"
+                                         AutomationId="AccountPageSegmentLock5Min" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Serwer" Style="{StaticResource LabelCaption}" />
