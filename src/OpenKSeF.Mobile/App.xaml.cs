@@ -120,9 +120,22 @@ public partial class App : Application
             _back.Enabled = show;
         if (content is not null)
             content.ImportantForAccessibility = show ? Android.Views.ImportantForAccessibility.NoHideDescendants : Android.Views.ImportantForAccessibility.Auto;
+        // Modal pages sit in a DialogFragment window above the DecorView: hide them and let touches and Back reach the cover.
+        var dialogWindows = ((AndroidX.Fragment.App.FragmentActivity)activity).SupportFragmentManager.Fragments
+            .OfType<AndroidX.Fragment.App.DialogFragment>().Select(f => f.Dialog?.Window).OfType<Android.Views.Window>().ToList();
         foreach (var modal in Windows[0].Navigation.ModalStack)
-            if (modal.Handler?.PlatformView is Android.Views.View modalView)
-                modalView.Visibility = show ? Android.Views.ViewStates.Invisible : Android.Views.ViewStates.Visible;
+        {
+            if (modal.Handler?.PlatformView is not Android.Views.View modalView)
+                continue;
+            modalView.Visibility = show ? Android.Views.ViewStates.Invisible : Android.Views.ViewStates.Visible;
+            if (dialogWindows.FirstOrDefault(w => w.DecorView == modalView.RootView) is not { } dialogWindow)
+                continue;
+            const Android.Views.WindowManagerFlags passThrough = Android.Views.WindowManagerFlags.NotTouchable | Android.Views.WindowManagerFlags.NotFocusable;
+            if (show)
+                dialogWindow.AddFlags(passThrough);
+            else
+                dialogWindow.ClearFlags(passThrough);
+        }
 #elif IOS
         var uiWindow = (UIKit.UIWindow)handler.PlatformView!;
         var cover = _cover.ToPlatform(context);
