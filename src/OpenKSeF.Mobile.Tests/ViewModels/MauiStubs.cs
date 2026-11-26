@@ -316,6 +316,17 @@ namespace Microsoft.Maui.Graphics
 
 namespace OpenKSeF.Mobile.Services
 {
+    public static class CopyFeedback
+    {
+        public static List<(string Message, bool LongPress)> Shown { get; } = [];
+
+        public static Task ShowAsync(string message, bool longPress = false)
+        {
+            Shown.Add((message, longPress));
+            return Task.CompletedTask;
+        }
+    }
+
     public static partial class PaymentQrImage
     {
         public static List<(byte[] Qr, IReadOnlyList<string> Lines)> Composed { get; } = [];

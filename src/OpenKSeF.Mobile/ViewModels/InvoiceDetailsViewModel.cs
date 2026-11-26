@@ -29,6 +29,15 @@ public partial class InvoiceDetailsViewModel : ObservableObject
     [ObservableProperty]
     private string? _errorMessage;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTransfer))]
+    private IReadOnlyList<TransferFieldRow> _transferRows = [];
+
+    public bool HasTransfer => TransferRows.Count > 0;
+
+    [ObservableProperty]
+    private string? _transferError;
+
     public InvoiceDetailsViewModel(IApiService apiService)
     {
         _apiService = apiService;
@@ -73,6 +82,30 @@ public partial class InvoiceDetailsViewModel : ObservableObject
         {
             IsBusy = false;
         }
+
+        await LoadTransferAsync();
+    }
+
+    [RelayCommand]
+    private async Task LoadTransferAsync()
+    {
+        if (Invoice is not { } invoice || TenantId is null)
+            return;
+
+        try
+        {
+            TransferError = null;
+            var transfer = await _apiService.GetTransferDetailsAsync(Guid.Parse(TenantId), invoice.Id);
+            var rows = TransferFieldRow.From(transfer, "InvoiceDetailsPage").ToList();
+            if (invoice.DueDate is not null)
+                rows.Add(new TransferFieldRow { Caption = "Termin płatności", Value = invoice.DueText, AutomationId = "InvoiceDetailsPageRowDue" });
+            TransferRows = rows;
+        }
+        catch (Exception)
+        {
+            TransferRows = [];
+            TransferError = "Nie udało się pobrać danych przelewu.";
+        }
     }
 
     [RelayCommand]
@@ -85,7 +118,7 @@ public partial class InvoiceDetailsViewModel : ObservableObject
         {
             var transfer = await _apiService.GetTransferDetailsAsync(Guid.Parse(TenantId), Invoice.Id);
             await Clipboard.Default.SetTextAsync(transfer.TransferText);
-            await Shell.Current.DisplayAlertAsync("Skopiowano", "Dane przelewu skopiowane do schowka.", "OK");
+            await CopyFeedback.ShowAsync("Skopiowano dane przelewu");
         }
         catch (ApiException ex)
         {

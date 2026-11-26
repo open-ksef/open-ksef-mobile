@@ -17,6 +17,12 @@ public class InvoiceDetailsViewModelTests
 
     private readonly IApiService _api = Substitute.For<IApiService>();
 
+    public InvoiceDetailsViewModelTests()
+    {
+        Shell.Current.Reset();
+        CopyFeedback.Shown.Clear();
+    }
+
     private InvoiceDetailsViewModel Loaded() => new(_api)
     {
         Invoice = new InvoiceDto { Id = InvoiceId, VendorName = "Test Sp. z o.o.", VendorNip = "1111111111", AmountGross = 1230.50m, KSeFInvoiceNumber = "KSEF-001" },
@@ -33,7 +39,8 @@ public class InvoiceDetailsViewModelTests
         await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
 
         Assert.Equal(TransferText, Clipboard.Default.Text);
-        Assert.Equal("Dane przelewu skopiowane do schowka.", Shell.Current.LastAlertMessage);
+        Assert.Equal(("Skopiowano dane przelewu", false), CopyFeedback.Shown.Single());
+        Assert.Empty(Shell.Current.Alerts);
         Assert.Null(vm.ErrorMessage);
     }
 
@@ -80,7 +87,7 @@ public class InvoiceDetailsViewModelTests
         _api.GetTransferDetailsAsync(TenantId, InvoiceId).Returns(new TransferDetailsDto { TransferText = TransferText });
         await vm.CopyTransferDetailsCommand.ExecuteAsync(null);
 
-        Assert.Equal("Dane przelewu skopiowane do schowka.", Shell.Current.LastAlertMessage);
+        Assert.Equal("Skopiowano dane przelewu", CopyFeedback.Shown.Single().Message);
         Assert.Equal(TransferText, Clipboard.Default.Text);
     }
 }

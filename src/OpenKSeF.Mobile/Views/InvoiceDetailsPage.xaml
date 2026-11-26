@@ -165,15 +165,42 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <Border Margin="15,5" Style="{StaticResource CardBorder}" Padding="0,15,0,8"
+                        AutomationId="InvoiceDetailsPageCardTransfer"
+                        IsVisible="{Binding HasTransfer}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="Dane do przelewu" Style="{StaticResource LabelCaption}" Margin="16,0,16,4" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding TransferRows}"
+                                             BindableLayout.ItemTemplate="{StaticResource TransferRowTemplate}" />
+                        <Label Text="Dotknij pola, aby je skopiować."
+                               Style="{StaticResource LabelCaption}"
+                               Margin="16,4,16,0" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Margin="15,5" Style="{StaticResource CardBorder}"
+                        IsVisible="{Binding TransferError, Converter={StaticResource IsNotNullConverter}}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding TransferError}"
+                               AutomationId="InvoiceDetailsPageLabelTransferError"
+                               TextColor="{AppThemeBinding Light={StaticResource UiError}, Dark={StaticResource UiErrorDark}}" />
+                        <Button Text="Ponów"
+                                AutomationId="InvoiceDetailsPageButtonTransferRetry"
+                                Command="{Binding LoadTransferCommand}"
+                                Style="{StaticResource ButtonSmall}"
+                                HorizontalOptions="Start" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <VerticalStackLayout Spacing="10" Padding="15,15,15,30">
                     <Button Text="Zapłać"
                             AutomationId="InvoiceDetailsPageButtonShowQr"
                             Command="{Binding ShowQrCodeCommand}"
                             HorizontalOptions="Fill" />
-                    <Button Text="Kopiuj dane przelewu"
+                    <Button Text="Kopiuj wszystkie dane"
                             AutomationId="InvoiceDetailsPageButtonCopyTransfer"
                             Command="{Binding CopyTransferDetailsCommand}"
-                            Style="{StaticResource ButtonSecondary}"
+                            Style="{StaticResource ButtonGhost}"
                             HorizontalOptions="Fill" />
                 </VerticalStackLayout>
 

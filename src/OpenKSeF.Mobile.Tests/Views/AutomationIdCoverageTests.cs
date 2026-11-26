@@ -62,7 +62,10 @@ public class AutomationIdCoverageTests
             "InvoiceDetailsPageLabelKsefNumber",
             "InvoiceDetailsPageButtonCopyTransfer",
             "InvoiceDetailsPageButtonShowQr",
-            "InvoiceDetailsPageButtonRetry");
+            "InvoiceDetailsPageButtonRetry",
+            "InvoiceDetailsPageCardTransfer",
+            "InvoiceDetailsPageLabelTransferError",
+            "InvoiceDetailsPageButtonTransferRetry");
 
         AssertFileContainsAll(
             "QrCodePage.xaml",
@@ -72,7 +75,7 @@ public class AutomationIdCoverageTests
             "QrCodePageButtonRetry",
             "QrCodePageLabelError",
             "QrCodePageLabelMessage",
-            "QrCodePageLabelTransferText",
+            "QrCodePageCardTransfer",
             "QrCodePageButtonCopy");
 
         AssertFileContainsAll(

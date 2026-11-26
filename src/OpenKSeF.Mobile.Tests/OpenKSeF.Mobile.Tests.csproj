@@ -59,6 +59,7 @@
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\SellerProfileViewModel.cs" Link="Linked\ViewModels\SellerProfileViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\TenantFormViewModel.cs" Link="Linked\ViewModels\TenantFormViewModel.cs" />
     <Compile Include="..\OpenKSeF.Mobile\ViewModels\TenantsViewModel.cs" Link="Linked\ViewModels\TenantsViewModel.cs" />
+    <Compile Include="..\OpenKSeF.Mobile\ViewModels\TransferFieldRow.cs" Link="Linked\ViewModels\TransferFieldRow.cs" />
   </ItemGroup>
 
   <ItemGroup>
