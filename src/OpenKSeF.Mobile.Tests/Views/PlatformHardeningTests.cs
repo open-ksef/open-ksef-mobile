@@ -25,6 +25,18 @@ public class PlatformHardeningTests
         Assert.Contains("<uses-permission android:name=\"android.permission.VIBRATE\" />", Read("Platforms/Android/AndroidManifest.xml"));
 
     [Fact]
+    public void TouchBehaviors_BindToAttachedViewBindingContext()
+    {
+        var xaml = string.Concat(Directory.EnumerateFiles(AppDir, "*.xaml", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}") && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+            .Select(File.ReadAllText));
+        var behaviors = Regex.Matches(xaml, @"<toolkit:TouchBehavior[^>]*>");
+
+        Assert.NotEmpty(behaviors);
+        Assert.All(behaviors, m => Assert.Matches(@"BindingContext=""\{Binding BindingContext, Source=\{x:Reference \w+\}", m.Value));
+    }
+
+    [Fact]
     public void ReleaseNetworkConfig_HasNoCleartextDomains()
     {
         var config = Read("Platforms/Android/Resources/xml/network_security_config.xml");

@@ -423,7 +423,8 @@
 
 
     <DataTemplate x:Key="TransferRowTemplate" x:DataType="vm:TransferFieldRow">
-        <Border StrokeThickness="0"
+        <Border x:Name="TransferRow"
+                StrokeThickness="0"
                 StrokeShape="Rectangle"
                 BackgroundColor="Transparent"
                 MinimumHeightRequest="56"
@@ -432,7 +433,8 @@
                 SemanticProperties.Description="{Binding Description}"
                 SemanticProperties.Hint="{Binding Hint}">
             <Border.Behaviors>
-                <toolkit:TouchBehavior IsEnabled="{Binding IsCopyable}"
+                <toolkit:TouchBehavior BindingContext="{Binding BindingContext, Source={x:Reference TransferRow}, x:DataType=Border}"
+                                       IsEnabled="{Binding IsCopyable}"
                                        Command="{Binding CopyCommand}"
                                        LongPressCommand="{Binding LongPressCommand}"
                                        PressedOpacity="0.6" />
