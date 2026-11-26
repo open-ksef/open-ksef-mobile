@@ -3,7 +3,8 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit">
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+    xmlns:vm="clr-namespace:OpenKSeF.Mobile.ViewModels">
 
     <toolkit:IsNotNullConverter x:Key="IsNotNullConverter" />
     <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
@@ -420,4 +421,60 @@
         <Setter Property="MinimumHeightRequest" Value="52" />
     </Style>
 
+
+    <DataTemplate x:Key="TransferRowTemplate" x:DataType="vm:TransferFieldRow">
+        <Border x:Name="TransferRow"
+                StrokeThickness="0"
+                StrokeShape="Rectangle"
+                BackgroundColor="Transparent"
+                MinimumHeightRequest="56"
+                Padding="16,8,0,8"
+                AutomationId="{Binding AutomationId}"
+                SemanticProperties.Description="{Binding Description}"
+                SemanticProperties.Hint="{Binding Hint}">
+            <Border.Behaviors>
+                <toolkit:TouchBehavior BindingContext="{Binding BindingContext, Source={x:Reference TransferRow}, x:DataType=Border}"
+                                       IsEnabled="{Binding IsCopyable}"
+                                       Command="{Binding CopyCommand}"
+                                       LongPressCommand="{Binding LongPressCommand}"
+                                       PressedOpacity="0.6" />
+            </Border.Behaviors>
+            <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding IsCopied}" Value="True">
+                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource UiPrimarySubtle}, Dark={StaticResource UiPrimarySubtleDark}}" />
+                </DataTrigger>
+            </Border.Triggers>
+            <Grid ColumnDefinitions="*,48" RowDefinitions="Auto,Auto" RowSpacing="2">
+                <BoxView x:Name="AccentInk" IsVisible="False" Color="{AppThemeBinding Light={StaticResource UiAccent}, Dark={StaticResource UiAccentDark}}" />
+                <BoxView x:Name="SuccessInk" IsVisible="False" Color="{AppThemeBinding Light={StaticResource UiSuccess}, Dark={StaticResource UiSuccessDark}}" />
+                <Label Text="{Binding Caption}"
+                       Style="{StaticResource LabelCaption}"
+                       AutomationProperties.IsInAccessibleTree="False" />
+                <Label Grid.Row="1"
+                       Text="{Binding Value}"
+                       FontSize="16"
+                       FontFamily="InterSemiBold"
+                       LineBreakMode="WordWrap"
+                       AutomationProperties.IsInAccessibleTree="False" />
+                <Image Grid.Column="1" Grid.RowSpan="2"
+                       Source="icon_copy.png"
+                       WidthRequest="24" HeightRequest="24"
+                       IsVisible="{Binding ShowCopyIcon}"
+                       AutomationProperties.IsInAccessibleTree="False">
+                    <Image.Behaviors>
+                        <toolkit:IconTintColorBehavior x:DataType="BoxView" TintColor="{Binding Color, Source={x:Reference AccentInk}}" />
+                    </Image.Behaviors>
+                </Image>
+                <Image Grid.Column="1" Grid.RowSpan="2"
+                       Source="icon_check.png"
+                       WidthRequest="24" HeightRequest="24"
+                       IsVisible="{Binding IsCopied}"
+                       AutomationProperties.IsInAccessibleTree="False">
+                    <Image.Behaviors>
+                        <toolkit:IconTintColorBehavior x:DataType="BoxView" TintColor="{Binding Color, Source={x:Reference SuccessInk}}" />
+                    </Image.Behaviors>
+                </Image>
+            </Grid>
+        </Border>
+    </DataTemplate>
 </ResourceDictionary>

@@ -20,17 +20,19 @@ public partial class QrCodeViewModel : ObservableObject
     private string? _invoiceId;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowTransferText))]
     private ImageSource? _qrImage;
 
     [ObservableProperty]
     private string? _qrMessage;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowTransferText))]
     private string? _transferText;
 
-    public bool ShowTransferText => QrImage is null && !string.IsNullOrEmpty(TransferText);
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTransfer))]
+    private IReadOnlyList<TransferFieldRow> _transferRows = [];
+
+    public bool HasTransfer => TransferRows.Count > 0;
 
     [ObservableProperty]
     private string? _title;
@@ -77,6 +79,7 @@ public partial class QrCodeViewModel : ObservableObject
             Title = null;
             QrMessage = null;
             TransferText = null;
+            TransferRows = [];
             QrImage = null;
             _qrBytes = null;
             _transfer = null;
@@ -91,6 +94,7 @@ public partial class QrCodeViewModel : ObservableObject
             var money = IssuingFormat.Money(transfer.Amount, transfer.Currency);
             Title = string.IsNullOrWhiteSpace(transfer.RecipientName) ? money : $"{transfer.RecipientName} — {money}";
             TransferText = transfer.TransferText;
+            TransferRows = TransferFieldRow.From(transfer, "QrCodePage");
             QrMessage = transfer.ServerHasQrRules ? transfer.QrMessage : OldServerMessage;
 
             if (transfer.ServerHasQrRules && !string.IsNullOrEmpty(transfer.QrCodeBase64))
@@ -130,7 +134,7 @@ public partial class QrCodeViewModel : ObservableObject
         try
         {
             await Clipboard.Default.SetTextAsync(TransferText);
-            await Shell.Current.DisplayAlertAsync("Skopiowano", "Dane przelewu skopiowane do schowka.", "OK");
+            await CopyFeedback.ShowAsync("Skopiowano dane przelewu");
         }
         catch (Exception)
         {

@@ -28,6 +28,7 @@ public class QrCodeViewModelTests
         Share.Default.Requests.Clear();
         PaymentQrImage.Composed.Clear();
         PaymentQrImage.Failure = null;
+        CopyFeedback.Shown.Clear();
     }
 
     private static string V007(string currency = "PLN", decimal amount = 1476.00m) => $$"""
@@ -74,7 +75,7 @@ public class QrCodeViewModelTests
         AssertNoQr(vm);
         Assert.Equal(OldServerMessage, vm.QrMessage);
         Assert.Equal(TransferText, vm.TransferText);
-        Assert.True(vm.ShowTransferText);
+        Assert.True(vm.HasTransfer);
     }
 
     [Fact]
@@ -86,7 +87,7 @@ public class QrCodeViewModelTests
 
         Assert.Equal(PngBytes, Drawn(vm));
         Assert.Null(vm.QrMessage);
-        Assert.False(vm.ShowTransferText);
+        Assert.True(vm.HasTransfer);
         Assert.Null(vm.ErrorMessage);
     }
 
@@ -99,7 +100,7 @@ public class QrCodeViewModelTests
 
         Assert.Equal(PngBytes, Drawn(vm));
         Assert.Equal("Sprawdź, czy faktura nie wymaga podzielonej płatności (MPP).", vm.QrMessage);
-        Assert.False(vm.ShowTransferText);
+        Assert.True(vm.HasTransfer);
     }
 
     [Theory]
@@ -115,7 +116,7 @@ public class QrCodeViewModelTests
         AssertNoQr(vm);
         Assert.Equal(message, vm.QrMessage);
         Assert.Equal(TransferText, vm.TransferText);
-        Assert.True(vm.ShowTransferText);
+        Assert.True(vm.HasTransfer);
     }
 
     [Theory]
@@ -128,7 +129,7 @@ public class QrCodeViewModelTests
         var vm = Open(InvoiceA);
 
         AssertNoQr(vm);
-        Assert.True(vm.ShowTransferText);
+        Assert.True(vm.HasTransfer);
     }
 
     [Fact]
@@ -150,7 +151,7 @@ public class QrCodeViewModelTests
 
         AssertNoQr(vm);
         Assert.Equal("Nie udało się wyświetlić kodu QR. Skopiuj dane przelewu albo spróbuj ponownie.", vm.ErrorMessage);
-        Assert.True(vm.ShowTransferText);
+        Assert.True(vm.HasTransfer);
     }
 
     [Fact]
@@ -334,7 +335,8 @@ public class QrCodeViewModelTests
         await vm.CopyTransferTextCommand.ExecuteAsync(null);
 
         Assert.Equal(TransferText, Clipboard.Default.Text);
-        Assert.Equal("Dane przelewu skopiowane do schowka.", Shell.Current.LastAlertMessage);
+        Assert.Equal(("Skopiowano dane przelewu", false), CopyFeedback.Shown.Single());
+        Assert.Empty(Shell.Current.Alerts);
     }
 
     [Fact]

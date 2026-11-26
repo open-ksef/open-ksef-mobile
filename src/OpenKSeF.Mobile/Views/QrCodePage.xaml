@@ -65,13 +65,24 @@
                         HorizontalOptions="Fill" />
             </VerticalStackLayout>
 
-            <VerticalStackLayout IsVisible="{Binding ShowTransferText}"
+            <VerticalStackLayout IsVisible="{Binding HasTransfer}"
+                                 HorizontalOptions="Fill"
                                  Spacing="20">
-                <Label Text="{Binding TransferText}"
-                       AutomationId="QrCodePageLabelTransferText" />
-                <Button Text="Kopiuj dane przelewu"
+                <Border Style="{StaticResource CardBorder}" Padding="0,15,0,8"
+                        AutomationId="QrCodePageCardTransfer">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="Dane do przelewu" Style="{StaticResource LabelCaption}" Margin="16,0,16,4" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding TransferRows}"
+                                             BindableLayout.ItemTemplate="{StaticResource TransferRowTemplate}" />
+                        <Label Text="Dotknij pola, aby je skopiować."
+                               Style="{StaticResource LabelCaption}"
+                               Margin="16,4,16,0" />
+                    </VerticalStackLayout>
+                </Border>
+                <Button Text="Kopiuj wszystko"
                         AutomationId="QrCodePageButtonCopy"
                         Command="{Binding CopyTransferTextCommand}"
+                        Style="{StaticResource ButtonGhost}"
                         HorizontalOptions="Fill" />
             </VerticalStackLayout>
 
