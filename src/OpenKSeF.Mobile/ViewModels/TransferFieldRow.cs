@@ -26,10 +26,10 @@ public partial class TransferFieldRow : ObservableObject
     [NotifyPropertyChangedFor(nameof(ShowCopyIcon))]
     private bool _isCopied;
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task CopyAsync() => CopyCoreAsync(false);
 
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     private Task LongPressAsync() => CopyCoreAsync(true);
 
     private async Task CopyCoreAsync(bool longPress)
@@ -63,7 +63,7 @@ public partial class TransferFieldRow : ObservableObject
             rows.Add(new() { Caption = "Odbiorca", Value = transfer.RecipientName.Trim(), ClipboardText = transfer.RecipientName.Trim(), CopiedMessage = "Skopiowano odbiorcę", AutomationId = $"{page}RowCopyRecipient" });
 
         if (!string.IsNullOrWhiteSpace(transfer.RecipientAccount))
-            rows.Add(new() { Caption = "Numer konta", Value = AccountDisplay(transfer.RecipientAccount), ClipboardText = AccountClipboard(transfer.RecipientAccount), CopiedMessage = "Skopiowano numer konta", AutomationId = $"{page}RowCopyAccount" });
+            rows.Add(new() { Caption = "Nr rachunku", Value = AccountDisplay(transfer.RecipientAccount), ClipboardText = AccountClipboard(transfer.RecipientAccount), CopiedMessage = "Skopiowano numer rachunku", AutomationId = $"{page}RowCopyAccount" });
 
         rows.Add(new() { Caption = "Kwota", Value = IssuingFormat.Money(transfer.Amount, transfer.Currency), ClipboardText = AmountClipboard(transfer.Amount), CopiedMessage = "Skopiowano kwotę", AutomationId = $"{page}RowCopyAmount" });
 

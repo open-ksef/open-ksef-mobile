@@ -21,6 +21,10 @@ public class PlatformHardeningTests
     }
 
     [Fact]
+    public void AndroidManifest_DeclaresVibrateForCopyHaptics() =>
+        Assert.Contains("<uses-permission android:name=\"android.permission.VIBRATE\" />", Read("Platforms/Android/AndroidManifest.xml"));
+
+    [Fact]
     public void ReleaseNetworkConfig_HasNoCleartextDomains()
     {
         var config = Read("Platforms/Android/Resources/xml/network_security_config.xml");

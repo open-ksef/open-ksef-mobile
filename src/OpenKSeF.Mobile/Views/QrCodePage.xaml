@@ -79,7 +79,7 @@
                                Margin="16,4,16,0" />
                     </VerticalStackLayout>
                 </Border>
-                <Button Text="Kopiuj wszystkie dane"
+                <Button Text="Kopiuj wszystko"
                         AutomationId="QrCodePageButtonCopy"
                         Command="{Binding CopyTransferTextCommand}"
                         Style="{StaticResource ButtonGhost}"

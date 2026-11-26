@@ -197,10 +197,10 @@
                             AutomationId="InvoiceDetailsPageButtonShowQr"
                             Command="{Binding ShowQrCodeCommand}"
                             HorizontalOptions="Fill" />
-                    <Button Text="Kopiuj wszystkie dane"
+                    <Button Text="Kopiuj dane przelewu"
                             AutomationId="InvoiceDetailsPageButtonCopyTransfer"
                             Command="{Binding CopyTransferDetailsCommand}"
-                            Style="{StaticResource ButtonGhost}"
+                            Style="{StaticResource ButtonSecondary}"
                             HorizontalOptions="Fill" />
                 </VerticalStackLayout>
 

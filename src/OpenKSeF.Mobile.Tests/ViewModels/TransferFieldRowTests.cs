@@ -92,7 +92,7 @@ public class TransferFieldRowTests
     {
         var rows = TransferFieldRow.From(Transfer(), "QrCodePage");
 
-        Assert.Equal(["Odbiorca", "Numer konta", "Kwota", "Tytuł", "NIP odbiorcy"], rows.Select(r => r.Caption));
+        Assert.Equal(["Odbiorca", "Nr rachunku", "Kwota", "Tytuł", "NIP odbiorcy"], rows.Select(r => r.Caption));
         Assert.Equal(
             ["Faktor Testowy S.A.", "93000000002026111700000815", "12345,60", "FAKTURA/SPRZEDAZ/2026/03/ODDZIAL-WARSZAWA/000123", "1111111111"],
             rows.Select(r => r.ClipboardText));
@@ -108,7 +108,7 @@ public class TransferFieldRowTests
     {
         var transfer = Transfer("DE57 0000 0000 0532 0130 00", 0.50m, "EUR");
 
-        Assert.Equal("DE57000000000532013000", Row(transfer, "Numer konta").ClipboardText);
+        Assert.Equal("DE57000000000532013000", Row(transfer, "Nr rachunku").ClipboardText);
         Assert.Equal("0,50", Row(transfer, "Kwota").ClipboardText);
         Assert.EndsWith(" EUR", Row(transfer, "Kwota").Value);
     }
@@ -127,21 +127,21 @@ public class TransferFieldRowTests
     [Fact]
     public void Row_ReadsAsLabelValueWithCopyHint()
     {
-        var account = Row(Transfer(), "Numer konta");
+        var account = Row(Transfer(), "Nr rachunku");
 
-        Assert.Equal("Numer konta: 93 0000 0000 2026 1117 0000 0815", account.Description);
+        Assert.Equal("Nr rachunku: 93 0000 0000 2026 1117 0000 0815", account.Description);
         Assert.Equal("Dotknij dwukrotnie, aby skopiować", account.Hint);
     }
 
     [Fact]
     public async Task Copy_PutsClipboardTextShowsFeedbackAndCheckFor1500Ms()
     {
-        var account = Row(Transfer(), "Numer konta");
+        var account = Row(Transfer(), "Nr rachunku");
 
         var copy = account.CopyCommand.ExecuteAsync(null);
 
         Assert.Equal("93000000002026111700000815", Clipboard.Default.Text);
-        Assert.Equal(("Skopiowano numer konta", false), CopyFeedback.Shown.Single());
+        Assert.Equal(("Skopiowano numer rachunku", false), CopyFeedback.Shown.Single());
         Assert.True(account.IsCopied);
         Assert.False(account.ShowCopyIcon);
         Assert.Empty(Shell.Current.Alerts);
